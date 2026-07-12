@@ -11,6 +11,8 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import sqlite3 from 'sqlite3';
 import dns from 'dns';
+import http from 'http';
+import { startRelayServer, wss } from './relay.js';
 dns.setDefaultResultOrder('ipv4first');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1457,7 +1459,7 @@ app.post('/soporte/login', async (req, res) => {
   }
 
   try {
-    const secretKey = '1x00000000000000000000000000000000';
+    const secretKey = '0x4AAAAAACGkJx_mcwf_n3GYitdQLBuF72E';
     const verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
     
     const response = await fetch(verifyUrl, {
@@ -1563,7 +1565,10 @@ app.get('/', (req, res) => {
 });
 app.use('/', express.static('/home/alex/alex_omega/whatsapp_sovereign/panel'));
 
-app.listen(PORT, () => {
-  console.log(`Iniciando servidor de API en puerto ${PORT}...`);
+const server = http.createServer(app);
+startRelayServer(server);
+
+server.listen(PORT, () => {
+  console.log(`Iniciando servidor de API y WebSocket Relay en puerto ${PORT}...`);
   connectToWhatsApp().catch(err => console.error('Error al iniciar WhatsApp:', err));
 });
