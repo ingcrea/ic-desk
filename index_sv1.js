@@ -1431,6 +1431,37 @@ app.post('/soporte/cmd', async (req, res) => {
   }, 400);
 });
 
+app.post('/soporte/login', async (req, res) => {
+  const { user, pass, turnstileToken } = req.body;
+  if (!user || !pass || !turnstileToken) {
+    return res.status(400).json({ error: 'Faltan parámetros de credenciales o de captcha' });
+  }
+
+  if (user !== 'supersercom' || pass !== 'SrC0mS0p0rt3#S3cur1tyKey#2026') {
+    return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
+  }
+
+  try {
+    const secretKey = '0x4AAAAAACBnLS1F4h1UiZNP94F-8tIh4Cs';
+    const verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+    
+    const response = await fetch(verifyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `secret=${encodeURIComponent(secretKey)}&response=${encodeURIComponent(turnstileToken)}&remoteip=${encodeURIComponent(req.ip)}`
+    });
+    
+    const outcome = await response.json();
+    if (outcome.success) {
+      res.json({ success: true });
+    } else {
+      res.status(403).json({ error: 'Validación de captcha inválida o expirada' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno al verificar Turnstile: ' + err.message });
+  }
+});
+
 app.get('/soporte/agentes', (req, res) => {
   // Retornar solo agentes activos en los últimos 60 segundos
   const now = Date.now();

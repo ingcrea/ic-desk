@@ -317,10 +317,23 @@
       <label>Contraseña</label>
       <input type="password" id="login-pass" placeholder="••••••••" />
     </div>
-    <button class="btn-login" onclick="attemptLogin()">Entrar al Panel</button>
+    <!-- Cloudflare Turnstile -->
+    <div style="display: flex; justify-content: center; padding: 10px 0;">
+      <div class="cf-turnstile" data-sitekey="0x4AAAAAACGkJx3Djb7AtUCr" data-theme="dark" data-callback="onTurnstileSuccess"></div>
+    </div>
+    <button class="btn-login" id="btn-login-submit" onclick="attemptLogin()" disabled>Entrar al Panel</button>
     <div id="login-error"></div>
   </div>
 </div>
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script>
+  let turnstileToken = null;
+  window.onTurnstileSuccess = function(token) {
+    turnstileToken = token;
+    document.getElementById('btn-login-submit').disabled = false;
+  };
+</script>
 
 <!-- CABECERA -->
 <div id="header">
@@ -363,13 +376,38 @@
   function attemptLogin() {
     const u = document.getElementById('login-user').value;
     const p = document.getElementById('login-pass').value;
-    if (u === 'supersercom' && p === 'SrC0mS0p0rt3#S3cur1tyKey#2026') {
-      authenticated = true;
-      document.getElementById('login-screen').style.display = 'none';
-      startMonitoring();
-    } else {
-      document.getElementById('login-error').textContent = 'Credenciales inválidas';
+    const errEl = document.getElementById('login-error');
+    errEl.textContent = '';
+
+    if (!turnstileToken) {
+      errEl.textContent = 'Por favor, completa el reto de Cloudflare Turnstile';
+      return;
     }
+
+    fetch('/soporte/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: u, pass: p, turnstileToken: turnstileToken })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        authenticated = true;
+        document.getElementById('login-screen').style.display = 'none';
+        startMonitoring();
+      } else {
+        errEl.textContent = data.error || 'Credenciales inválidas';
+        if (window.turnstile) turnstile.reset();
+        turnstileToken = null;
+        document.getElementById('btn-login-submit').disabled = true;
+      }
+    })
+    .catch(err => {
+      errEl.textContent = 'Error de red al intentar iniciar sesión';
+      if (window.turnstile) turnstile.reset();
+      turnstileToken = null;
+      document.getElementById('btn-login-submit').disabled = true;
+    });
   }
 
   function logout() {
