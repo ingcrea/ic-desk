@@ -38,9 +38,7 @@ try {
       'startStream': '_secStartStream',
       'requestElevation': '_secRequestElevation',
       'closeSession': '_secCloseSession',
-      'startMonitoring': '_secStartMonitoring',
-      'turnstileToken': '_secTurnstileToken',
-      'onTurnstileSuccess': '_secOnTurnstileSuccess'
+      'startMonitoring': '_secStartMonitoring'
     };
 
     for (const [original, replacement] of Object.entries(obfuscationMap)) {
