@@ -354,6 +354,42 @@
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+      z-index: 10;
+    }
+
+    #stream-status-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(5, 8, 16, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 20;
+      transition: opacity 0.3s ease;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-left-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #stream-status-text {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 280px;
+      line-height: 1.5;
     }
 
     /* --- TI DIAGNOSTIC TOOLBOX --- */
@@ -511,6 +547,10 @@
   </div>
 
   <div class="live-stream-area">
+    <div id="stream-status-overlay">
+      <div class="spinner" id="stream-status-spinner"></div>
+      <div id="stream-status-text">Iniciando conexión con la terminal remota...</div>
+    </div>
     <canvas id="screen-canvas"></canvas>
     <div id="remote-cursor"></div>
   </div>
@@ -633,13 +673,47 @@
     document.getElementById('session-title').textContent = `Consola: ${id}`;
     document.getElementById('session-view').classList.add('active');
     
+    // Configurar overlay en estado inicial de carga
+    const overlay = document.getElementById('stream-status-overlay');
+    const statusText = document.getElementById('stream-status-text');
+    const spinner = document.getElementById('stream-status-spinner');
+    
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    spinner.style.display = 'block';
+    statusText.innerHTML = `Estableciendo enlace de datos con terminal <b>${id}</b>...`;
+
     const wsUrl = `${WS_RELAY_URL}?type=panel&id=${id}&panel_key=${encodeURIComponent('SrC0mS0p0rt3#S3cur1tyKey#2026')}`;
     activeWs = new WebSocket(wsUrl);
+
+    activeWs.onopen = () => {
+      statusText.innerHTML = `Conexión establecida. Solicitando flujo de video...`;
+      startStream();
+    };
+
+    activeWs.onclose = (event) => {
+      spinner.style.display = 'none';
+      overlay.style.display = 'flex';
+      overlay.style.opacity = '1';
+      statusText.innerHTML = `🔴 <b>Conexión cerrada.</b> Código: ${event.code}. El agente cerró la transmisión o se encuentra fuera de línea.`;
+    };
+
+    activeWs.onerror = (err) => {
+      spinner.style.display = 'none';
+      overlay.style.display = 'flex';
+      overlay.style.opacity = '1';
+      statusText.innerHTML = `❌ <b>Error de comunicación:</b> Falló el enlace de transporte del WebSocket. Verifica el firewall del servidor.`;
+    };
 
     activeWs.onmessage = (e) => {
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
       if (msg.type === 'frame') {
+        // Ocultar overlay al recibir el primer frame exitoso
+        if (overlay.style.display !== 'none') {
+          overlay.style.opacity = '0';
+          setTimeout(() => { overlay.style.display = 'none'; }, 300);
+        }
         const img = new Image();
         img.onload = () => {
           if (canvas.width !== msg.sw || canvas.height !== msg.sh) {
@@ -650,6 +724,8 @@
         };
         img.src = 'data:image/jpeg;base64,' + msg.data;
       } else if (msg.type === 'agent_offline') {
+        spinner.style.display = 'none';
+        statusText.innerHTML = `⚠️ <b>El agente se encuentra offline en el Relay.</b> Intentando despertarlo mediante REST API...`;
         // Si el agente está offline, enviarle la orden de iniciar transmisión
         console.log("El agente está offline en el relay. Despertándolo...");
         fetch('/soporte/cmd', {
@@ -660,6 +736,11 @@
           },
           body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
         }).catch(() => {});
+      } else if (msg.type === 'agent_disconnected') {
+        spinner.style.display = 'none';
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        statusText.innerHTML = `⚠️ <b>El agente remoto se ha desconectado.</b> En espera de que vuelva a conectarse...`;
       }
     };
 
