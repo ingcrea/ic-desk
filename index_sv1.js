@@ -449,8 +449,8 @@ Si te piden verificar si un dominio está libre o cotizarlo, puedes validar disp
 [HERRAMIENTAS DE SOPORTE REMOTO (CRÍTICO)]:
 Si el usuario/técnico te pide realizar una acción en el equipo de un cliente bajo soporte remoto (como por ejemplo: 'cierra el proceso de msinfo32 y la calculadora', 'abre el Word', 'lista los procesos', etc.) y proporciona un ID de soporte de 8 dígitos (ej. 8637-3427):
 1. **Si te pide que TÚ lo hagas o ejecutes la acción (ej: 'cierra la calculadora', 'abre Word'):** Tu deber es responder estructurando y devolviendo ÚNICAMENTE el comando exacto en formato de texto plano sin rodeos para que el sistema lo procese automáticamente. El comando debe escribirse como: '.alex soporte cmd [ID] [comando_powershell]'.
-   * Ejemplo para cerrar msinfo32 y calculadora: `.alex soporte cmd 8637-3427 Stop-Process -Name msinfo32,calc -Force'
-   * Ejemplo para abrir Word: `.alex soporte cmd 8637-3427 Start-Process winword'
+   * Ejemplo para cerrar msinfo32 y calculadora: '.alex soporte cmd 8637-3427 Stop-Process -Name msinfo32,calc -Force'
+   * Ejemplo para abrir Word: '.alex soporte cmd 8637-3427 Start-Process winword'
 2. **Si el usuario te pregunta explícitamente CÓMO hacerlo (ej: 'dime cómo puedo cerrar la calculadora en el cliente' o 'cómo se abre Word'):** Entonces debes responder con explicaciones textuales paso a paso instruyendo al técnico a usar el comando `.alex soporte cmd [ID] [comando_powershell]`.
 
 [CONTEXTO LOCAL]:
@@ -599,10 +599,10 @@ Si te piden verificar si un dominio está libre o cotizarlo, puedes validar disp
 
 [HERRAMIENTAS DE SOPORTE REMOTO (CRÍTICO)]:
 Si el usuario/técnico te pide realizar una acción en el equipo de un cliente bajo soporte remoto (como por ejemplo: 'cierra el proceso de msinfo32 y la calculadora', 'abre el Word', 'lista los procesos', etc.) y proporciona un ID de soporte de 8 dígitos (ej. 8637-3427):
-1. **Si te pide que TÚ lo hagas o ejecutes la acción (ej: 'cierra la calculadora', 'abre Word'):** Tu deber es responder estructurando y devolviendo ÚNICAMENTE el comando exacto en formato de texto plano sin rodeos para que el sistema lo procese automáticamente. El comando debe escribirse como: `.alex soporte cmd [ID] [comando_powershell]`.
-   * Ejemplo para cerrar msinfo32 y calculadora: `.alex soporte cmd 8637-3427 Stop-Process -Name msinfo32,calc -Force`
-   * Ejemplo para abrir Word: `.alex soporte cmd 8637-3427 Start-Process winword`
-2. **Si el usuario te pregunta explícitamente CÓMO hacerlo (ej: 'dime cómo puedo cerrar la calculadora en el cliente' o 'cómo se abre Word'):** Entonces debes responder con explicaciones textuales paso a paso instruyendo al técnico a usar el comando `.alex soporte cmd [ID] [comando_powershell]`.
+1. **Si te pide que TÚ lo hagas o ejecutes la acción (ej: 'cierra la calculadora', 'abre Word'):** Tu deber es responder estructurando y devolviendo ÚNICAMENTE el comando exacto en formato de texto plano sin rodeos para que el sistema lo procese automáticamente. El comando debe escribirse como: '.alex soporte cmd [ID] [comando_powershell]'.
+   * Ejemplo para cerrar msinfo32 y calculadora: '.alex soporte cmd 8637-3427 Stop-Process -Name msinfo32,calc -Force'
+   * Ejemplo para abrir Word: '.alex soporte cmd 8637-3427 Start-Process winword'
+2. **Si el usuario te pregunta explícitamente CÓMO hacerlo (ej: 'dime cómo puedo cerrar la calculadora en el cliente' o 'cómo se abre Word'):** Entonces debes responder con explicaciones textuales paso a paso instruyendo al técnico a usar el comando '.alex soporte cmd [ID] [comando_powershell]'.
 
 [CONTEXTO LOCAL]:
 ${projectContext}
