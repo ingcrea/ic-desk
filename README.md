@@ -57,11 +57,14 @@ node relay.js
 
 ## 🔐 Claves de Autenticación
 
-| Clave | Uso | Valor |
-|-------|-----|-------|
-| `X-Sercom-Agent-Token` | Header del agente C# | `SercomAgentToken2026SecureHashKey` |
-| `X-Sercom-API-Key` | API Key para Panel/Scripts | `SrC0mS0p0rt3#S3cur1tyKey#2026` |
-| `panel_key` | Query param del Panel Web | `SrC0mS0p0rt3#S3cur1tyKey#2026` |
+> [!IMPORTANT]
+> Los secretos y tokens de autenticación no deben hardcodearse en el repositorio. Deben definirse mediante variables de entorno o archivos de configuración locales.
+
+| Clave | Uso | Valor Recomendado |
+|-------|-----|-------------------|
+| `X-Sercom-Agent-Token` | Header del agente C# | *Definido en configuración local / Variables de entorno del servidor* |
+| `X-Sercom-API-Key` | API Key para Panel/Scripts | *Definido en configuración local / Variables de entorno del servidor* |
+| `panel_key` | Query param del Panel Web | *Definido en configuración local / Variables de entorno del servidor* |
 
 ---
 

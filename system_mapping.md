@@ -18,22 +18,22 @@ El bot y el backend de Express que actúan como puente del sistema de soporte co
 
 ### A. Registro del Cliente (`POST /soporte/register`)
 * **Uso:** El agente C# se registra al encender enviando su ID, hostname y JSON de salud.
-* **Cabecera requerida:** `X-Sercom-Agent-Token: SercomAgentToken2026SecureHashKey`
+* **Cabecera requerida:** `X-Sercom-Agent-Token: <SU_TOKEN_DE_AGENTE_SEGURO>`
 * **Cuerpo (JSON):** `{ "id": "XXXX-XXXX", "hostname": "PC-ArqRodolfo", "health": { ... } }`
 
 ### B. Sondeo de Comandos (`GET /soporte/poll`)
 * **Uso:** El agente consulta cada 1 segundo si el técnico ha encolado un comando.
-* **Cabecera requerida:** `X-Sercom-Agent-Token: SercomAgentToken2026SecureHashKey`
+* **Cabecera requerida:** `X-Sercom-Agent-Token: <SU_TOKEN_DE_AGENTE_SEGURO>`
 * **Query Params:** `?id=XXXX-XXXX`
 
 ### C. Retorno de Salida de Consola (`POST /soporte/response`)
 * **Uso:** El agente C# devuelve el output de texto de PowerShell tras ejecutar el comando.
-* **Cabecera requerida:** `X-Sercom-Agent-Token: SercomAgentToken2026SecureHashKey`
+* **Cabecera requerida:** `X-Sercom-Agent-Token: <SU_TOKEN_DE_AGENTE_SEGURO>`
 * **Cuerpo (JSON):** `{ "id": "XXXX-XXXX", "cmdId": "cmd_XXXX", "output": "..." }`
 
 ### D. Inyección Externa de Comandos (`POST /soporte/cmd`)
 * **Uso:** Permite a scripts o herramientas externas mandar comandos a los clientes de forma remota.
-* **Cabecera requerida:** `X-Sercom-API-Key: SrC0mS0p0rt3#S3cur1tyKey#2026`
+* **Cabecera requerida:** `X-Sercom-API-Key: <SU_API_KEY_DE_SOPORTE_SEGURO>`
 * **Cuerpo (JSON):** `{ "id": "XXXX-XXXX", "cmd": "Get-Process" }`
 
 ### E. Descargas de Recursos Dinámicos:
