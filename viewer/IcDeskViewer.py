@@ -537,8 +537,12 @@ class MainWindow(QMainWindow):
 
             # Información del Host
             details = QVBoxLayout()
-            lbl_name = QLabel(f"{info.get('hostname', 'Puesto Desconocido')}  ({aid})")
-            lbl_name.setStyleSheet("font-weight: bold; font-size: 15px; color: #FFF;")
+            admin_suffix = "  🛡️ [ADMIN]" if info.get("isAdmin") else ""
+            lbl_name = QLabel(f"{info.get('hostname', 'Puesto Desconocido')} ({aid}){admin_suffix}")
+            if info.get("isAdmin"):
+                lbl_name.setStyleSheet("font-weight: bold; font-size: 15px; color: #10B981;")
+            else:
+                lbl_name.setStyleSheet("font-weight: bold; font-size: 15px; color: #FFF;")
             details.addWidget(lbl_name)
 
             # Specs
@@ -585,6 +589,12 @@ class MainWindow(QMainWindow):
         self.lbl_viewer_status.setStyleSheet("color: #94A3B8; font-size: 12px; margin-left: 12px;")
         layout_vbar.addWidget(self.lbl_viewer_status)
         layout_vbar.addStretch()
+
+        # Botón de Elevación UAC bajo demanda
+        self.btn_elevate_uac = QPushButton("⚡ Solicitar Elevación UAC")
+        self.btn_elevate_uac.setObjectName("btn-danger")
+        self.btn_elevate_uac.clicked.connect(self.request_uac_elevation)
+        layout_vbar.addWidget(self.btn_elevate_uac)
 
         layout.addWidget(self.viewer_bar)
 
@@ -687,6 +697,18 @@ class MainWindow(QMainWindow):
 
         self.stacked_widget.setCurrentWidget(self.view_dashboard)
         self.start_dashboard_polling()
+
+    def request_uac_elevation(self):
+        reply = QMessageBox.question(
+            self, 'Elevación de Privilegios UAC',
+            '¿Deseas enviar la solicitud de elevación de privilegios UAC al cliente remoto?\n\n'
+            'Si el cliente tiene UAC activo, se le presentará un cuadro de diálogo para confirmar.',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.console_log.append("\n[SISTEMA] Enviando comando de elevación remota (__ELEVATE__)...")
+            self.thread_client.send_command_sync("__ELEVATE__")
 
 
 if __name__ == "__main__":
