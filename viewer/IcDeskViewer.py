@@ -364,7 +364,7 @@ class MainWindow(QMainWindow):
         self.list_container = QWidget()
         self.list_container.setStyleSheet("background-color: #0B0F19;")
         self.layout_list = QVBoxLayout(self.list_container)
-        self.layout_list.setAlignment(Qt.AlignmentFlag.Top)
+        self.layout_list.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.scroll_area.setWidget(self.list_container)
 
         layout.addWidget(self.scroll_area)
