@@ -234,9 +234,123 @@ class ScreenCanvas(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("IC-Desk Viewer — Ingenieria Creativa")
-        self.resize(1100, 800)
-        self.setStyleSheet("background-color: #060913; color: #E2E8F0; font-family: 'Outfit', sans-serif;")
+        self.setStyleSheet("""
+            /* Estilos Globales */
+            QMainWindow {
+                background-color: #090D1A;
+            }
+            QWidget {
+                color: #F8FAFC;
+                font-family: 'Outfit', 'Inter', 'Segoe UI', sans-serif;
+            }
+            
+            /* Textos */
+            QLabel {
+                font-size: 13px;
+            }
+            
+            /* Inputs / Campos de Entrada */
+            QLineEdit {
+                background-color: #13192B;
+                color: #F8FAFC;
+                border: 1px solid #1E293B;
+                border-radius: 6px;
+                padding: 10px 14px;
+                selection-background-color: #38BDF8;
+            }
+            QLineEdit:focus {
+                border: 1px solid #38BDF8;
+                background-color: #172036;
+            }
+            
+            /* Botones Comunes */
+            QPushButton {
+                background-color: #1E293B;
+                color: #F8FAFC;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 10px 18px;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #334155;
+                border: 1px solid #475569;
+            }
+            QPushButton:pressed {
+                background-color: #0F172A;
+            }
+            
+            /* Botones de Acento */
+            QPushButton#btn-primary {
+                background-color: #0284C7;
+                border: none;
+                color: #FFF;
+            }
+            QPushButton#btn-primary:hover {
+                background-color: #0369A1;
+            }
+            QPushButton#btn-success {
+                background-color: #059669;
+                border: none;
+                color: #FFF;
+            }
+            QPushButton#btn-success:hover {
+                background-color: #047857;
+            }
+            QPushButton#btn-danger {
+                background-color: #E11D48;
+                border: none;
+                color: #FFF;
+            }
+            QPushButton#btn-danger:hover {
+                background-color: #BE123C;
+            }
+            
+            /* Contenedores y Cards */
+            QFrame#card {
+                background-color: #13192B;
+                border: 1px solid #1E293B;
+                border-radius: 12px;
+            }
+            QFrame#conn-bar, QFrame#viewer-bar {
+                background-color: #0F172A;
+                border-bottom: 2px solid #1E293B;
+            }
+            
+            /* Consola */
+            QTextEdit {
+                background-color: #020617;
+                color: #10B981;
+                border: 1px solid #1E293B;
+                border-radius: 6px;
+                padding: 10px;
+            }
+            
+            /* Scroll Area */
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #090D1A;
+                width: 8px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #1E293B;
+                min-height: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #38BDF8;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+            }
+        """)
         
         self.logo_path = "/home/ingcrea/github/ic-desk/logo-texto-blanco.png"
         if os.path.exists(self.logo_path):
@@ -260,8 +374,8 @@ class MainWindow(QMainWindow):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         card = QFrame()
+        card.setObjectName("card")
         card.setFixedWidth(400)
-        card.setStyleSheet("background-color: #0F172A; border-radius: 8px; border: 1px solid #1E293B;")
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(32, 32, 32, 32)
         card_layout.setSpacing(16)
@@ -288,18 +402,16 @@ class MainWindow(QMainWindow):
         # Campos
         self.input_user = QLineEdit()
         self.input_user.setPlaceholderText("Usuario Autorizado")
-        self.input_user.setStyleSheet("background-color: #1E293B; color: #FFF; border: 1px solid #475569; padding: 10px; border-radius: 4px; font-size: 13px;")
         card_layout.addWidget(self.input_user)
 
         self.input_pass = QLineEdit()
         self.input_pass.setPlaceholderText("Contraseña de Red")
         self.input_pass.setEchoMode(QLineEdit.EchoMode.Password)
-        self.input_pass.setStyleSheet("background-color: #1E293B; color: #FFF; border: 1px solid #475569; padding: 10px; border-radius: 4px; font-size: 13px;")
         card_layout.addWidget(self.input_pass)
 
         # Botón
         btn_login = QPushButton("Autenticar Credenciales")
-        btn_login.setStyleSheet("background-color: #38BDF8; color: #060913; font-weight: bold; padding: 12px; border-radius: 4px; font-size: 14px; border: none;")
+        btn_login.setObjectName("btn-primary")
         btn_login.clicked.connect(self.attempt_login)
         card_layout.addWidget(btn_login)
 
@@ -359,7 +471,6 @@ class MainWindow(QMainWindow):
         header.addStretch()
 
         self.btn_refresh = QPushButton("Actualizar Lista")
-        self.btn_refresh.setStyleSheet("background-color: #1E293B; color: #FFF; font-weight: bold; padding: 8px 16px; border: 1px solid #475569; border-radius: 4px;")
         self.btn_refresh.clicked.connect(self.fetch_agents)
         header.addWidget(self.btn_refresh)
         layout.addLayout(header)
@@ -367,10 +478,8 @@ class MainWindow(QMainWindow):
         # Listado de agentes
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("background-color: #0B0F19; border: 1px solid #1E293B; border-radius: 6px;")
         
         self.list_container = QWidget()
-        self.list_container.setStyleSheet("background-color: #0B0F19;")
         self.layout_list = QVBoxLayout(self.list_container)
         self.layout_list.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.scroll_area.setWidget(self.list_container)
@@ -417,7 +526,7 @@ class MainWindow(QMainWindow):
 
         for aid, info in agents.items():
             card = QFrame()
-            card.setStyleSheet("background-color: #0F172A; border: 1px solid #1E293B; border-radius: 6px; margin-bottom: 8px;")
+            card.setObjectName("card")
             card_layout = QHBoxLayout(card)
             card_layout.setContentsMargins(16, 16, 16, 16)
 
@@ -446,7 +555,7 @@ class MainWindow(QMainWindow):
 
             # Botón de Conectar / Controlar
             btn_ctrl = QPushButton("Controlar")
-            btn_ctrl.setStyleSheet("background-color: #0284C7; color: #FFF; font-weight: bold; padding: 8px 16px; border-radius: 4px; border: none;")
+            btn_ctrl.setObjectName("btn-primary")
             btn_ctrl.clicked.connect(lambda checked, agent_id=aid: self.start_viewer_session(agent_id))
             card_layout.addWidget(btn_ctrl)
 
@@ -461,11 +570,10 @@ class MainWindow(QMainWindow):
 
         # Barra superior del visor
         self.viewer_bar = QFrame()
-        self.viewer_bar.setStyleSheet("background-color: #0F172A; border-bottom: 2px solid #1E293B;")
+        self.viewer_bar.setObjectName("viewer-bar")
         layout_vbar = QHBoxLayout(self.viewer_bar)
         
         self.btn_back = QPushButton("◀ Volver al Dashboard")
-        self.btn_back.setStyleSheet("background-color: #1E293B; color: #FFF; font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1px solid #475569;")
         self.btn_back.clicked.connect(self.stop_viewer_session)
         layout_vbar.addWidget(self.btn_back)
 
@@ -494,7 +602,7 @@ class MainWindow(QMainWindow):
 
         # Consola PowerShell integrada (Igual al panel web)
         self.console_widget = QWidget()
-        self.console_widget.setStyleSheet("background-color: #0B0F19; border-top: 1px solid #1E293B;")
+        self.console_widget.setObjectName("card")
         layout_console = QVBoxLayout(self.console_widget)
         layout_console.setContentsMargins(12, 12, 12, 12)
         layout_console.setSpacing(8)
@@ -506,7 +614,6 @@ class MainWindow(QMainWindow):
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
         self.console_log.setFont(QFont("JetBrains Mono", 10))
-        self.console_log.setStyleSheet("background-color: #020617; color: #10B981; border: 1px solid #1E293B; border-radius: 4px;")
         layout_console.addWidget(self.console_log, 1)
 
         # Entrada de comando
@@ -514,12 +621,11 @@ class MainWindow(QMainWindow):
         self.input_cmd = QLineEdit()
         self.input_cmd.setPlaceholderText("Escribe comando PowerShell y presiona Enter...")
         self.input_cmd.setFont(QFont("JetBrains Mono", 10))
-        self.input_cmd.setStyleSheet("background-color: #1E293B; color: #FFF; border: 1px solid #475569; padding: 10px; border-radius: 4px;")
         self.input_cmd.returnPressed.connect(self.send_powershell_command)
         input_layout.addWidget(self.input_cmd, 1)
 
         self.btn_send_cmd = QPushButton("Enviar")
-        self.btn_send_cmd.setStyleSheet("background-color: #10B981; color: #020617; font-weight: bold; padding: 10px 20px; border-radius: 4px; border: none;")
+        self.btn_send_cmd.setObjectName("btn-success")
         self.btn_send_cmd.clicked.connect(self.send_powershell_command)
         input_layout.addWidget(self.btn_send_cmd)
 
