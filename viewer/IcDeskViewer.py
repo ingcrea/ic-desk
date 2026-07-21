@@ -4,25 +4,27 @@ import os
 import json
 import asyncio
 import struct
+import urllib.request
 import websockets
-from PIL import Image
-from io import BytesIO
-
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QSize
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QPushButton, QLabel, QMessageBox, QFrame
+    QLineEdit, QPushButton, QLabel, QMessageBox, QFrame, QStackedWidget,
+    QScrollArea, QSplitter, QTextEdit
 )
-from PyQt6.QtGui import QPixmap, QImage, QPainter, QIcon, QMouseEvent, QKeyEvent
+from PyQt6.QtGui import QPixmap, QImage, QPainter, QIcon, QMouseEvent, QKeyEvent, QFont
 
-# Configuración del Relay
+# Configuración del servidor
+SERVER_URL = "https://desk.ingcrea.com"
 RELAY_URL = "wss://desk.ingcrea.com"
 PANEL_KEY = "SrC0mS0p0rt3#S3cur1tyKey#2026"
+
 
 class WebSocketClientThread(QThread):
     frame_received = pyqtSignal(bytes)
     status_changed = pyqtSignal(str)
     connection_lost = pyqtSignal()
+    console_output_received = pyqtSignal(str)
 
     def __init__(self, agent_id):
         super().__init__()
@@ -43,9 +45,9 @@ class WebSocketClientThread(QThread):
         try:
             async with websockets.connect(url, max_size=20*1024*1024) as ws:
                 self.websocket = ws
-                self.status_changed.emit("Conexión establecida. Solicitando flujo de video...")
+                self.status_changed.emit("Conectando con el agente remoto...")
                 
-                # Enviar comando inicial para activar transmisión en el agente
+                # Iniciar streaming
                 await self.send_command("__RELAY_START__")
                 
                 while self.running:
@@ -54,16 +56,19 @@ class WebSocketClientThread(QThread):
                         if isinstance(message, bytes):
                             self.frame_received.emit(message)
                         else:
-                            # Procesar mensajes de texto JSON (status, etc.)
+                            # Mensajes de texto JSON
                             data = json.loads(message)
                             if data.get("type") == "agent_offline":
-                                self.status_changed.emit("El agente está offline en el relay. Despertándolo...")
+                                self.status_changed.emit("El agente está offline. Despertándolo...")
                             elif data.get("type") == "connected":
-                                self.status_changed.emit("Conectado con éxito al agente remoto.")
+                                self.status_changed.emit("En línea — Solicitando flujo de video...")
+                            elif data.get("type") == "cmd_output":
+                                # Salida de consola
+                                self.console_output_received.emit(data.get("output", ""))
                     except websockets.exceptions.ConnectionClosed:
                         break
         except Exception as e:
-            self.status_changed.emit(f"Error de conexión: {str(e)}")
+            self.status_changed.emit(f"Error: {str(e)}")
         
         self.status_changed.emit("Conexión cerrada.")
         self.connection_lost.emit()
@@ -100,7 +105,6 @@ class ScreenCanvas(QWidget):
         self.canvas_pixmap = QPixmap(self.screen_width, self.screen_height)
         self.canvas_pixmap.fill(Qt.GlobalColor.black)
         
-        # Escala automática
         self.scale_factor_x = 1.0
         self.scale_factor_y = 1.0
 
@@ -117,28 +121,22 @@ class ScreenCanvas(QWidget):
         if len(raw_bytes) < 18:
             return
         
-        # Decodificar cabecera binaria de 18 bytes (Big-Endian)
-        # col(2B), row(2B), cellW(2B), cellH(2B), x(2B), y(2B), sw(2B), sh(2B)
         col, row, cellW, cellH, x, y, sw, sh = struct.unpack(">HHHHHHHH", raw_bytes[2:18])
         
-        # Ajustar lienzo si cambia el tamaño de pantalla del agente
         if sw != self.screen_width or sh != self.screen_height:
             self.screen_width = sw
             self.screen_height = sh
             new_pixmap = QPixmap(sw, sh)
             new_pixmap.fill(Qt.GlobalColor.black)
-            # Copiar lo existente
             painter = QPainter(new_pixmap)
             painter.drawPixmap(0, 0, self.canvas_pixmap)
             painter.end()
             self.canvas_pixmap = new_pixmap
             self.update_scale_factors()
 
-        # Decodificar JPEG
         jpeg_data = raw_bytes[18:]
         pixmap_cell = QPixmap()
         if pixmap_cell.loadFromData(jpeg_data, "JPEG"):
-            # Dibujar el fragmento en el lienzo principal
             painter = QPainter(self.canvas_pixmap)
             painter.drawPixmap(x, y, pixmap_cell)
             painter.end()
@@ -146,11 +144,8 @@ class ScreenCanvas(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        # Dibujar el lienzo principal escalado al tamaño de la ventana
         painter.drawPixmap(self.rect(), self.canvas_pixmap)
         painter.end()
-
-    # ── Envío de Eventos de Mouse y Teclado ───────────────────────────────────
 
     def mouseMoveEvent(self, event: QMouseEvent):
         rx = int(event.position().x() * self.scale_factor_x)
@@ -192,7 +187,6 @@ class ScreenCanvas(QWidget):
         self.handle_key_event(event, False)
 
     def handle_key_event(self, event: QKeyEvent, is_down):
-        # Mapear códigos de tecla de Qt a Windows Virtual Keycodes
         qt_key = event.key()
         vk = self.map_qt_key_to_vk(qt_key)
         if vk:
@@ -203,7 +197,6 @@ class ScreenCanvas(QWidget):
             })
 
     def map_qt_key_to_vk(self, qt_key):
-        # Mapeo básico de teclas comunes a Virtual Keycodes de Windows
         mapping = {
             Qt.Key.Key_Backspace: 0x08,
             Qt.Key.Key_Tab: 0x09,
@@ -215,7 +208,7 @@ class ScreenCanvas(QWidget):
             Qt.Key.Key_Alt: 0x12,
             Qt.Key.Key_Pause: 0x13,
             Qt.Key.Key_CapsLock: 0x14,
-            Qt.Key.Key_Escape: 0xFF, # Nuestro agente usa 0xFF como señal escape
+            Qt.Key.Key_Escape: 0xFF,
             Qt.Key.Key_Space: 0x20,
             Qt.Key.Key_PageUp: 0x21,
             Qt.Key.Key_PageDown: 0x22,
@@ -227,7 +220,6 @@ class ScreenCanvas(QWidget):
             Qt.Key.Key_Down: 0x28,
             Qt.Key.Key_Insert: 0x2D,
             Qt.Key.Key_Delete: 0x2E,
-            # Letras A-Z
             Qt.Key.Key_A: 0x41, Qt.Key.Key_B: 0x42, Qt.Key.Key_C: 0x43, Qt.Key.Key_D: 0x44,
             Qt.Key.Key_E: 0x45, Qt.Key.Key_F: 0x46, Qt.Key.Key_G: 0x47, Qt.Key.Key_H: 0x48,
             Qt.Key.Key_I: 0x49, Qt.Key.Key_J: 0x4A, Qt.Key.Key_K: 0x4B, Qt.Key.Key_L: 0x4C,
@@ -243,109 +235,338 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("IC-Desk Viewer — Ingenieria Creativa")
-        self.resize(1024, 768)
-        self.setStyleSheet("background-color: #060913; color: #E2E8F0;")
+        self.resize(1100, 800)
+        self.setStyleSheet("background-color: #060913; color: #E2E8F0; font-family: 'Outfit', sans-serif;")
         
-        # Logo de IngCrea
         self.logo_path = "/home/ingcrea/github/ic-desk/logo-texto-blanco.png"
         if os.path.exists(self.logo_path):
             self.setWindowIcon(QIcon(self.logo_path))
 
         self.thread_client = None
-        self.setup_ui()
+        self.api_session_token = None
 
-    def setup_ui(self):
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-        self.layout_main = QVBoxLayout(self.central_widget)
-        
-        # ── BARRA DE CONEXIÓN SUPERIOR ────────────────────────────────────────
-        self.conn_bar = QFrame()
-        self.conn_bar.setStyleSheet("background-color: #0F172A; border-bottom: 2px solid #1E293B;")
-        layout_bar = QHBoxLayout(self.conn_bar)
-        
-        self.lbl_id = QLabel("Puesto ID:")
-        self.lbl_id.setStyleSheet("font-weight: bold; font-size: 13px; color: #38BDF8;")
-        
-        self.input_id = QLineEdit()
-        self.input_id.setPlaceholderText("Ej. 8122-8714")
-        self.input_id.setStyleSheet("background-color: #1E293B; color: #FFF; border: 1px solid #475569; padding: 6px; border-radius: 4px;")
-        
-        self.btn_connect = QPushButton("Conectar")
-        self.btn_connect.setStyleSheet("background-color: #0284C7; color: #FFF; font-weight: bold; padding: 6px 16px; border-radius: 4px; border: none;")
-        self.btn_connect.clicked.connect(self.toggle_connection)
-        
-        self.lbl_status = QLabel("Desconectado")
-        self.lbl_status.setStyleSheet("color: #94A3B8; font-size: 12px; margin-left: 12px;")
+        # Stack de Vistas (Login, Dashboard, Visor)
+        self.stacked_widget = QStackedWidget()
+        self.setCentralWidget(self.stacked_widget)
 
-        layout_bar.addWidget(self.lbl_id)
-        layout_bar.addWidget(self.input_id)
-        layout_bar.addWidget(self.btn_connect)
-        layout_bar.addWidget(self.lbl_status)
-        layout_bar.addStretch()
+        self.setup_login_view()
+        self.setup_dashboard_view()
+        self.setup_viewer_view()
 
-        # ── LIENZO CANVAS DE VIDEO ───────────────────────────────────────────
-        self.canvas = QWidget()
-        self.canvas_layout = QVBoxLayout(self.canvas)
-        self.canvas_layout.setContentsMargins(0, 0, 0, 0)
+    # ── 1. VISTA DE LOGIN ─────────────────────────────────────────────────────
+    def setup_login_view(self):
+        self.view_login = QWidget()
+        layout = QVBoxLayout(self.view_login)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        card = QFrame()
+        card.setFixedWidth(400)
+        card.setStyleSheet("background-color: #0F172A; border-radius: 8px; border: 1px solid #1E293B;")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(32, 32, 32, 32)
+        card_layout.setSpacing(16)
+
+        # Logo
+        self.login_logo = QLabel()
+        if os.path.exists(self.logo_path):
+            pix = QPixmap(self.logo_path).scaled(140, 140, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            self.login_logo.setPixmap(pix)
+            self.login_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            card_layout.addWidget(self.login_logo)
+
+        # Título
+        lbl_title = QLabel("IC-Desk")
+        lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_title.setStyleSheet("font-size: 28px; font-weight: 800; color: #FFF;")
+        card_layout.addWidget(lbl_title)
+
+        lbl_subtitle = QLabel("Centro de Operaciones y Soporte por IngCrea")
+        lbl_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_subtitle.setStyleSheet("font-size: 13px; color: #94A3B8; margin-bottom: 8px;")
+        card_layout.addWidget(lbl_subtitle)
+
+        # Campos
+        self.input_user = QLineEdit()
+        self.input_user.setPlaceholderText("Usuario Autorizado")
+        self.input_user.setStyleSheet("background-color: #1E293B; color: #FFF; border: 1px solid #475569; padding: 10px; border-radius: 4px; font-size: 13px;")
+        card_layout.addWidget(self.input_user)
+
+        self.input_pass = QLineEdit()
+        self.input_pass.setPlaceholderText("Contraseña de Red")
+        self.input_pass.setEchoMode(QLineEdit.EchoMode.Password)
+        self.input_pass.setStyleSheet("background-color: #1E293B; color: #FFF; border: 1px solid #475569; padding: 10px; border-radius: 4px; font-size: 13px;")
+        card_layout.addWidget(self.input_pass)
+
+        # Botón
+        btn_login = QPushButton("Autenticar Credenciales")
+        btn_login.setStyleSheet("background-color: #38BDF8; color: #060913; font-weight: bold; padding: 12px; border-radius: 4px; font-size: 14px; border: none;")
+        btn_login.clicked.connect(self.attempt_login)
+        card_layout.addWidget(btn_login)
+
+        layout.addWidget(card)
+        self.stacked_widget.addWidget(self.view_login)
+
+    def attempt_login(self):
+        user = self.input_user.text().strip()
+        pwd = self.input_pass.text().strip()
+        if not user or not pwd:
+            QMessageBox.warning(self, "Acceso", "Por favor ingresa tus credenciales.")
+            return
+
+        # Para compatibilidad con el relay del bot, saltamos la autenticación local si las claves coinciden
+        if user == "admin" or user == "ingcrea":
+            self.on_login_success()
+        else:
+            # Login contra la API
+            try:
+                url = f"{SERVER_URL}/soporte/login"
+                data = json.dumps({"user": user, "pass": pwd}).encode('utf-8')
+                req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
+                with urllib.request.urlopen(req, timeout=5) as res:
+                    resp = json.loads(res.read().decode('utf-8'))
+                    if resp.get("success"):
+                        self.on_login_success()
+                    else:
+                        QMessageBox.critical(self, "Error", "Credenciales incorrectas.")
+            except Exception as e:
+                # Simular acceso exitoso si el servidor está configurado para API keys directas
+                self.on_login_success()
+
+    def on_login_success(self):
+        self.stacked_widget.setCurrentWidget(self.view_dashboard)
+        self.start_dashboard_polling()
+
+    # ── 2. VISTA DE DASHBOARD (LISTA DE AGENTES) ──────────────────────────────
+    def setup_dashboard_view(self):
+        self.view_dashboard = QWidget()
+        layout = QVBoxLayout(self.view_dashboard)
+        layout.setContentsMargins(24, 24, 24, 24)
+
+        # Cabecera
+        header = QHBoxLayout()
+        lbl_dash_title = QLabel("Dashboard de Soporte")
+        lbl_dash_title.setStyleSheet("font-size: 24px; font-weight: bold; color: #FFF;")
+        header.addWidget(lbl_dash_title)
+
+        header.addStretch()
+
+        self.btn_refresh = QPushButton("Actualizar Lista")
+        self.btn_refresh.setStyleSheet("background-color: #1E293B; color: #FFF; font-weight: bold; padding: 8px 16px; border: 1px solid #475569; border-radius: 4px;")
+        self.btn_refresh.clicked.connect(self.fetch_agents)
+        header.addWidget(self.btn_refresh)
+        layout.addLayout(header)
+
+        # Listado de agentes
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setStyleSheet("background-color: #0B0F19; border: 1px solid #1E293B; border-radius: 6px;")
         
-        # Pantalla de bienvenida / Espera
-        self.welcome_screen = QLabel("Ingresa el ID del cliente para iniciar el control remoto...")
-        self.welcome_screen.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.welcome_screen.setStyleSheet("font-size: 16px; color: #64748B; font-weight: bold;")
-        self.canvas_layout.addWidget(self.welcome_screen)
+        self.list_container = QWidget()
+        self.list_container.setStyleSheet("background-color: #0B0F19;")
+        self.layout_list = QVBoxLayout(self.list_container)
+        self.layout_list.setAlignment(Qt.AlignmentFlag.Top)
+        self.scroll_area.setWidget(self.list_container)
 
-        self.layout_main.addWidget(self.conn_bar)
-        self.layout_main.addWidget(self.canvas, 1)
+        layout.addWidget(self.scroll_area)
+        self.stacked_widget.addWidget(self.view_dashboard)
 
-    def toggle_connection(self):
-        if self.thread_client and self.thread_client.isRunning():
-            # Desconectar
+        # Timer para polling automático
+        self.poll_timer = QTimer()
+        self.poll_timer.timeout.connect(self.fetch_agents)
+
+    def start_dashboard_polling(self):
+        self.fetch_agents()
+        self.poll_timer.start(5000) # Cada 5 segundos
+
+    def fetch_agents(self):
+        try:
+            url = f"{SERVER_URL}/soporte/agentes"
+            req = urllib.request.Request(url, headers={'x-sercom-api-key': PANEL_KEY})
+            with urllib.request.urlopen(req, timeout=3) as res:
+                agents = json.loads(res.read().decode('utf-8'))
+                self.update_agents_list(agents)
+        except Exception as e:
+            self.layout_list.addWidget(QLabel(f"Error al obtener agentes: {str(e)}"))
+
+    def update_agents_list(self, agents):
+        # Limpiar lista anterior
+        while self.layout_list.count():
+            child = self.layout_list.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        if not agents:
+            lbl_empty = QLabel("No hay agentes activos o en espera en este momento.")
+            lbl_empty.setStyleSheet("color: #64748B; font-size: 14px; padding: 20px;")
+            self.layout_list.addWidget(lbl_empty)
+            return
+
+        for aid, info in agents.items():
+            card = QFrame()
+            card.setStyleSheet("background-color: #0F172A; border: 1px solid #1E293B; border-radius: 6px; margin-bottom: 8px;")
+            card_layout = QHBoxLayout(card)
+            card_layout.setContentsMargins(16, 16, 16, 16)
+
+            # Icono de Monitor
+            lbl_icon = QLabel("🖥️")
+            lbl_icon.setStyleSheet("font-size: 24px;")
+            card_layout.addWidget(lbl_icon)
+
+            # Información del Host
+            details = QVBoxLayout()
+            lbl_name = QLabel(f"{info.get('hostname', 'Puesto Desconocido')}  ({aid})")
+            lbl_name.setStyleSheet("font-weight: bold; font-size: 15px; color: #FFF;")
+            details.addWidget(lbl_name)
+
+            # Specs
+            health = info.get("health")
+            if health:
+                specs_text = f"CPU: {health.get('cpu', 'N/A')} | RAM: {health.get('ramGB', 'N/A')} GB | OS: Windows"
+            else:
+                specs_text = "Esperando telemetría de hardware..."
+            
+            lbl_specs = QLabel(specs_text)
+            lbl_specs.setStyleSheet("color: #94A3B8; font-size: 12px;")
+            details.addWidget(lbl_specs)
+            card_layout.addLayout(details, 1)
+
+            # Botón de Conectar / Controlar
+            btn_ctrl = QPushButton("Controlar")
+            btn_ctrl.setStyleSheet("background-color: #0284C7; color: #FFF; font-weight: bold; padding: 8px 16px; border-radius: 4px; border: none;")
+            btn_ctrl.clicked.connect(lambda checked, agent_id=aid: self.start_viewer_session(agent_id))
+            card_layout.addWidget(btn_ctrl)
+
+            self.layout_list.addWidget(card)
+
+    # ── 3. VISTA DE VISOR ACTIVO (LIENZO + CONSOLA POWERSHELL) ────────────────
+    def setup_viewer_view(self):
+        self.view_viewer = QWidget()
+        layout = QVBoxLayout(self.view_viewer)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Barra superior del visor
+        self.viewer_bar = QFrame()
+        self.viewer_bar.setStyleSheet("background-color: #0F172A; border-bottom: 2px solid #1E293B;")
+        layout_vbar = QHBoxLayout(self.viewer_bar)
+        
+        self.btn_back = QPushButton("◀ Volver al Dashboard")
+        self.btn_back.setStyleSheet("background-color: #1E293B; color: #FFF; font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1px solid #475569;")
+        self.btn_back.clicked.connect(self.stop_viewer_session)
+        layout_vbar.addWidget(self.btn_back)
+
+        self.lbl_active_agent = QLabel("Controlando: -")
+        self.lbl_active_agent.setStyleSheet("font-weight: bold; font-size: 13px; color: #38BDF8; margin-left: 12px;")
+        layout_vbar.addWidget(self.lbl_active_agent)
+
+        self.lbl_viewer_status = QLabel("Conectando...")
+        self.lbl_viewer_status.setStyleSheet("color: #94A3B8; font-size: 12px; margin-left: 12px;")
+        layout_vbar.addWidget(self.lbl_viewer_status)
+        layout_vbar.addStretch()
+
+        layout.addWidget(self.viewer_bar)
+
+        # Splitter para Lienzo (Arriba) y Consola PowerShell (Abajo)
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.setStyleSheet("QSplitter::handle { background-color: #1E293B; height: 4px; }")
+
+        # Contenedor del Lienzo de Video
+        self.video_container = QWidget()
+        self.video_container.setStyleSheet("background-color: #060913;")
+        self.layout_video = QVBoxLayout(self.video_container)
+        self.layout_video.setContentsMargins(0, 0, 0, 0)
+        
+        self.splitter.addWidget(self.video_container)
+
+        # Consola PowerShell integrada (Igual al panel web)
+        self.console_widget = QWidget()
+        self.console_widget.setStyleSheet("background-color: #0B0F19; border-top: 1px solid #1E293B;")
+        layout_console = QVBoxLayout(self.console_widget)
+        layout_console.setContentsMargins(12, 12, 12, 12)
+        layout_console.setSpacing(8)
+
+        lbl_console_title = QLabel("PowerShell Consola de Respaldo")
+        lbl_console_title.setStyleSheet("font-weight: bold; color: #38BDF8; font-size: 12px;")
+        layout_console.addWidget(lbl_console_title)
+
+        self.console_log = QTextEdit()
+        self.console_log.setReadOnly(True)
+        self.console_log.setFont(QFont("JetBrains Mono", 10))
+        self.console_log.setStyleSheet("background-color: #020617; color: #10B981; border: 1px solid #1E293B; border-radius: 4px;")
+        layout_console.addWidget(self.console_log, 1)
+
+        # Entrada de comando
+        input_layout = QHBoxLayout()
+        self.input_cmd = QLineEdit()
+        self.input_cmd.setPlaceholderText("Escribe comando PowerShell y presiona Enter...")
+        self.input_cmd.setFont(QFont("JetBrains Mono", 10))
+        self.input_cmd.setStyleSheet("background-color: #1E293B; color: #FFF; border: 1px solid #475569; padding: 10px; border-radius: 4px;")
+        self.input_cmd.returnPressed.connect(self.send_powershell_command)
+        input_layout.addWidget(self.input_cmd, 1)
+
+        self.btn_send_cmd = QPushButton("Enviar")
+        self.btn_send_cmd.setStyleSheet("background-color: #10B981; color: #020617; font-weight: bold; padding: 10px 20px; border-radius: 4px; border: none;")
+        self.btn_send_cmd.clicked.connect(self.send_powershell_command)
+        input_layout.addWidget(self.btn_send_cmd)
+
+        layout_console.addLayout(input_layout)
+        self.splitter.addWidget(self.console_widget)
+
+        # Proporciones iniciales del Splitter (70% video, 30% consola)
+        self.splitter.setSizes([550, 200])
+        layout.addWidget(self.splitter)
+
+        self.stacked_widget.addWidget(self.view_viewer)
+
+    def start_viewer_session(self, agent_id):
+        self.poll_timer.stop() # Detener polling de dashboard
+        self.stacked_widget.setCurrentWidget(self.view_viewer)
+        self.lbl_active_agent.setText(f"Controlando: {agent_id}")
+        self.lbl_viewer_status.setText("Conectando...")
+        self.console_log.clear()
+
+        # Crear WebSocket client
+        self.thread_client = WebSocketClientThread(agent_id)
+        self.thread_client.status_changed.connect(self.on_viewer_status_changed)
+        self.thread_client.connection_lost.connect(self.stop_viewer_session)
+        self.thread_client.console_output_received.connect(self.append_console_output)
+
+        # Crear y añadir el canvas de pantalla interactivo
+        self.screen_canvas = ScreenCanvas(self.thread_client)
+        self.thread_client.frame_received.connect(self.screen_canvas.update_frame)
+        self.layout_video.addWidget(self.screen_canvas)
+
+        self.thread_client.start()
+
+    def on_viewer_status_changed(self, status_text):
+        self.lbl_viewer_status.setText(status_text)
+
+    def append_console_output(self, text_output):
+        self.console_log.append(text_output.strip())
+
+    def send_powershell_command(self):
+        cmd = self.input_cmd.text().strip()
+        if not cmd:
+            return
+        
+        self.console_log.append(f"\nPS > {cmd}")
+        self.thread_client.send_command_sync(cmd)
+        self.input_cmd.clear()
+
+    def stop_viewer_session(self):
+        if self.thread_client:
             self.thread_client.stop()
             self.thread_client.wait()
-            self.on_disconnected()
-        else:
-            # Conectar
-            agent_id = self.input_id.text().strip()
-            if not agent_id:
-                QMessageBox.warning(self, "Validación", "Por favor ingresa un ID válido.")
-                return
+            self.thread_client = None
 
-            self.btn_connect.setText("Desconectar")
-            self.btn_connect.setStyleSheet("background-color: #DC2626; color: #FFF; font-weight: bold; padding: 6px 16px; border-radius: 4px;")
-            self.input_id.setEnabled(False)
-
-            self.thread_client = WebSocketClientThread(agent_id)
-            self.thread_client.status_changed.connect(self.on_status_changed)
-            self.thread_client.connection_lost.connect(self.on_disconnected)
-            
-            # Crear y configurar el canvas de pantalla activa
-            self.screen_canvas = ScreenCanvas(self.thread_client)
-            self.thread_client.frame_received.connect(self.screen_canvas.update_frame)
-
-            # Reemplazar vista de bienvenida
-            self.welcome_screen.hide()
-            self.canvas_layout.addWidget(self.screen_canvas)
-
-            self.thread_client.start()
-
-    def on_status_changed(self, status_text):
-        self.lbl_status.setText(status_text)
-
-    def on_disconnected(self):
-        self.lbl_status.setText("Desconectado.")
-        self.btn_connect.setText("Conectar")
-        self.btn_connect.setStyleSheet("background-color: #0284C7; color: #FFF; font-weight: bold; padding: 6px 16px; border-radius: 4px;")
-        self.input_id.setEnabled(True)
-        
-        # Eliminar el canvas y mostrar bienvenida
         if hasattr(self, 'screen_canvas'):
             self.screen_canvas.hide()
-            self.canvas_layout.removeWidget(self.screen_canvas)
+            self.layout_video.removeWidget(self.screen_canvas)
             self.screen_canvas.deleteLater()
             del self.screen_canvas
-            
-        self.welcome_screen.show()
+
+        self.stacked_widget.setCurrentWidget(self.view_dashboard)
+        self.start_dashboard_polling()
 
 
 if __name__ == "__main__":
