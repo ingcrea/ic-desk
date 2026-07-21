@@ -79,14 +79,12 @@ def main():
     print(f"✅ Git commit, tag {version} y push a GitHub completados.")
 
     # 4. Publicar Release en GitHub via API REST
-    
-import subprocess
-try:
-    rem = subprocess.check_output('git remote -v', shell=True, text=True)
-    token = rem.split('ghp_')[1].split('@')[0]
-    token = 'ghp_' + token
-except:
-    token = os.environ.get('GITHUB_TOKEN', '')
+    try:
+        rem = subprocess.check_output('git remote -v', shell=True, text=True)
+        token = rem.split('ghp_')[1].split('@')[0]
+        token = 'ghp_' + token
+    except:
+        token = os.environ.get('GITHUB_TOKEN', '')
 
     headers = {
         "Authorization": f"token {token}",
@@ -104,7 +102,7 @@ except:
 
     import urllib.request
     req = urllib.request.Request(
-        "https://api.github.com/repos/sercommx/ic-desk/releases",
+        f"https://api.github.com/repos/ingcrea/ic-desk/releases",
         data=json.dumps(release_payload).encode("utf-8"),
         headers=headers,
         method="POST"
@@ -117,7 +115,7 @@ except:
             print(f"✅ Release {version} creado en GitHub (ID: {release_id})")
     except urllib.error.HTTPError as e:
         req_get = urllib.request.Request(
-            f"https://api.github.com/repos/sercommx/ic-desk/releases/tags/{version}",
+            f"https://api.github.com/repos/ingcrea/ic-desk/releases/tags/{version}",
             headers=headers
         )
         with urllib.request.urlopen(req_get) as resp_get:
@@ -125,7 +123,7 @@ except:
             release_id = rel_data["id"]
 
     # 5. Subir asset IC-Desk.exe
-    upload_url = f"https://uploads.github.com/repos/sercommx/ic-desk/releases/{release_id}/assets?name=IC-Desk.exe"
+    upload_url = f"https://uploads.github.com/repos/ingcrea/ic-desk/releases/{release_id}/assets?name=IC-Desk.exe"
     with open(exe_file, "rb") as f:
         exe_bytes = f.read()
 
