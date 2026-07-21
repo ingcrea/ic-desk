@@ -40,8 +40,8 @@ namespace ICDesk
     public class SoporteRemotoGUI : Form
     {
         // ── Configuración del servidor ───────────────────────────────────────
-        private const string ServerUrl   = "https://soporte.sercommx.com";
-        private const string RelayWsUrl  = "wss://soporte.sercommx.com";
+        private const string ServerUrl   = "https://desk.ingcrea.com";
+        private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "SercomAgentToken2026SecureHashKey";
         private const string AppVersion  = "v4.0.0"; // inyectado por el servidor al descargar
 
