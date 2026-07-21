@@ -655,6 +655,10 @@
       <label>Contraseña de Red</label>
       <input type="password" id="login-pass" placeholder="••••••••" />
     </div>
+    <div class="form-group remember-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; cursor: pointer;">
+      <input type="checkbox" id="login-remember" style="width: auto; cursor: pointer; margin: 0;" />
+      <label for="login-remember" style="margin: 0; text-transform: none; letter-spacing: normal; font-size: 13px; font-weight: normal; color: var(--text-muted); cursor: pointer;">Recordar mis datos de acceso</label>
+    </div>
     <!-- Cloudflare Turnstile -->
     <div style="display: flex; justify-content: center; padding: 12px 0;">
       <div id="my-turnstile-container"></div>
@@ -798,6 +802,17 @@
     }
   })();
 
+  // Cargar credenciales guardadas al iniciar
+  window.addEventListener('DOMContentLoaded', () => {
+    const rememberedUser = localStorage.getItem('remembered_user');
+    const rememberedPass = localStorage.getItem('remembered_pass');
+    if (rememberedUser && rememberedPass) {
+      document.getElementById('login-user').value = rememberedUser;
+      document.getElementById('login-pass').value = rememberedPass;
+      document.getElementById('login-remember').checked = true;
+    }
+  });
+
   window.onloadTurnstileCallback = function() {
     if (window.turnstile) {
       turnstile.render('#my-turnstile-container', {
@@ -839,6 +854,16 @@
     .then(r => r.json())
     .then(data => {
       if (data.success) {
+        // Guardar o limpiar credenciales en localStorage
+        const remember = document.getElementById('login-remember').checked;
+        if (remember) {
+          localStorage.setItem('remembered_user', u);
+          localStorage.setItem('remembered_pass', p);
+        } else {
+          localStorage.removeItem('remembered_user');
+          localStorage.removeItem('remembered_pass');
+        }
+
         authenticated = true;
         document.getElementById('login-screen').style.display = 'none';
         startMonitoring();
@@ -855,7 +880,10 @@
     });
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await fetch('/soporte/logout', { method: 'POST', credentials: 'include' });
+    } catch(e) {}
     authenticated = false;
     document.getElementById('session-loader').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
