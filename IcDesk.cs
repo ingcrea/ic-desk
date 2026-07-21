@@ -70,6 +70,7 @@ namespace ICDesk
         private Label lblIdValue;
         private Label _lblVersion;
         private Button btnCopyId;
+        private Button btnElevate;
         private PictureBox picLogo;
 
         // =====================================================================
@@ -127,11 +128,11 @@ namespace ICDesk
         // =====================================================================
         //  Construcción de la UI minimalista
         // =====================================================================
-        private void BuildUI()
+                private void BuildUI()
         {
             // ── Ventana ───────────────────────────────────────────────────────
             this.Text            = "IC-Desk — Soporte Remoto";
-            this.Size            = new Size(420, 330);
+            this.Size            = new Size(420, 360);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox     = false;
             this.StartPosition   = FormStartPosition.CenterScreen;
@@ -159,7 +160,7 @@ namespace ICDesk
             };
             this.Controls.Add(lblTitle);
 
-            // ── ID grande ─────────────────────────────────────────────────────
+            // ── Valor de ID de Soporte ────────────────────────────────────────
             lblIdValue = new Label
             {
                 Text      = _supportId ?? "----",
@@ -211,7 +212,7 @@ namespace ICDesk
                 Text      = "⏳ Conectando...",
                 Font      = new Font("Segoe UI", 9f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(150, 150, 180),
-                Bounds    = new Rectangle(20, 210, 360, 22),
+                Bounds    = new Rectangle(20, 204, 360, 22),
                 AutoSize  = false
             };
             this.Controls.Add(lblStatus);
@@ -222,10 +223,38 @@ namespace ICDesk
                 Text      = "Comparte tu ID con el técnico de soporte.\nNo es necesario hacer nada más.",
                 Font      = new Font("Segoe UI", 8f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(100, 100, 130),
-                Bounds    = new Rectangle(20, 238, 360, 36),
+                Bounds    = new Rectangle(20, 228, 360, 36),
                 AutoSize  = false
             };
             this.Controls.Add(lblHint);
+
+            // ── Botón de Elevación de Privilegios UAC (Estilo RustDesk) ──────
+            btnElevate = new Button
+            {
+                Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                Bounds    = new Rectangle(20, 270, 230, 32),
+                FlatStyle = FlatStyle.Flat,
+                Cursor    = Cursors.Hand
+            };
+            btnElevate.FlatAppearance.BorderSize = 1;
+
+            if (IsRunAsAdmin())
+            {
+                btnElevate.Text = "🛡️ Administrador Activo";
+                btnElevate.BackColor = Color.FromArgb(20, 80, 40);
+                btnElevate.ForeColor = Color.FromArgb(100, 255, 100);
+                btnElevate.FlatAppearance.BorderColor = Color.FromArgb(50, 150, 80);
+                btnElevate.Enabled = false;
+            }
+            else
+            {
+                btnElevate.Text = "🛡️ Elevar a Administrador";
+                btnElevate.BackColor = Color.FromArgb(80, 20, 30);
+                btnElevate.ForeColor = Color.FromArgb(255, 120, 120);
+                btnElevate.FlatAppearance.BorderColor = Color.FromArgb(150, 50, 60);
+                btnElevate.Click += (s, e) => ElevateToAdmin();
+            }
+            this.Controls.Add(btnElevate);
 
             // ── Versión (campo de instancia para poder actualizarla) ─────────
             _lblVersion = new Label
@@ -233,7 +262,7 @@ namespace ICDesk
                 Text      = AppVersion,
                 Font      = new Font("Segoe UI", 7.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(80, 80, 110),
-                Bounds    = new Rectangle(10, 280, 390, 15),
+                Bounds    = new Rectangle(260, 278, 120, 18),
                 AutoSize  = false,
                 TextAlign = ContentAlignment.MiddleRight
             };
@@ -241,8 +270,40 @@ namespace ICDesk
         }
 
         // =====================================================================
-        //  Actualización de estado (thread-safe)
+        //  Helpers de Privilegios Administrativos (Bypass de UAC y Seguridad)
         // =====================================================================
+        private bool IsRunAsAdmin()
+        {
+            try
+            {
+                var id = System.Security.Principal.WindowsIdentity.GetCurrent();
+                var principal = new System.Security.Principal.WindowsPrincipal(id);
+                return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void ElevateToAdmin()
+        {
+            try
+            {
+                var proc = new System.Diagnostics.ProcessStartInfo();
+                proc.UseShellExecute = true;
+                proc.WorkingDirectory = Environment.CurrentDirectory;
+                proc.FileName = Application.ExecutablePath;
+                proc.Verb = "runas"; // Fuerza la solicitud de elevación UAC en Windows
+                System.Diagnostics.Process.Start(proc);
+                Application.Exit();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("No se pudo iniciar la elevación de privilegios: " + ex.Message, "IC-Desk", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
         private void SetStatus(string text, Color color)
         {
             if (lblStatus.InvokeRequired)
