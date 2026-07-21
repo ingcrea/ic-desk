@@ -1,15 +1,15 @@
-# SercomDesk — Sistema de Soporte Remoto Propietario
+# IC-Desk — Sistema de Soporte Remoto por Ingenieria Creativa
 
-Sistema de soporte técnico remoto desarrollado por **Sercom Mx**. Elimina la dependencia de AnyDesk y RustDesk con una solución 100% propia, integrada con el bot de WhatsApp corporativo.
+Sistema de soporte técnico remoto desarrollado por **Ingenieria Creativa (IngCrea)**. Elimina la dependencia de AnyDesk y RustDesk con una solución 100% propia, integrada con el bot de WhatsApp corporativo.
 
 ---
 
 ## 📁 Estructura del Proyecto
 
 ```
-sercom-soporte/
+ic-desk/
 ├── client/
-│   └── SoporteRemotoGUI.cs      # Agente Windows en C# (.NET 4.8)
+│   └── IcDesk.cs                # Agente Windows en C# (.NET 4.8)
 ├── server/
 │   ├── relay.js                  # Servidor WebSocket relay (puerto 6002)
 │   └── package.json              # Dependencias Node.js (ws@8)
@@ -37,10 +37,10 @@ sercom-soporte/
 
 ```powershell
 C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe `
-  /out:SoporteRemotoGUI.exe `
+  /out:IC-Desk.exe `
   /target:winexe `
   /win32icon:favicon.ico `
-  SoporteRemotoGUI.cs
+  IcDesk.cs
 ```
 
 ---
@@ -77,4 +77,4 @@ node relay.js
 
 ---
 
-**Sercom Mx © 2026** — Todos los derechos reservados.
+**Ingenieria Creativa © 2026** — Todos los derechos reservados.
