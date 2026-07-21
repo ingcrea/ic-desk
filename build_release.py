@@ -19,10 +19,10 @@ def main():
     print(f"🚀 Iniciando compilación y sincronización de Release {version}...")
 
     repo_dir = "/home/ingcrea/github/ic-desk"
-    cs_file = os.path.join(repo_dir, "SoporteRemotoGUI.cs")
+    cs_file = os.path.join(repo_dir, "IcDesk.cs")
     exe_file = os.path.join(repo_dir, "IC-Desk.exe")
 
-    # 1. Inyectar versión exacta en SoporteRemotoGUI.cs
+    # 1. Inyectar versión exacta en IcDesk.cs
     with open(cs_file, "r", encoding="utf-8") as f:
         code = f.read()
 
@@ -60,7 +60,7 @@ def main():
     with open(cs_file, "w", encoding="utf-8") as f:
         f.write(code)
 
-    print(f"✅ Versión {version} inyectada en SoporteRemotoGUI.cs")
+    print(f"✅ Versión {version} inyectada en IcDesk.cs")
 
     # 2. Compilar ejecutable .exe nativo con mcs
     cmd_compile = f"mcs /target:winexe /win32icon:{ico_file} /out:{exe_file} /r:System.Windows.Forms.dll,System.Drawing.dll,System.dll,System.Core.dll {cs_file}"
