@@ -160,6 +160,58 @@
 
     /* Estilos del Footer de Descargas */
     .login-footer {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .login-footer p {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .os-links {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .os-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(31, 41, 55, 0.4);
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .os-btn:hover:not(.disabled) {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+    .os-btn.disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .os-btn svg {
+      transition: transform 0.2s;
+    }
+    .os-btn:hover:not(.disabled) svg {
+      transform: scale(1.05);
+    }
+
+    /* Estilos del Footer de Descargas */
+    .login-footer {
       margin-top: 32px;
       padding-top: 24px;
       border-top: 1px solid var(--border);
@@ -609,6 +661,31 @@
     </div>
     <button class="btn-login" id="btn-login-submit" onclick="attemptLogin()">Autenticar Credenciales</button>
     <div id="login-error"></div>
+    
+    <!-- FOOTER DE DESCARGAS DE AGENTES -->
+    <div class="login-footer">
+      <p>Descargar Agente de Soporte</p>
+      <div class="os-links">
+        <a href="/d" class="os-btn" title="Descargar Agente para Windows">
+          <svg viewBox="0 0 88 88" width="16" height="16" fill="currentColor">
+            <path d="M0 12.402l35.687-4.86.016 34.423-35.67.147zm0 32.22l35.633.148v34.398l-35.633-4.877zm38.74-37.493l49.26-6.729v44.075l-49.26.17zm0 40.066l49.26.177-.016 43.918-49.244-6.729z"/>
+          </svg>
+          <span>Windows</span>
+        </a>
+        <a href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para macOS'); return false;" title="Agente para macOS (Próximamente)">
+          <span>macOS</span>
+        </a>
+        <a href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para Linux'); return false;" title="Agente para Linux (Próximamente)">
+          <span>Linux</span>
+        </a>
+        <a href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para Android'); return false;" title="Agente para Android (Próximamente)">
+          <span>Android</span>
+        </a>
+        <a href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para iOS'); return false;" title="Agente para iOS (Próximamente)">
+          <span>iOS</span>
+        </a>
+      </div>
+    </div>
     
     <!-- FOOTER DE DESCARGAS DE AGENTES -->
     <div class="login-footer">
