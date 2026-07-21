@@ -723,6 +723,18 @@ namespace SercomSoporte
         // =====================================================================
         //  Auto-actualización: descarga, compila y relanza si hay nueva versión
         // =====================================================================
+        
+        private static bool IsServerVersionNewer(string serverVer, string localVer)
+        {
+            try {
+                var vServer = new Version(serverVer.TrimStart('v', 'V'));
+                var vLocal  = new Version(localVer.TrimStart('v', 'V'));
+                return vServer > vLocal;
+            } catch {
+                return false;
+            }
+        }
+
         private void CheckForUpdates()
         {
             try
@@ -742,7 +754,7 @@ namespace SercomSoporte
                     serverVersion = ExtractJsonValue(json, "version");
                 }
 
-                if (string.IsNullOrEmpty(serverVersion) || serverVersion == AppVersion)
+                if (string.IsNullOrEmpty(serverVersion) || !IsServerVersionNewer(serverVersion, AppVersion))
                     return; // ya estamos actualizados
 
                 // 2. Notificar al usuario
@@ -999,3 +1011,4 @@ try {
         }
     }
 }
+
