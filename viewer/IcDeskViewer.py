@@ -313,24 +313,32 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Acceso", "Por favor ingresa tus credenciales.")
             return
 
-        # Para compatibilidad con el relay del bot, saltamos la autenticación local si las claves coinciden
-        if user == "admin" or user == "ingcrea":
-            self.on_login_success()
-        else:
-            # Login contra la API
-            try:
-                url = f"{SERVER_URL}/soporte/login"
-                data = json.dumps({"user": user, "pass": pwd}).encode('utf-8')
-                req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
-                with urllib.request.urlopen(req, timeout=5) as res:
-                    resp = json.loads(res.read().decode('utf-8'))
-                    if resp.get("success"):
-                        self.on_login_success()
-                    else:
-                        QMessageBox.critical(self, "Error", "Credenciales incorrectas.")
-            except Exception as e:
-                # Simular acceso exitoso si el servidor está configurado para API keys directas
-                self.on_login_success()
+        try:
+            url = f"{SERVER_URL}/soporte/login"
+            data = json.dumps({"user": user, "pass": pwd}).encode('utf-8')
+            headers = {
+                'Content-Type': 'application/json',
+                'x-ic-desk-app': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+            }
+            req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+            with urllib.request.urlopen(req, timeout=5) as res:
+                # Leer y guardar cookie de sesión soporte_session
+                cookie_header = res.info().get('Set-Cookie')
+                if cookie_header:
+                    # Extraer el valor del soporte_session cookie
+                    parts = cookie_header.split(';')
+                    for part in parts:
+                        if 'soporte_session' in part:
+                            self.api_session_token = part.strip()
+                            break
+                
+                resp = json.loads(res.read().decode('utf-8'))
+                if resp.get("success"):
+                    self.on_login_success()
+                else:
+                    QMessageBox.critical(self, "Error", "Credenciales incorrectas.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error de Acceso", f"No se pudo autenticar: {str(e)}")
 
     def on_login_success(self):
         self.stacked_widget.setCurrentWidget(self.view_dashboard)
@@ -381,7 +389,13 @@ class MainWindow(QMainWindow):
     def fetch_agents(self):
         try:
             url = f"{SERVER_URL}/soporte/agentes"
-            req = urllib.request.Request(url, headers={'x-sercom-api-key': PANEL_KEY})
+            headers = {}
+            if self.api_session_token:
+                headers['Cookie'] = self.api_session_token
+            else:
+                headers['x-sercom-api-key'] = PANEL_KEY
+            
+            req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=3) as res:
                 agents = json.loads(res.read().decode('utf-8'))
                 self.update_agents_list(agents)
