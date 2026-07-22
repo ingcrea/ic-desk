@@ -67,7 +67,7 @@ namespace ICDesk
 
         // ── Controles UI ─────────────────────────────────────────────────────
         private Label lblStatus;
-        private Label lblIdValue;
+        private TextBox lblIdValue;
         private Label _lblVersion;
         private Button btnCopyId;
         private Label lblPrivileges;
@@ -161,14 +161,17 @@ namespace ICDesk
             this.Controls.Add(lblTitle);
 
             // ── Valor de ID de Soporte ────────────────────────────────────────
-            lblIdValue = new Label
+            lblIdValue = new TextBox
             {
-                Text      = _supportId ?? "----",
-                Font      = new Font("Segoe UI", 34f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(99, 179, 237),
-                Bounds    = new Rectangle(18, 114, 260, 60),
-                AutoSize  = false,
-                TextAlign = ContentAlignment.MiddleLeft
+                Text            = _supportId ?? "----",
+                Font            = new Font("Segoe UI", 30f, FontStyle.Bold),
+                ForeColor       = Color.FromArgb(99, 179, 237),
+                BackColor       = Color.FromArgb(15, 15, 25),
+                BorderStyle     = BorderStyle.None,
+                ReadOnly        = true,
+                Bounds          = new Rectangle(18, 120, 260, 50),
+                Multiline       = false,
+                WordWrap        = false
             };
             this.Controls.Add(lblIdValue);
 
