@@ -84,6 +84,15 @@
       z-index: 1000;
     }
 
+    #starfield {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
     .login-card {
       background: rgba(17, 24, 39, 0.6);
       border: 1px solid var(--border);
@@ -93,6 +102,19 @@
       backdrop-filter: blur(20px);
       box-shadow: 0 30px 70px rgba(0, 0, 0, 0.8), 0 0 100px rgba(0, 102, 204, 0.15);
       text-align: center;
+      z-index: 2;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .login-logo {
@@ -643,6 +665,7 @@
 
 <!-- PANTALLA DE LOGIN -->
 <div id="login-screen">
+  <canvas id="starfield"></canvas>
   <div class="login-card">
     <img class="login-logo" src="/soporte/download/logo?v=2.0.1" alt="Ingenieria Creativa Logo" />
     <h2>IC-<span>Desk</span></h2>
@@ -780,6 +803,74 @@
       loginScreen.style.display = 'flex';
     }
   })();
+
+  // Animación Starfield interactiva en Canvas para la pantalla de Login
+  window.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('starfield');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    });
+
+    const numStars = 140;
+    const stars = [];
+    
+    for (let i = 0; i < numStars; i++) {
+      stars.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        z: Math.random() * width,
+        size: Math.random() * 1.5 + 0.5,
+        color: `rgba(99, 179, 237, ${Math.random() * 0.7 + 0.3})`
+      });
+    }
+
+    let mouse = { x: width / 2, y: height / 2 };
+    document.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+
+    function animate() {
+      // Usar un fondo ligeramente opaco para generar estela en movimiento
+      ctx.fillStyle = 'rgba(6, 9, 19, 0.15)';
+      ctx.fillRect(0, 0, width, height);
+
+      for (let i = 0; i < numStars; i++) {
+        const star = stars[i];
+        
+        star.z -= 1.6;
+        if (star.z <= 0) {
+          star.z = width;
+          star.x = Math.random() * width;
+          star.y = Math.random() * height;
+        }
+
+        const px = (star.x - width / 2) * (width / star.z) + width / 2;
+        const py = (star.y - height / 2) * (width / star.z) + height / 2;
+        
+        // Desviación interactiva sutil con el cursor
+        const dx = (mouse.x - width / 2) * 0.05;
+        const dy = (mouse.y - height / 2) * 0.05;
+
+        const size = star.size * (width / star.z);
+
+        if (px >= 0 && px <= width && py >= 0 && py <= height) {
+          ctx.beginPath();
+          ctx.arc(px + dx, py + dy, size, 0, Math.PI * 2);
+          ctx.fillStyle = star.color;
+          ctx.fill();
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+    animate();
+  });
 
   // Cargar credenciales guardadas al iniciar
   window.addEventListener('DOMContentLoaded', () => {
