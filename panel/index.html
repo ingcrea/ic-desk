@@ -297,7 +297,7 @@
       background: rgba(17, 24, 39, 0.85);
       border-bottom: 1px solid var(--border);
       padding: 16px 32px;
-      display: flex;
+      display: none; /* Oculto en el login */
       align-items: center;
       justify-content: space-between;
       backdrop-filter: blur(10px);
@@ -790,6 +790,7 @@
       if (res.ok) {
         // Cookie válida — ir directo al panel sin mostrar login
         authenticated = true;
+        document.getElementById('header').style.display = 'flex';
         loader.style.display = 'none';
         startMonitoring();
       } else {
@@ -935,6 +936,7 @@
         }
 
         authenticated = true;
+        document.getElementById('header').style.display = 'flex';
         document.getElementById('login-screen').style.display = 'none';
         startMonitoring();
       } else {
@@ -955,6 +957,7 @@
       await fetch('/soporte/logout', { method: 'POST', credentials: 'include' });
     } catch(e) {}
     authenticated = false;
+    document.getElementById('header').style.display = 'none';
     document.getElementById('session-loader').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
   }
