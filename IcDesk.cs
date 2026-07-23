@@ -72,7 +72,7 @@ namespace ICDesk
         private Label lblIdValue;
         private Label _lblVersion;
         private Button btnCopyId;
-        private Label lblPrivileges;
+        private Button btnUac;
         private PictureBox picLogo;
 
         // =====================================================================
@@ -238,18 +238,9 @@ namespace ICDesk
             };
             this.Controls.Add(lblHint);
 
-            // ── Etiqueta de Privilegios UAC Pasiva (Estilo RustDesk) ──────────
-            lblPrivileges = new Label
+            btnUac = new Button
             {
-                Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                Bounds    = new Rectangle(20, 276, 230, 20),
-                AutoSize  = false
-            };
-
-            
-            var btnUac = new Button
-            {
-                Text = IsRunAsAdmin() ? "🛡️ Administrador (Elevado)" : "🛡️ Solicitar Permisos Admin",
+                Text = IsRunAsAdmin() ? "🛡️ Administrador (Elevado)" : "🛡️ Permisos Admin",
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 Bounds = new Rectangle(20, 272, 175, 32),
                 BackColor = IsRunAsAdmin() ? Color.FromArgb(40, 120, 60) : Color.FromArgb(140, 80, 20),
@@ -283,8 +274,6 @@ namespace ICDesk
                 btnAutoStart.BackColor = newState ? Color.FromArgb(30, 110, 140) : Color.FromArgb(60, 60, 80);
             };
             this.Controls.Add(btnAutoStart);
-
-            this.Controls.Add(lblPrivileges);
 
             // ── Versión (campo de instancia visible en esquina inferior derecha) ─────
             _lblVersion = new Label
@@ -372,10 +361,10 @@ namespace ICDesk
                 {
                     this.Invoke((Action)(() =>
                     {
-                        if (lblPrivileges != null)
+                        if (btnUac != null)
                         {
-                            lblPrivileges.Text = "🛡️ Privilegios: Administrador (Elevado)";
-                            lblPrivileges.ForeColor = Color.FromArgb(100, 255, 100);
+                            btnUac.Text = "🛡️ Administrador (Elevado)";
+                            btnUac.BackColor = Color.FromArgb(40, 120, 60);
                         }
                     }));
                 }
