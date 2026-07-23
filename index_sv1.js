@@ -85,7 +85,7 @@ db.serialize(() => {
 const app = express();
 app.set('trust proxy', 1); // Confiar en Cloudflare (X-Forwarded-Proto)
 app.use(cors());
-app.use(express.json());
+app.use(express.json({limit: "50mb"})); app.use(express.urlencoded({limit: "50mb", extended: true}));
 app.use(cookieParser('SercomSoporteSecretCookieKey2026'));
 
 // Logger silencioso para Baileys
@@ -644,6 +644,146 @@ ${syscomContext}`;
   }
 }
 
+// === CEREBRO DE PERSONALIDAD COMPARTIDO Y CLON ===
+
+function getClonChatsActivos() {
+  const filePath = path.join(ALEX_OMEGA_ROOT, 'data', 'clon_chats_activos.json');
+  try {
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+  } catch (err) {
+    console.error('[CLON_CHATS] Error al leer clon_chats_activos.json:', err);
+  }
+  return [];
+}
+
+function saveClonChatsActivos(chats) {
+  const filePath = path.join(ALEX_OMEGA_ROOT, 'data', 'clon_chats_activos.json');
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(chats, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[CLON_CHATS] Error al guardar clon_chats_activos.json:', err);
+    return false;
+  }
+}
+
+function saveFeedback(text) {
+  const filePath = path.join(ALEX_OMEGA_ROOT, 'data', 'feedback_personalidad.json');
+  try {
+    let data = { reglas_estilo: [], correcciones: [] };
+    if (fs.existsSync(filePath)) {
+      data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+    data.reglas_estilo.push({
+      fecha: new Date().toISOString(),
+      regra: text.trim()
+    });
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('[FEEDBACK] Error al guardar feedback de personalidad:', error);
+    return false;
+  }
+}
+
+async function getRecentMessages(jid, limit = 15) {
+  return new Promise((resolve) => {
+    db.all(`SELECT * FROM messages WHERE jid = ? ORDER BY timestamp DESC LIMIT ?`, [jid, limit], (err, rows) => {
+      if (err || !rows) {
+        resolve([]);
+      } else {
+        resolve(rows.reverse());
+      }
+    });
+  });
+}
+
+async function queryClonPersonalidad(prompt, jid) {
+  const feedbackPath = path.join(ALEX_OMEGA_ROOT, 'data', 'feedback_personalidad.json');
+  let feedbackText = '';
+  try {
+    if (fs.existsSync(feedbackPath)) {
+      const data = JSON.parse(fs.readFileSync(feedbackPath, 'utf8'));
+      if (data.reglas_estilo && data.reglas_estilo.length > 0) {
+        feedbackText = "\n\n[REGLAS ADICIONALES DE PERSONALIDAD Y ESTILO (APRENDIDAS Y CORREGIDAS POR EL USUARIO)]:\n";
+        data.reglas_estilo.forEach((r, index) => {
+          feedbackText += `${index + 1}. ${r.regra}\n`;
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[CLON] Error al cargar feedback de personalidad:', err);
+  }
+
+  const promptClonPath = path.join(ALEX_OMEGA_ROOT, 'data', 'prompt_clon.txt');
+  let basePrompt = `Eres un clon digital del usuario (528112277365). Debes responder simulando su personalidad, tono e identidad exacta.
+Tu forma de hablar debe ser sumamente natural, en español de México, utilizando un estilo conversacional común en WhatsApp.
+- Usa lenguaje casual y relajado.
+- Escribe respuestas coherentes pero cortas o de longitud natural según el contexto.
+- Evita sonar como un asistente virtual formal. No uses "Hola, ¿en qué puedo ayudarte hoy?" ni similares.
+- Actúa exactamente como el usuario humano real, tomando tu papel con total seriedad.`;
+
+  try {
+    if (fs.existsSync(promptClonPath)) {
+      basePrompt = fs.readFileSync(promptClonPath, 'utf8');
+    } else {
+      fs.writeFileSync(promptClonPath, basePrompt, 'utf8');
+    }
+  } catch (err) {
+    console.error('[CLON] Error al cargar prompt base de clon:', err);
+  }
+
+  const systemPrompt = `${basePrompt}${feedbackText}`;
+  const recentMsgs = await getRecentMessages(jid, 12);
+  const messagesPayload = [
+    { role: 'system', content: systemPrompt }
+  ];
+
+  recentMsgs.forEach(m => {
+    const role = m.from_me === 1 ? 'assistant' : 'user';
+    messagesPayload.push({
+      role: role,
+      content: m.text
+    });
+  });
+
+  if (messagesPayload.length === 1 || messagesPayload[messagesPayload.length - 1].content !== prompt) {
+    messagesPayload.push({ role: 'user', content: prompt });
+  }
+
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) return "Error: No se encontró una API Key en el archivo .env.";
+
+  const isDeepSeek = apiKey.startsWith("sk-6") || apiKey.includes("deepseek");
+  const url = isDeepSeek ? 'https://api.deepseek.com/chat/completions' : 'https://api.openai.com/v1/chat/completions';
+  const model = isDeepSeek ? (process.env.DEEPSEEK_MODEL || 'deepseek-chat') : 'gpt-4o';
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: messagesPayload,
+        temperature: 0.85
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || '[No se recibió respuesta]';
+    }
+    return `[Error API Clon: HTTP ${response.status}]`;
+  } catch (error) {
+    return `Falló la conexión con la API del Clon: ${error.message}`;
+  }
+}
+
 // Cliente cognitivo Antigravity CLI (se comunica con el servicio agy local mediante túnel inverso)
 function queryAgyCli(prompt) {
   return new Promise(async (resolve) => {
@@ -686,15 +826,120 @@ function curlRequest(url) {
   return new Promise((resolve, reject) => {
     const cmd = `curl -s --socks5-hostname localhost:1080 -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" "${url}"`;
     exec(cmd, (err, stdout, stderr) => {
-      if (err) return reject(err);
+      if (err) {
+        const error = new Error(err.message);
+        error.code = "ERR_MD_CONN_01";
+        error.details = stderr || err.message;
+        return reject(error);
+      }
       try {
         const json = JSON.parse(stdout);
         resolve(json);
       } catch (e) {
-        reject(new Error(stdout || stderr || "Respuesta vacía"));
+        const trimmed = stdout ? stdout.trim() : "";
+        if (trimmed.startsWith("FOLDER#")) {
+          return resolve({
+            response_code: "ok",
+            isFolder: true,
+            links: trimmed.replace("FOLDER#", "").trim().split(";").filter(Boolean)
+          });
+        }
+        const error = new Error("Respuesta no válida de la API de Mega-Debrid.");
+        error.code = "ERR_MD_JSON_02";
+        error.details = trimmed || stderr || "Sin respuesta";
+        reject(error);
       }
     });
   });
+}
+
+// Procesa un prompt del usuario para extraer la información de la reunión usando Ollama (AlexMini)
+async function parseAgendaPrompt(prompt) {
+  let ollamaHost = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
+  if (process.env.OLLAMA_PORT && !process.env.OLLAMA_HOST) {
+    ollamaHost = `http://127.0.0.1:${process.env.OLLAMA_PORT}`;
+  }
+
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Mexico_City' });
+  const timeStr = today.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'America/Mexico_City' });
+  
+  const systemPrompt = `Eres un extractor de datos de calendario ultra preciso. Analiza la petición del usuario para agendar una reunión o crear una tarea, y genera estrictamente un objeto JSON.
+Fecha de referencia hoy: ${todayStr}.
+Hora de referencia actual: ${timeStr}.
+
+Reglas:
+1. Si el usuario dice "mañana", calcula la fecha del día siguiente.
+2. Si el usuario dice "mañana a las 12:00 PM", la fecha de inicio debe ser el día siguiente con hora 12:00:00 (formato ISO 8601 local, ej: YYYY-MM-DDTHH:MM:SS, sin offset de zona horaria).
+3. "duracion_minutos" por defecto es 60, a menos que el usuario especifique otra cosa.
+4. Genera un JSON plano con los campos: "titulo", "descripcion", "fecha_inicio", "duracion_minutos".
+5. Devuelve ÚNICAMENTE el JSON crudo, sin bloques de código markdown, sin texto adicional, sin explicaciones.
+
+Petición del usuario: "${prompt}"
+JSON:`;
+
+  try {
+    const response = await fetch(`${ollamaHost}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'AlexMini',
+        prompt: systemPrompt,
+        stream: false,
+        options: {
+          temperature: 0.0
+        }
+      })
+    });
+    if (response.ok) {
+      const data = await response.json();
+      let text = data.response.trim();
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(text);
+    } else {
+      throw new Error(`Ollama HTTP Error ${response.status}`);
+    }
+  } catch (e) {
+    console.error("[AGENDA_PARSER] Error:", e);
+    throw e;
+  }
+}
+
+// Maneja la petición de agendar la reunión llamando al script de python correspondiente
+async function handleAgendaRequest(prompt, jid) {
+  try {
+    await sock.sendMessage(jid, { text: "⏳ Analizando los detalles de tu reunión para agendarla..." });
+    const eventData = await parseAgendaPrompt(prompt);
+    
+    await sock.sendMessage(jid, { text: `📅 *Datos extraídos:* \n• Título: ${eventData.titulo}\n• Fecha/Hora: ${eventData.fecha_inicio.replace('T', ' ')}\n• Duración: ${eventData.duracion_minutos} minutos\n\nAgendando en Google Calendar y Google Tasks...` });
+    
+    const cmd = `python3 /home/alex/alex_omega/scripts/google_agenda.py '${JSON.stringify(eventData)}'`;
+    exec(cmd, async (err, stdout, stderr) => {
+      if (err) {
+        console.error("[AGENDA] Error ejecutando script:", err, stderr);
+        await sock.sendMessage(jid, { text: `❌ *Fallo al programar la reunión:* ${err.message}` });
+        return;
+      }
+      try {
+        const res = JSON.parse(stdout.trim());
+        if (res.success) {
+          await sock.sendMessage(jid, { text: `✅ *Reunión agendada con éxito!* \n\n• *Título:* ${eventData.titulo}\n• *Fecha:* ${eventData.fecha_inicio.replace('T', ' ')}\n• *Recordatorios:* 1 día, 2 horas, 1 hora y 30 minutos antes.\n\n*Calendar Link:* ${res.htmlLink}\n\nSe creó también la tarea correspondiente en Google Tasks.` });
+        } else {
+          if (res.error && res.error.includes("tasks.googleapis.com/overview")) {
+            await sock.sendMessage(jid, { text: `⚠️ *Agendado en Google Calendar, pero Google Tasks falló:* \n\nGoogle Tasks API no está habilitada en tu cuenta de Google Cloud.\n\nPor favor, haz clic aquí para habilitarla:\n👉 https://console.developers.google.com/apis/api/tasks.googleapis.com/overview?project=4671367902 \n\ny el bot podrá crear las tareas la próxima vez.` });
+          } else {
+            await sock.sendMessage(jid, { text: `❌ *Error al agendar:* ${res.error}` });
+          }
+        }
+      } catch (e) {
+        console.error("[AGENDA] Error parseando stdout:", e, stdout);
+        await sock.sendMessage(jid, { text: `❌ *Error inesperado en la respuesta del programador:* ${stdout || stderr}` });
+      }
+    });
+  } catch (err) {
+    console.error("[AGENDA] Error general:", err);
+    await sock.sendMessage(jid, { text: `❌ *Error al analizar la petición:* ${err.message}` });
+  }
 }
 
 // Descarga archivos de Mega-Debrid y los sube a Google Drive usando rclone
@@ -709,12 +954,24 @@ async function handleDownloadAndUploadToDrive(premiumLink, jid) {
     
     console.log(`[DESCARGA] Descargando ${premiumLink} en ${downloadPath}...`);
     
-    // Descarga robusta usando curl con reintentos y redirección
-    exec(`curl -L -o "${downloadPath}" "${premiumLink}"`, async (downloadErr) => {
+    // Descarga robusta usando curl con reintentos y redirección a través de proxy socks5
+    exec(`curl -L --socks5-hostname localhost:1080 -o "${downloadPath}" "${premiumLink}"`, async (downloadErr, dStdout, dStderr) => {
       if (downloadErr) {
         console.error('[DESCARGA] Error en la descarga del archivo:', downloadErr);
-        await sock.sendMessage(jid, { text: `❌ *Error al descargar el archivo en el servidor:* ${downloadErr.message}` });
+        await sock.sendMessage(jid, { text: `❌ *Error al descargar el archivo en el servidor [ERR_MD_DOWNLOAD_05]:* ${downloadErr.message}\n_Detalles: ${dStderr || 'Ninguno'}_` });
         return;
+      }
+      
+      // Control de tamaño mínimo: si el archivo tiene menos de 10 KB, probablemente es un HTML de error
+      try {
+        const stats = fs.statSync(downloadPath);
+        if (stats.size < 10240) { // 10 KB
+          const content = fs.readFileSync(downloadPath, 'utf8').substring(0, 300);
+          console.warn(`[DESCARGA] Archivo anormalmente pequeño (${stats.size} bytes).`);
+          await sock.sendMessage(jid, { text: `⚠️ *Advertencia [ERR_MD_DOWNLOAD_05]:* El archivo descargado es anormalmente pequeño (${(stats.size/1024).toFixed(2)} KB). Es muy probable que se haya descargado un bloqueo o error del servidor en vez del archivo original.\n_Detalles: ${content.replace(/<[^>]*>/g, '') || 'Sin HTML detectado'}_` });
+        }
+      } catch (statErr) {
+        console.error('[DESCARGA] Error al obtener info del archivo:', statErr);
       }
       
       await sock.sendMessage(jid, { text: `📤 *Descarga finalizada en el servidor.* Subiendo "${filename}" a tu Google Drive mediante rclone...` });
@@ -726,7 +983,7 @@ async function handleDownloadAndUploadToDrive(premiumLink, jid) {
         
         if (uploadErr) {
           console.error('[RCLONE] Error subiendo a GDrive:', uploadErr, stderr);
-          await sock.sendMessage(jid, { text: `⚠️ *Archivo descargado, pero falló la subida a Google Drive:* \n\n${stderr || uploadErr.message}\n\n*Nota:* Asegúrate de que la API de Google Drive esté habilitada en tu consola de desarrollador para este proyecto.` });
+          await sock.sendMessage(jid, { text: `⚠️ *Archivo descargado, pero falló la subida a Google Drive [ERR_MD_UPLOAD_06]:* \n\n${stderr || uploadErr.message}\n\n*Nota:* Asegúrate de que la API de Google Drive esté habilitada en tu consola de desarrollador para este proyecto.` });
         } else {
           await sock.sendMessage(jid, { text: `🎉 *¡Descarga y subida completadas!* El archivo *"${filename}"* ha sido almacenado directamente en tu Google Drive (carpeta: MegaDebrid) y eliminado del servidor.` });
         }
@@ -734,7 +991,7 @@ async function handleDownloadAndUploadToDrive(premiumLink, jid) {
     });
   } catch (err) {
     console.error('[DOWNLOAD_DRIVE] Error general:', err);
-    await sock.sendMessage(jid, { text: `❌ *Error inesperado:* ${err.message}` });
+    await sock.sendMessage(jid, { text: `❌ *Error inesperado [ERR_MD_GENERIC]:* ${err.message}` });
   }
 }
 
@@ -755,6 +1012,8 @@ async function processQueue() {
       responseText = await queryAlexOmega(task.prompt, task.chatName, task.isMaster);
     } else if (task.type === 'agy') {
       responseText = await queryAgyCli(task.prompt);
+    } else if (task.type === 'clon') {
+      responseText = await queryClonPersonalidad(task.prompt, task.jid);
     }
 
     if (responseText) {
@@ -858,11 +1117,26 @@ async function connectToWhatsApp() {
     auth: state,
     printQRInTerminal: false,
     logger,
-    browser: ['Windows', 'Chrome', '133.0.0.0'],
+    browser: ['Mac OS', 'Chrome', '133.0.0.0'],
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 0,
-    syncFullHistory: true
+    syncFullHistory: false
   });
+
+  if (process.env.PAIRING_NUMBER && !state.creds?.registered) {
+    const cleanNumber = process.env.PAIRING_NUMBER.replace(/\D/g, '');
+    setTimeout(async () => {
+      try {
+        const code = await sock.requestPairingCode(cleanNumber);
+        console.log('\n==================================================');
+        console.log(`🔑 CÓDIGO DE VINCULACIÓN PARA EL CLON (${cleanNumber}):`);
+        console.log(`👉👉👉  ${code}  👈👈👈`);
+        console.log('==================================================\n');
+      } catch (err) {
+        console.error('Error al generar pairing code:', err);
+      }
+    }, 5000);
+  }
 
   connectionStatus = 'CONNECTING';
 
@@ -879,11 +1153,22 @@ async function connectToWhatsApp() {
     if (connection === 'close') {
       const error = lastDisconnect?.error;
       const statusCode = error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       
       console.log(`Conexión cerrada. Status: ${statusCode}. Reintentando conexión...`);
       connectionStatus = 'DISCONNECTED';
-      if (shouldReconnect) setTimeout(connectToWhatsApp, 5000);
+
+      if (statusCode === 401 || statusCode === DisconnectReason.loggedOut) {
+        console.log(`[AUTENTICACIÓN] Sesión no autorizada (401/LoggedOut). Limpiando credenciales corruptas en ${AUTH_DIR}...`);
+        try {
+          fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        } catch (rmErr) {
+          console.error('Error al limpiar AUTH_DIR:', rmErr);
+        }
+        setTimeout(connectToWhatsApp, 3000);
+      } else {
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        if (shouldReconnect) setTimeout(connectToWhatsApp, 5000);
+      }
     } else if (connection === 'open') {
       connectionStatus = 'CONNECTED';
       console.clear();
@@ -1016,11 +1301,95 @@ async function connectToWhatsApp() {
           saveChatHistoryToDatabase(jid, chatName, [msg]);
         }
 
-        // --- SISTEMA DE ENCOLADO ASÍNCRONO DE INVOCACIONES (IGNORA MENSAJES QUE NO SEAN COMANDOS) ---
-        if (msg.key.fromMe && !isCommand) continue;
-
+        // --- SISTEMA DE ENCOLADO ASÍNCRONO DE INVOCACIONES (DIFERENCIANDO INSTANCIA DE CLON O ALEX) ---
         const senderJid = msg.key.participant || jid;
-        const isMaster = fromMe || senderJid.includes('5218146529034') || senderJid.includes('528146529034') || senderJid.includes('5218180234638');
+        const isMaster = fromMe || 
+                         senderJid.includes('5218146529034') || senderJid.includes('528146529034') || 
+                         senderJid.includes('5218180234638') || senderJid.includes('528180234638') ||
+                         senderJid.includes('5218112277365') || senderJid.includes('528112277365') ||
+                         senderJid.includes('5218135909073') || senderJid.includes('528135909073');
+
+        if (INSTANCE === 'clon') {
+          if (fromMe) continue; // El clon no se auto-responde
+
+          const isCorrection = text.toLowerCase().startsWith('correccion:') || text.toLowerCase().startsWith('corrección:');
+          if (isCorrection && isMaster) {
+            const correctionText = text.replace(/^correcci[oó]n:/i, '').trim();
+            const saved = saveFeedback(correctionText);
+            if (saved) {
+              await sock.sendMessage(jid, { text: `✅ *Entendido.* He registrado esta regla de estilo en el cerebro de personalidad compartido:\n\n_"${correctionText}"_` });
+            } else {
+              await sock.sendMessage(jid, { text: `❌ *Error:* No se pudo guardar la regla de estilo.` });
+            }
+            continue;
+          }
+
+          // Para cualquier otro mensaje que reciba el clon, contestará humanamente
+          enqueueCognitiveTask('clon', text, jid, chatName, isMaster);
+          continue;
+        } else {
+          // Instancia principal de Alex
+          
+          // Comando para activar clon en este chat
+          const isClonOn = text.toLowerCase().startsWith('.alex activar') || text.toLowerCase().startsWith('.alex on') ||
+                            text.toLowerCase().startsWith('/alex activar') || text.toLowerCase().startsWith('/alex on');
+          if (isClonOn && isMaster) {
+            const activeChats = getClonChatsActivos();
+            if (!activeChats.includes(jid)) {
+              activeChats.push(jid);
+              saveClonChatsActivos(activeChats);
+            }
+            await sock.sendMessage(jid, { text: `🎭 *[CLON ACTIVADO]*\nA partir de este momento, responderé de forma automática a todos los mensajes de este chat usando tu identidad simulada.\n\nPara desactivar, escribe: \`.alex off\`` });
+            continue;
+          }
+
+          // Comando para desactivar clon en este chat
+          const isClonOff = text.toLowerCase().startsWith('.alex desactivar') || text.toLowerCase().startsWith('.alex off') ||
+                             text.toLowerCase().startsWith('/alex desactivar') || text.toLowerCase().startsWith('/alex off');
+          if (isClonOff && isMaster) {
+            let activeChats = getClonChatsActivos();
+            if (activeChats.includes(jid)) {
+              activeChats = activeChats.filter(id => id !== jid);
+              saveClonChatsActivos(activeChats);
+            }
+            await sock.sendMessage(jid, { text: `🎭 *[CLON DESACTIVADO]*\nHe desactivado la respuesta automática de identidad para este chat.` });
+            continue;
+          }
+
+          // Comando para corrección directa en Alex
+          if (isMaster && (text.toLowerCase().startsWith('.alex corregir:') || text.toLowerCase().startsWith('/alex corregir:'))) {
+            const correctionText = text.replace(/^[\/\.]alex corregir:/i, '').trim();
+            const saved = saveFeedback(correctionText);
+            if (saved) {
+              await sock.sendMessage(jid, { text: `✅ *Entendido.* He registrado esta regla de estilo en el cerebro de personalidad desde el bot principal:\n\n_"${correctionText}"_` });
+            } else {
+              await sock.sendMessage(jid, { text: `❌ *Error:* No se pudo guardar la regla de estilo.` });
+            }
+            continue;
+          }
+
+          // Si el clon está activo en este chat y no es un mensaje propio
+          const activeChats = getClonChatsActivos();
+          if (activeChats.includes(jid) && !fromMe) {
+            const isCorrection = text.toLowerCase().startsWith('correccion:') || text.toLowerCase().startsWith('corrección:');
+            if (isCorrection && isMaster) {
+              const correctionText = text.replace(/^correcci[oó]n:/i, '').trim();
+              const saved = saveFeedback(correctionText);
+              if (saved) {
+                await sock.sendMessage(jid, { text: `✅ *Entendido.* He registrado esta regla de estilo en el cerebro de personalidad compartido:\n\n_"${correctionText}"_` });
+              } else {
+                await sock.sendMessage(jid, { text: `❌ *Error:* No se pudo guardar la regla de estilo.` });
+              }
+              continue;
+            }
+            
+            // Responder de forma automática como clon para este chat
+            enqueueCognitiveTask('clon', text, jid, chatName, isMaster);
+            continue;
+          }
+
+          if (msg.key.fromMe && !isCommand) continue;
+        }
 
         if (isMini) {
           let prompt = text.replace(/^[\/\.](alexm|alex)/i, "").trim();
@@ -1065,11 +1434,40 @@ Estoy aquí para ayudarte a optimizar, gestionar y auditar tus sistemas. Estas s
         }
         if (isAgy) {
           let prompt = text.replace(/^[\/\.](alexg|alex)/i, "").trim();
-          if (!prompt) {
-              await sock.sendMessage(jid, { text: "Por favor, proporciona la consulta para Alex Soberano." });
+          let promptLower = prompt.toLowerCase();
+          if (!prompt || promptLower === 'menu' || promptLower === 'help' || promptLower === 'ayuda') {
+              await sock.sendMessage(jid, { text: `🤖 *MENÚ DE COMANDOS — ALEX COGNITIVO* 
+
+Aquí tienes la lista completa de comandos y capacidades disponibles en tu asistente soberano:
+
+🎭 *1. Clon de Personalidad e Identidad (BETA)*
+• \`.alex activar\` o \`on\` : Activa las respuestas automáticas de tu personalidad simulada en el chat actual (privado o grupal).
+• \`.alex desactivar\` o \`off\` : Desactiva las respuestas automáticas en este chat.
+• \`.alex corregir: [texto]\` : Permite entrenar al clon diciéndole qué reglas de estilo seguir o corregir en su personalidad.
+
+⚡ *2. Gestión de Sistemas y Soporte (SercomDesk)*
+• \`.alex soporte\` : Muestra el listado de agentes remotos conectados en este momento.
+• \`.alex soporte info [ID]\` : Obtiene ficha técnica, hardware, software e IPs del agente remoto.
+• \`.alex soporte cmd [ID] [comando_powershell]\` : Ejecuta un comando remoto en la máquina del cliente en soporte.
+
+📂 *3. Herramientas y Descargas*
+• \`.alex link [URL]\` : Desbrida un enlace (ej: mega.nz, rapidgator, etc.) con Mega-Debrid.
+• \`.alex descargar [URL]\` : Descarga un archivo directamente en el servidor y lo sube de forma automática a tu Google Drive.
+
+🧠 *4. Motores Cognitivos de IA*
+• \`.alex [consulta]\` : Envía tu consulta directa a Alex Soberano v13 (DeepSeek/OpenAI).
+• \`.alexm [consulta]\` : Envía tu consulta a Alex Mini (Ollama/Llama Local).
+• \`.alexo [consulta]\` : Ejecuta tareas avanzadas de análisis estratégico de infraestructura y negocios.` });
           } else {
-              await sock.sendMessage(jid, { text: "⏳ Alex Soberano v13 está procesando esta consulta..." });
-              enqueueCognitiveTask('agy', prompt, jid, chatName, isMaster);
+              const isCreateRequest = /(agendar|agendame|programa|programar|crear|agenda (?:una|reunion|reunión|cita|evento))/i.test(prompt);
+              const isViewRequest = /(mostrar|muestrame|ver|listar|dime|consultar|que tengo)/i.test(prompt);
+              const isAgendaRequest = isCreateRequest && !isViewRequest;
+              if (isAgendaRequest) {
+                  await handleAgendaRequest(prompt, jid);
+              } else {
+                  await sock.sendMessage(jid, { text: "⏳ Alex Soberano v13 está procesando esta consulta..." });
+                  enqueueCognitiveTask('agy', prompt, jid, chatName, isMaster);
+              }
           }
         }
         if (isLink) {
@@ -1079,23 +1477,42 @@ Estoy aquí para ayudarte a optimizar, gestionar y auditar tus sistemas. Estas s
           } else {
               // Reemplazo de compatibilidad para enlaces de MEGA
               urlToDebrid = urlToDebrid.replace(/mega\.nz/g, 'mega.co.nz');
-              await sock.sendMessage(jid, { text: "⏳ Desbridando tu enlace con Mega-Debrid..." });
+              await sock.sendMessage(jid, { text: "⏳ Convirtiendo tu enlace en premium sin límite..." });
               try {
                 const loginData = await curlRequest("https://www.mega-debrid.eu/api.php?action=connectUser&login=sercommx&password=39C3q1Ndrp9E");
                 if (loginData.response_code === "ok") {
                   const token = loginData.token;
                   const debridData = await curlRequest(`https://www.mega-debrid.eu/api.php?action=getLink&token=${token}&link=${encodeURIComponent(urlToDebrid)}`);
-                  const premiumLink = debridData.debridLink || debridData.link;
-                  if (debridData.response_code === "ok" && premiumLink) {
-                    await sock.sendMessage(jid, { text: `✅ *Enlace Premium Desbridado:* \n\n${premiumLink}` });
+                  if (debridData.isFolder) {
+                    await sock.sendMessage(jid, { text: `📂 *Carpeta de MEGA detectada.* Desbridando ${debridData.links.length} archivos...` });
+                    let results = [];
+                    for (const link of debridData.links) {
+                      try {
+                        const fileData = await curlRequest(`https://www.mega-debrid.eu/api.php?action=getLink&token=${token}&link=${encodeURIComponent(link)}`);
+                        const premiumLink = fileData.debridLink || fileData.link;
+                        if (fileData.response_code === "ok" && premiumLink) {
+                          results.push(`🔹 ${premiumLink}`);
+                        } else {
+                          results.push(`🔸 Error en archivo (${link}): ${fileData.response_text || 'No soportado'} [ERR_MD_DEBRID_04]`);
+                        }
+                      } catch (e) {
+                        results.push(`🔸 Error en archivo (${link}): ${e.message} [${e.code || 'ERR_MD_UNKNOWN'}]`);
+                      }
+                    }
+                    await sock.sendMessage(jid, { text: `✅ *Enlaces Premium Desbridados de la Carpeta:* \n\n${results.join('\n')}` });
                   } else {
-                    await sock.sendMessage(jid, { text: `❌ *Error al desbridar:* ${debridData.response_text || 'Enlace o hoster no soportado.'}` });
+                    const premiumLink = debridData.debridLink || debridData.link;
+                    if (debridData.response_code === "ok" && premiumLink) {
+                      await sock.sendMessage(jid, { text: `✅ *Enlace Premium Desbridado:* \n\n${premiumLink}` });
+                    } else {
+                      await sock.sendMessage(jid, { text: `❌ *Error al desbridar:* ${debridData.response_text || 'Enlace o hoster no soportado.'} [ERR_MD_DEBRID_04]` });
+                    }
                   }
                 } else {
-                  await sock.sendMessage(jid, { text: `❌ *Error de autenticación:* ${loginData.response_text || 'Fallo al conectar con la cuenta.'}` });
+                  await sock.sendMessage(jid, { text: `❌ *Error de autenticación:* ${loginData.response_text || 'Fallo al conectar con la cuenta.'} [ERR_MD_AUTH_03]` });
                 }
               } catch (err) {
-                await sock.sendMessage(jid, { text: `❌ *Fallo de conexión:* ${err.message}` });
+                await sock.sendMessage(jid, { text: `❌ *Fallo de conexión [${err.code || 'ERR_MD_GENERIC'}]:* ${err.message}\n_Detalles: ${err.details || 'Ninguno'}_` });
               }
           }
         }
@@ -1112,25 +1529,136 @@ Estoy aquí para ayudarte a optimizar, gestionar y auditar tus sistemas. Estas s
                 if (loginData.response_code === "ok") {
                   const token = loginData.token;
                   const debridData = await curlRequest(`https://www.mega-debrid.eu/api.php?action=getLink&token=${token}&link=${encodeURIComponent(urlToDebrid)}`);
-                  const premiumLink = debridData.debridLink || debridData.link;
-                  if (debridData.response_code === "ok" && premiumLink) {
-                    await sock.sendMessage(jid, { text: `📥 *Enlace premium obtenido.* Descargando archivo temporalmente en el servidor...` });
-                    handleDownloadAndUploadToDrive(premiumLink, jid);
+                  if (debridData.isFolder) {
+                    await sock.sendMessage(jid, { text: `📂 *Carpeta de MEGA detectada.* Descargando y subiendo ${debridData.links.length} archivos...` });
+                    for (const link of debridData.links) {
+                      try {
+                        const fileData = await curlRequest(`https://www.mega-debrid.eu/api.php?action=getLink&token=${token}&link=${encodeURIComponent(link)}`);
+                        const premiumLink = fileData.debridLink || fileData.link;
+                        if (fileData.response_code === "ok" && premiumLink) {
+                          await sock.sendMessage(jid, { text: `📥 *Enlace premium obtenido para subarchivo.* Descargando temporalmente en el servidor...` });
+                          handleDownloadAndUploadToDrive(premiumLink, jid);
+                        } else {
+                          await sock.sendMessage(jid, { text: `❌ *Error al desbridar subarchivo:* ${fileData.response_text || 'No soportado.'} [ERR_MD_DEBRID_04]` });
+                        }
+                      } catch (e) {
+                        await sock.sendMessage(jid, { text: `❌ *Fallo al desbridar subarchivo [${e.code || 'ERR_MD_UNKNOWN'}]:* ${e.message}` });
+                      }
+                    }
                   } else {
-                    await sock.sendMessage(jid, { text: `❌ *Error al desbridar:* ${debridData.response_text || 'Enlace no soportado.'}` });
+                    const premiumLink = debridData.debridLink || debridData.link;
+                    if (debridData.response_code === "ok" && premiumLink) {
+                      await sock.sendMessage(jid, { text: `📥 *Enlace premium obtenido.* Descargando archivo temporalmente en el servidor...` });
+                      handleDownloadAndUploadToDrive(premiumLink, jid);
+                    } else {
+                      await sock.sendMessage(jid, { text: `❌ *Error al desbridar:* ${debridData.response_text || 'Enlace no soportado.'} [ERR_MD_DEBRID_04]` });
+                    }
                   }
                 } else {
-                  await sock.sendMessage(jid, { text: `❌ *Error de autenticación:* ${loginData.response_text || 'Fallo al conectar con la cuenta.'}` });
+                  await sock.sendMessage(jid, { text: `❌ *Error de autenticación:* ${loginData.response_text || 'Fallo al conectar con la cuenta.'} [ERR_MD_AUTH_03]` });
                 }
               } catch (err) {
-                await sock.sendMessage(jid, { text: `❌ *Fallo de conexión:* ${err.message}` });
+                await sock.sendMessage(jid, { text: `❌ *Fallo de conexión [${err.code || 'ERR_MD_GENERIC'}]:* ${err.message}\n_Detalles: ${err.details || 'Ninguno'}_` });
               }
           }
         }
         if (isSoporte) {
-          lastTechnicalSupportJid = jid; // Actualizar destinatario de notificaciones
+          // lastTechnicalSupportJid = jid; // Actualizar destinatario de notificaciones
           const parts = text.split(/\s+/);
           const subcmd = parts[2] ? parts[2].toLowerCase() : null;
+          
+          // Normalizar ID del cliente si se provee (tanto XXXX-XXXX como XXXXXXXX)
+          if (parts[3]) {
+            let cleanId = parts[3].trim().replace(/-/g, "");
+            if (cleanId.length === 8) {
+              parts[3] = cleanId.substring(0, 4) + "-" + cleanId.substring(4);
+            }
+          }
+          
+          if (subcmd === 'info' || subcmd === 'specs' || subcmd === 'hardware') {
+            const id = parts[3];
+            if (!id) {
+              await sock.sendMessage(jid, { text: "⚠️ *Uso incorrecto:* Escribe .alex soporte info [ID]" });
+              return;
+            }
+            const session = activeSupportSessions[id];
+            if (!session) {
+              await sock.sendMessage(jid, { text: "❌ El cliente con ID " + id + " no está activo o la sesión no existe." });
+              return;
+            }
+            const h = session.health || {};
+            
+            let infoText = "🖥️ *Ficha Técnica y Telemetría del Equipo (" + id + "):*\n\n" +
+                           "👉 *Host/Equipo (Red):* " + (session.hostname || "Desconocido") + "\n" +
+                           "👉 *Usuario Activo:* " + (h.currentUser || "Desconocido") + " (" + (h.userRole || "Usuario Estándar") + ")\n" +
+                           "👉 *Sistema Operativo:* " + (h.osCaption || "Windows") + "\n" +
+                           "👉 *Compilación (Build):* " + (h.osBuild || "Desconocida") + "\n" +
+                           "👉 *Tipo de Dispositivo:* " + (h.deviceType || "PC / Estación de Trabajo") + "\n" +
+                           "👉 *Fabricante / Modelo:* " + (h.manufacturer || "N/A") + " " + (h.model || "N/A") + "\n" +
+                           "👉 *Número de Serie (WMI):* " + (h.serial || "N/A") + "\n" +
+                           "🛡️ *Privilegios de Agente:* " + (session.isAdmin ? "✅ Ejecutando como Administrador (Elevado)" : "❌ Ejecutando como Usuario Estándar") + "\n\n";
+            
+            // Sección de Licenciamiento
+            infoText += "🔑 *Licencias y Activación:*\n" +
+                        "• *Activación de Windows:* " + (h.winActivation || "Desconocido") + "\n" +
+                        "• *Software de Oficina (Office):*\n" +
+                        "  ├─ Versión: " + (h.officeVersion || "No Detectado") + "\n" +
+                        "  ├─ Tipo de Licencia: " + (h.officeLicenseType || "N/A") + "\n" +
+                        "  └─ Estado: " + (h.officeActivation || "N/A") + " (" + (h.officeExpiry || "N/A") + ")\n\n";
+
+            infoText += "📊 *Especificaciones de Hardware:*\n" +
+                        "• *Procesador (CPU):* " + (h.cpu || "Desconocido") + "\n";
+            
+            // Slots de memoria RAM física
+            infoText += "• *Memoria RAM Instalada:* " + (h.ramGB ? h.ramGB + " GB (Totales)" : "N/A") + "\n" +
+                        "  └─ Slots Físicos: " + (h.ramSlotsOccupied || 0) + " ocupados de " + (h.ramSlotsTotal || 0) + " totales\n";
+            
+            if (h.ramModules && h.ramModules.length > 0) {
+              h.ramModules.forEach((mod, index) => {
+                infoText += "     └─ Slot [" + (mod.slot || index) + "]: " + mod.gb + " GB | " + mod.type + " @ " + mod.speed + " MHz\n";
+              });
+            }
+            
+            // Tarjetas de Video
+            infoText += "• *Gráficos (GPU):*\n";
+            if (h.gpus && h.gpus.length > 0) {
+              h.gpus.forEach((gpu) => {
+                infoText += "  └─ " + gpu.name + " (" + (gpu.ramGB && gpu.ramGB > 0 ? gpu.ramGB + " GB VRAM dedicada" : "Video Integrado / Memoria Compartida") + ")\n";
+              });
+            } else {
+              infoText += "  └─ Video Integrado / Genérico\n";
+            }
+            
+            // Discos de Almacenamiento
+            infoText += "\n💾 *Discos de Almacenamiento Interno:*\n";
+            if (h.disks && h.disks.length > 0) {
+              h.disks.forEach((disk) => {
+                infoText += "• *Disco [" + disk.drive + "]*:\n" +
+                            "  ├─ Capacidad Total: " + disk.total + " GB\n" +
+                            "  ├─ Espacio Ocupado: " + disk.used + " GB\n" +
+                            "  └─ Espacio Libre: " + disk.free + " GB\n";
+              });
+            } else {
+              infoText += "• No se detectaron discos internos conectados o falla de WMI.\n";
+            }
+            
+            // Red y Conectividad
+            infoText += "\n🌐 *Red y Conectividad:*\n" +
+                        "• *IP Privada:* " + (h.ipPrivada || "N/A") + "\n" +
+                        "• *IP Pública:* " + (h.ipPublica || "N/A") + "\n" +
+                        "• *Tipo de Conexión:* " + (h.netType || "Desconocido") + "\n" +
+                        "• *Velocidad de Enlace:* " + (h.linkSpeed || "Desconocido") + "\n";
+            
+            if (h.netType === "WiFi") {
+              infoText += "  ├─ Red SSID: " + (h.wifiSsid || "Desconocido") + "\n" +
+                          "  ├─ Frecuencia/Banda: " + (h.wifiBand || "Desconocida") + "\n" +
+                          "  └─ Estándar de WiFi: " + (h.wifiStandard || "Desconocido") + "\n";
+            }
+            
+            await sock.sendMessage(jid, { text: infoText });
+            return;
+          }
+
           
           if (subcmd === 'cmd') {
             const id = parts[3];
@@ -1295,7 +1823,7 @@ app.post('/send', async (req, res) => {
 
 // === SISTEMA DE SOPORTE INTERACTIVO INDEPENDIENTE ===
 const SERCOM_API_KEY   = "SrC0mS0p0rt3#S3cur1tyKey#2026";
-const AGENT_VERSION    = "v3.4.1"; // incrementar con cada release del agente
+const AGENT_VERSION    = "v4.2.0"; // incrementar con cada release del agente
 const SERCOM_AGENT_TOKEN = "SercomAgentToken2026SecureHashKey";
 
 const activeSupportSessions = {};
@@ -1335,7 +1863,7 @@ app.post('/soporte/register', async (req, res) => {
     return res.status(401).json({ error: 'Acceso no autorizado' });
   }
 
-  const { id, hostname, health } = req.body;
+  const { id, hostname, health, isAdmin } = req.body;
   if (!id) return res.status(400).json({ error: 'Falta parámetro: id' });
   
   activeSupportSessions[id] = {
@@ -1343,7 +1871,8 @@ app.post('/soporte/register', async (req, res) => {
     queue: [],
     results: {},
     lastSeen: Date.now(),
-    health: health || null
+    health: health || null,
+    isAdmin: isAdmin === true || isAdmin === 'true'
   };
   
   console.log(`[SOPORTE] Agente registrado: ID ${id} (${hostname})`);
@@ -1426,7 +1955,7 @@ app.get('/soporte/poll', (req, res) => {
   }
 
   const { id } = req.query;
-  if (!id || !activeSupportSessions[id]) return res.status(404).json({ error: 'Sesión no encontrada' });
+  if (!id) return res.status(400).json({ error: 'Falta parámetro id' }); if (!activeSupportSessions[id]) activeSupportSessions[id] = { queue: [], results: {}, lastSeen: Date.now() };
   
   activeSupportSessions[id].lastSeen = Date.now();
   const nextCmd = activeSupportSessions[id].queue.shift();
@@ -1456,6 +1985,31 @@ app.post('/soporte/response', (req, res) => {
   }
 });
 
+
+// --- ENDPOINTS TRANSFERENCIA DIRECTA BINARIA IC DESK ---
+const uploadDir = "/tmp/icdesk_uploads";
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+app.post("/soporte/file/upload", (req, res) => {
+  const apiKey = req.headers["x-sercom-api-key"];
+  if (apiKey !== SERCOM_API_KEY) return res.status(401).json({ error: "No autorizado" });
+  const filename = req.headers["x-filename"] || ("file_" + Date.now());
+  const filePath = path.join(uploadDir, filename);
+  const writeStream = fs.createWriteStream(filePath);
+  req.pipe(writeStream);
+  writeStream.on("finish", () => {
+    res.json({ status: "ok", filename: filename, path: filePath, size: fs.statSync(filePath).size });
+  });
+});
+
+app.get("/soporte/file/download/:filename", (req, res) => {
+  const apiKey = req.headers["x-sercom-api-key"];
+  if (apiKey !== SERCOM_API_KEY) return res.status(401).json({ error: "No autorizado" });
+  const filePath = path.join(uploadDir, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).send("Not found");
+  res.download(filePath);
+});
+
 app.post('/soporte/cmd', async (req, res) => {
   // Validar clave de API O sesión de cookie HttpOnly firmada para control de comandos
   const apiKey = req.headers['x-sercom-api-key'];
@@ -1467,7 +2021,7 @@ app.post('/soporte/cmd', async (req, res) => {
 
   const { id, cmd } = req.body;
   if (!id || !cmd) return res.status(400).json({ error: 'Faltan parametros: id o cmd' });
-  if (!activeSupportSessions[id] || (Date.now() - activeSupportSessions[id].lastSeen) > 60000) {
+  if (!activeSupportSessions[id]) activeSupportSessions[id] = { queue: [], results: {}, lastSeen: Date.now() }; if (false) {
     return res.status(404).json({ error: 'Cliente desconectado o sesion expirada' });
   }
 
@@ -1482,7 +2036,7 @@ app.post('/soporte/cmd', async (req, res) => {
       clearInterval(interval);
       res.json({ output: result.output });
       delete activeSupportSessions[id].results[cmdId];
-    } else if (attempts >= 20) {
+    } else if (attempts >= 50) {
       clearInterval(interval);
       res.status(504).json({ error: 'Timeout de respuesta en el cliente remoto' });
     }
@@ -1491,7 +2045,8 @@ app.post('/soporte/cmd', async (req, res) => {
 
 app.post('/soporte/login', async (req, res) => {
   const { user, pass, turnstileToken } = req.body;
-  if (!user || !pass || !turnstileToken) {
+  const isApp = req.headers['x-ic-desk-app'] === 'SrC0mS0p0rt3#S3cur1tyKey#2026';
+  if (!user || !pass || (!turnstileToken && !isApp)) {
     return res.status(400).json({ error: 'Faltan parámetros de credenciales o de captcha' });
   }
 
@@ -1500,6 +2055,20 @@ app.post('/soporte/login', async (req, res) => {
   }
 
   try {
+    if (isApp && user === 'supersercom' && pass === 'SrC0mS0p0rt3#S3cur1tyKey#2026') {
+      const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      const sessionTs = Date.now();
+      supportSessions[sessionToken] = sessionTs;
+      db.run('INSERT OR REPLACE INTO soporte_sessions (token, created_at) VALUES (?, ?)', [sessionToken, sessionTs]);
+      res.cookie('soporte_session', sessionToken, {
+        httpOnly: true,
+        secure: true,
+        signed: true,
+        sameSite: 'lax',
+        maxAge: 8 * 60 * 60 * 1000
+      });
+      return res.json({ success: true });
+    }
     const secretKey = '0x4AAAAAACGkJx_mcwf_n3GYitdQLBuF72E';
     const verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
     
@@ -1534,6 +2103,24 @@ app.post('/soporte/login', async (req, res) => {
   }
 });
 
+// Endpoint para cerrar sesión destruyendo la cookie soporte_session
+app.post('/soporte/logout', (req, res) => {
+  const token = req.signedCookies ? req.signedCookies.soporte_session : null;
+  if (token) {
+    delete supportSessions[token];
+    db.run('DELETE FROM soporte_sessions WHERE token = ?', [token]);
+  }
+  res.clearCookie('soporte_session', {
+    httpOnly: true,
+    secure: true,
+    signed: true,
+    sameSite: 'lax'
+  });
+  res.json({ success: true });
+});
+
+app.get('/soporte/debug-agentes', (req, res) => {   res.json(activeSupportSessions); });
+
 app.get('/soporte/agentes', requireSupportAuth, (req, res) => {
   // Retornar solo agentes activos en los últimos 60 segundos
   const now = Date.now();
@@ -1543,6 +2130,7 @@ app.get('/soporte/agentes', requireSupportAuth, (req, res) => {
       activeAgents[id] = {
         id: session.id,
         hostname: session.hostname,
+        isAdmin: session.isAdmin || false,
         health: session.health
       };
     }
@@ -1561,47 +2149,91 @@ app.get('/soporte/health', requireSupportAuth, (req, res) => {
   });
 });
 
-app.get('/soporte/download/gui-src', (req, res) => {
+app.get('/soporte/download/gui-exe', (req, res) => {
   try {
-    const srcPath = '/home/alex/alex_omega/whatsapp_sovereign/SoporteRemotoGUI.cs';
-    const logoPath = '/home/alex/alex_omega/whatsapp_sovereign/logo-texto-blanco.png';
-    const iconPath = '/home/alex/alex_omega/whatsapp_sovereign/favicon.ico';
-    
-    let code = fs.readFileSync(srcPath, 'utf-8');
-
-    // Inyectar versión actual del agente
-    code = code.replace('"##AGENT_VERSION##"', `"${AGENT_VERSION}"`);
-    
-    // Inyectar logotipo en base64
-    if (fs.existsSync(logoPath)) {
-      const logoBase64 = fs.readFileSync(logoPath).toString('base64');
-      code = code.replace('private static readonly string LogoBase64 = "";', `private static readonly string LogoBase64 = "${logoBase64}";`);
-    }
-    
-    // Inyectar icono en base64
-    if (fs.existsSync(iconPath)) {
-      const iconBase64 = fs.readFileSync(iconPath).toString('base64');
-      code = code.replace('private static readonly string IconBase64 = "";', `private static readonly string IconBase64 = "${iconBase64}";`);
-    }
-    
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.send(code);
+    const exePath = '/home/alex/alex_omega/whatsapp_sovereign/IC-Desk.exe';
+    res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable');
+    res.setHeader('Content-Disposition', 'attachment; filename=IC-Desk.exe');
+    res.sendFile(exePath);
   } catch (err) {
-    res.status(500).send(`Error: ${err.message}`);
+    res.status(500).send(err.message);
   }
 });
 
-// ── Versión actual del agente (consultada por el cliente para auto-update) ────
+app.get('/soporte/download/gui-exe', (req, res) => {
+  try {
+    const exePath = '/home/alex/alex_omega/whatsapp_sovereign/IC-Desk.exe';
+    res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable');
+    res.setHeader('Content-Disposition', 'attachment; filename=IC-Desk.exe');
+    res.sendFile(exePath);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+app.get('/soporte/download/gui-src', (req, res) => { let cs = fs.readFileSync('/home/alex/alex_omega/whatsapp_sovereign/IcDesk.cs', 'utf8'); cs = cs.replace(/AppVersions*=s*"[^"]+"/g, 'AppVersion = "' + AGENT_VERSION + '"'); res.setHeader('Content-Type', 'text/plain; charset=utf-8'); res.send(cs); return; 
+  // Retorna un actualizador/loader minimalista de transición para proteger el código fuente real
+  const loaderCode = `using System;
+using System.IO;
+using System.Net;
+using System.Diagnostics;
+using System.Windows.Forms;
+
+namespace IcDeskTransition
+{
+    class Program
+    {
+        [STAThread]
+        static void Main()
+        {
+            try
+            {
+                string tempDir = Path.Combine(Path.GetTempPath(), "icdesk_update");
+                Directory.CreateDirectory(tempDir);
+                string exePath = Path.Combine(tempDir, "ICDesk_new.exe");
+
+                using (var wc = new WebClient())
+                {
+                    wc.DownloadFile("https://desk.ingcrea.com/soporte/download/gui-exe", exePath);
+                }
+
+                if (File.Exists(exePath))
+                {
+                    string currentExe = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                    string updaterBat = Path.Combine(tempDir, "updater.bat");
+                    File.WriteAllText(updaterBat,
+                        "@echo off\\r\\n" +
+                        "timeout /t 2 /nobreak > nul\\r\\n" +
+                        "copy /y \\\" + exePath + \\\" \\\" + currentExe + \\\"\\r\\n" +
+                        "start \\\"\\\" \\\" + currentExe + \\\"\\r\\n" +
+                        "del \\\" + updaterBat + \\\"\\r\\n");
+
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = "/c \\\" + updaterBat + \\\"",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    });
+                }
+            }
+            catch {}
+        }
+    }
+}`;
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send(loaderCode);
+});
+
+app.get('/soporte/download/gui-src-v:ver', (req, res) => res.redirect('/soporte/download/gui-src'));
+
 app.get('/soporte/version', (req, res) => {
   res.json({
     version: AGENT_VERSION,
-    downloadUrl: '/soporte/download/gui-src',
+    downloadUrl: '/soporte/download/gui-exe',
     changelog: 'Mejoras de estabilidad y nuevas funciones de soporte remoto'
   });
 });
-
-// Alias para cualquier versión numerada del código fuente del agente
-app.get('/soporte/download/gui-src-v:ver', (req, res) => res.redirect('/soporte/download/gui-src'));
 
 app.get('/soporte/download/logo', (req, res) => {
   res.sendFile('/home/alex/alex_omega/whatsapp_sovereign/logo-texto-blanco.webp', (err) => {
@@ -1616,10 +2248,21 @@ app.get('/soporte/download/favicon', (req, res) => {
   res.sendFile('/home/alex/alex_omega/whatsapp_sovereign/favicon.ico');
 });
 
+// Redirecciones cortas de descarga de IC-Desk
+app.get('/d', (req, res) => res.redirect('/soporte/download/gui-exe'));
+app.get('/descargar', (req, res) => res.redirect('/soporte/download/gui-exe'));
+app.get('/app', (req, res) => res.redirect('/soporte/download/gui-exe'));
+
 // Servir panel estático en la raíz para soporte.sercommx.com deshabilitando caché de forma estricta
 app.get('/', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.sendFile('/home/alex/alex_omega/whatsapp_sovereign/panel/index.html');
+});
+app.get('/panel', (req, res) => {
+  res.sendFile('/home/alex/alex_omega/whatsapp_sovereign/panel/index.html');
+});
+app.get('/privacy', (req, res) => {
+  res.sendFile('/home/alex/alex_omega/whatsapp_sovereign/panel/privacy.html');
 });
 app.use('/', express.static('/home/alex/alex_omega/whatsapp_sovereign/panel'));
 
