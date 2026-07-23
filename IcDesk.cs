@@ -142,7 +142,7 @@ namespace ICDesk
         {
             // ── Ventana ───────────────────────────────────────────────────────
             this.Text            = "IC-Desk — Soporte Remoto";
-            this.Size            = new Size(420, 360);
+            this.Size            = new Size(420, 390);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox     = false;
             this.StartPosition   = FormStartPosition.CenterScreen;
@@ -292,7 +292,7 @@ namespace ICDesk
                 Text      = AppVersion,
                 Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(99, 179, 237),
-                Bounds    = new Rectangle(270, 292, 120, 22),
+                Bounds    = new Rectangle(270, 320, 125, 22),
                 AutoSize  = false,
                 TextAlign = ContentAlignment.MiddleRight
             };
