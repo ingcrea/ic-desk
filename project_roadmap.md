@@ -1,6 +1,6 @@
-# Planificación y Proyección Futura - SercomDesk
+# Planificación y Proyección Futura - IC Desk
 
-Este documento establece la ruta de desarrollo (Roadmap) para la evolución del agente de soporte de Sercom Mx hacia una herramienta independiente de control remoto ("SercomDesk"), eliminando la necesidad de AnyDesk o RustDesk.
+Este documento establece la ruta de desarrollo (Roadmap) para la evolución del agente de soporte de Sercom Mx hacia una herramienta independiente de control remoto ("IC Desk"), eliminando la necesidad de AnyDesk o RustDesk.
 
 ---
 

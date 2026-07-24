@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 
 // =============================================================================
-//  SercomDesk - Agente de Soporte Remoto para Windows  v3.0.0
+//  IC Desk - Agente de Soporte Remoto para Windows  v3.0.0
 //  Compilar: csc.exe /target:winexe /out:SercomSoporte.exe /reference:System.Net.Http.dll SoporteRemotoGUI.cs
 //  DISEÑO: El cliente NUNCA necesita presionar nada. Solo abre el programa y comparte su ID.
 // =============================================================================

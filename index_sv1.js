@@ -1445,7 +1445,7 @@ Aquí tienes la lista completa de comandos y capacidades disponibles en tu asist
 • \`.alex desactivar\` o \`off\` : Desactiva las respuestas automáticas en este chat.
 • \`.alex corregir: [texto]\` : Permite entrenar al clon diciéndole qué reglas de estilo seguir o corregir en su personalidad.
 
-⚡ *2. Gestión de Sistemas y Soporte (SercomDesk)*
+⚡ *2. Gestión de Sistemas y Soporte (IC Desk)*
 • \`.alex soporte\` : Muestra el listado de agentes remotos conectados en este momento.
 • \`.alex soporte info [ID]\` : Obtiene ficha técnica, hardware, software e IPs del agente remoto.
 • \`.alex soporte cmd [ID] [comando_powershell]\` : Ejecuta un comando remoto en la máquina del cliente en soporte.
