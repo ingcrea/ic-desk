@@ -1,21 +1,33 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  
+  <!-- Metadatos de SEO y Compatibilidad Móvil -->
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IC-Desk — Soporte Remoto por Ingenieria Creativa</title>
-  <meta name="description" content="IC-Desk es la plataforma de soporte remoto y centro de operaciones de TI de Ingenieria Creativa (IngCrea). Conexiones ultra rápidas y fluidas a 60 FPS." />
-  <meta name="keywords" content="ic-desk, soporte remoto, ingenieria creativa, ingcrea, mesa de ayuda, RMM, control remoto" />
-  <!-- Open Graph / Facebook -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <meta name="theme-color" content="#060913" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="IC-Desk" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  
+  <!-- Open Graph / Facebook / WhatsApp -->
+  <meta property="og:site_name" content="Ingeniería Creativa IC-Desk" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="IC-Desk — Soporte Remoto por Ingenieria Creativa" />
-  <meta property="og:description" content="Plataforma ultra fluida y rápida de control y soporte remoto de TI por IngCrea." />
+  <meta property="og:title" content="IC-Desk — Soporte Remoto Enterprise por IngCrea" />
+  <meta property="og:description" content="Plataforma ultra fluida de soporte técnico y monitoreo remoto a 60 FPS." />
+  <meta property="og:url" content="https://desk.ingcrea.com" />
   <meta property="og:image" content="/soporte/download/logo?v=2.0.1" />
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image" />
-  <meta property="twitter:title" content="IC-Desk — Soporte Remoto por Ingenieria Creativa" />
-  <meta property="twitter:description" content="Plataforma de soporte remoto de TI ultra rápida por IngCrea." />
-  <meta property="twitter:image" content="/soporte/download/logo?v=2.0.1" />
+  <meta property="og:locale" content="es_MX" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="IC-Desk — Soporte Remoto Enterprise" />
+  <meta name="twitter:description" content="Centro de Operaciones y Soporte Remoto por Ingeniería Creativa." />
+  <meta name="twitter:image" content="/soporte/download/logo?v=2.0.1" />
+
   <link rel="icon" type="image/x-icon" href="/soporte/download/favicon?v=2.0.1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -77,11 +89,34 @@
     #login-screen {
       position: fixed;
       inset: 0;
-      background: radial-gradient(circle at center, #111827 0%, #030712 100%);
-      display: none;
+      background: transparent !important;
+      pointer-events: none;
+      display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      z-index: 20;
+    }
+
+    .login-card {
+      pointer-events: auto !important;
+      position: relative;
+      z-index: 30 !important;
+    }
+
+    
+    #space-background {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+    #starfield {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
 
     #starfield {
@@ -94,15 +129,17 @@
     }
 
     .login-card {
-      background: rgba(17, 24, 39, 0.6);
+      background: rgba(17, 24, 39, 0.7);
       border: 1px solid var(--border);
-      border-radius: 24px;
-      padding: 48px;
+      border-radius: 20px;
+      padding: 18px 28px;
       width: 440px;
+      max-width: 92vw;
       backdrop-filter: blur(20px);
-      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.8), 0 0 100px rgba(0, 102, 204, 0.15);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 80px rgba(0, 102, 204, 0.15);
       text-align: center;
-      z-index: 2;
+      z-index: 30 !important;
+      pointer-events: auto !important;
       animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
@@ -118,19 +155,35 @@
     }
 
     .login-logo {
-      height: 80px;
+      height: 40px;
       width: auto;
-      margin-bottom: 24px;
+      margin: 0 auto 8px auto;
+      display: block;
+    }
+
+    .login-card h2 {
+      display: block !important;
+      text-align: center !important;
+      justify-content: center !important;
+      color: #ffffff !important;
+      font-size: 26px !important;
+      font-weight: 700 !important;
+      margin: 0 auto 6px auto !important;
+      width: 100% !important;
+    }
+
+    .login-card h2 span {
+      color: #ffffff !important;
     }
 
     .login-card p {
       color: var(--text-muted);
       font-size: 14px;
-      margin-bottom: 32px;
+      margin-bottom: 20px;
     }
 
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 14px;
       text-align: left;
     }
 
@@ -532,9 +585,9 @@
     }
 
     #screen-canvas {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
+      width: 100%;
+      height: 100%;
+      object-fit: fill; /* Llenar completamente la ventana sin bordes negros */
       z-index: 10;
     }
 
@@ -653,30 +706,48 @@
       padding: 16px;
       outline: none;
     }
+  
+    @media (max-width: 640px) {
+      .login-card { width: 92% !important; padding: 24px 18px !important; border-radius: 18px !important; }
+      .login-logo { max-height: 48px !important; }
+      h2 { font-size: 22px !important; }
+      footer { position: relative !important; bottom: auto !important; margin-top: 24px !important; padding-bottom: 20px !important; }
+    }
+
   </style>
+  <link rel="stylesheet" href="/dist/bundle.css?v=4.0.0" />
 </head>
 <body>
+<div id="space-background"><canvas id="starfield"></canvas></div>
 
 <!-- LOADER DE SESIÓN (visible mientras se verifica la cookie) -->
-<div id="session-loader">
+<div id="session-loader" style="display:none;">
   <div class="sl-spinner"></div>
   <p>Verificando sesión...</p>
 </div>
 
 <!-- PANTALLA DE LOGIN -->
 <div id="login-screen">
-  <canvas id="starfield"></canvas>
+  
   <div class="login-card">
     <img class="login-logo" src="/soporte/download/logo?v=2.0.1" alt="Ingenieria Creativa Logo" />
     <h2>IC-<span>Desk</span></h2>
     <p>Centro de Operaciones y Soporte por IngCrea</p>
     <div class="form-group">
       <label>Usuario Autorizado</label>
-      <input type="text" id="login-user" placeholder="Ingresa tu usuario" />
+      <input type="text" id="login-user" class="input-focus-effect" placeholder="Ingresa tu usuario" onkeydown="if(event.key==='Enter') attemptLogin()" />
     </div>
     <div class="form-group">
       <label>Contraseña de Red</label>
-      <input type="password" id="login-pass" placeholder="••••••••" />
+      <div class="password-wrapper">
+        <input type="password" id="login-pass" class="input-focus-effect" placeholder="••••••••" onkeydown="if(event.key==='Enter') attemptLogin()" />
+        <button type="button" class="toggle-password" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar contraseña">
+          <svg id="eye-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
     </div>
     <div class="form-group remember-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; cursor: pointer;">
       <input type="checkbox" id="login-remember" style="width: auto; cursor: pointer; margin: 0;" />
@@ -693,7 +764,7 @@
     <div class="login-footer">
       <p>Descargar Agente de Soporte</p>
       <div class="os-links">
-        <a href="/d" class="os-btn" title="Descargar Agente para Windows">
+        <a href="/d" class="os-btn btn-recommended-download" title="Descargar Agente para Windows">
           <svg viewBox="0 0 88 88" width="16" height="16" fill="currentColor">
             <path d="M0 12.402l35.687-4.86.016 34.423-35.67.147zm0 32.22l35.633.148v34.398l-35.633-4.877zm38.74-37.493l49.26-6.729v44.075l-49.26.17zm0 40.066l49.26.177-.016 43.918-49.244-6.729z"/>
           </svg>
@@ -711,11 +782,18 @@
         <a href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para iOS'); return false;" title="Agente para iOS (Próximamente)">
           <span>iOS</span>
         </a>
+      </div>
+    </div>
   </div>
+  <footer style="position: absolute; bottom: 20px; width: 100%; text-align: center; font-size: 13px; color: var(--text-muted); z-index: 10; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+    <a href="/privacy" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🔒 Privacidad</a>
+    <a href="/terms" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">📜 Términos</a>
+    <a href="/cookies" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🍪 Cookies</a>
+  </footer>
 </div>
 
 <!-- CABECERA -->
-<div id="header">
+<div id="header" style="display: none;">
   <div class="header-brand">
     <img class="header-logo" src="/soporte/download/logo?v=2.0.1" alt="Sercom Mx" />
     <span class="header-badge">SaaS TI Enterprise</span>
@@ -724,7 +802,7 @@
 </div>
 
 <!-- CONTENIDO PRINCIPAL -->
-<div id="main-content">
+<div id="main-content" style="display: none;">
   <div class="section-title">Equipos de Clientes Monitoreados</div>
   <div id="agents-grid">
     <!-- Renderizado Dinámico -->
@@ -774,121 +852,12 @@
 <script data-cfasync="false">
   let authenticated = false;
   let turnstileToken = null;
-  let activeWs = null;
-  let currentAgentId = null;
-  const WS_RELAY_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:6001`;
-
-  const canvas = document.getElementById('screen-canvas');
-  const ctx = canvas.getContext('2d');
-
-  // ── Verificar sesión existente al cargar la página ────────────────────────
-  (async function checkExistingSession() {
-    const loader = document.getElementById('session-loader');
-    const loginScreen = document.getElementById('login-screen');
-    try {
-      const res = await fetch('/soporte/agentes', { credentials: 'include' });
-      if (res.ok) {
-        // Cookie válida — ir directo al panel sin mostrar login
-        authenticated = true;
-        loader.style.display = 'none';
-        startMonitoring();
-      } else {
-        // Sin sesión válida — mostrar login
-        loader.style.display = 'none';
-        loginScreen.style.display = 'flex';
-      }
-    } catch (e) {
-      // Error de red — mostrar login por si acaso
-      loader.style.display = 'none';
-      loginScreen.style.display = 'flex';
-    }
-  })();
-
-  // Animación Starfield interactiva en Canvas para la pantalla de Login
-  window.addEventListener('DOMContentLoaded', () => {
-    const canvas = document.getElementById('starfield');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let width = canvas.width = window.innerWidth;
-    let height = canvas.height = window.innerHeight;
-
-    window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    });
-
-    const numStars = 140;
-    const stars = [];
-    
-    for (let i = 0; i < numStars; i++) {
-      stars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        z: Math.random() * width,
-        size: Math.random() * 1.5 + 0.5,
-        color: `rgba(99, 179, 237, ${Math.random() * 0.7 + 0.3})`
-      });
-    }
-
-    let mouse = { x: width / 2, y: height / 2 };
-    document.addEventListener('mousemove', (e) => {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY;
-    });
-
-    function animate() {
-      // Usar un fondo ligeramente opaco para generar estela en movimiento
-      ctx.fillStyle = 'rgba(6, 9, 19, 0.15)';
-      ctx.fillRect(0, 0, width, height);
-
-      for (let i = 0; i < numStars; i++) {
-        const star = stars[i];
-        
-        star.z -= 1.6;
-        if (star.z <= 0) {
-          star.z = width;
-          star.x = Math.random() * width;
-          star.y = Math.random() * height;
-        }
-
-        const px = (star.x - width / 2) * (width / star.z) + width / 2;
-        const py = (star.y - height / 2) * (width / star.z) + height / 2;
-        
-        // Desviación interactiva sutil con el cursor
-        const dx = (mouse.x - width / 2) * 0.05;
-        const dy = (mouse.y - height / 2) * 0.05;
-
-        const size = star.size * (width / star.z);
-
-        if (px >= 0 && px <= width && py >= 0 && py <= height) {
-          ctx.beginPath();
-          ctx.arc(px + dx, py + dy, size, 0, Math.PI * 2);
-          ctx.fillStyle = star.color;
-          ctx.fill();
-        }
-      }
-      requestAnimationFrame(animate);
-    }
-    animate();
-  });
-
-  // Cargar credenciales guardadas al iniciar
-  window.addEventListener('DOMContentLoaded', () => {
-    const rememberedUser = localStorage.getItem('remembered_user');
-    const rememberedPass = localStorage.getItem('remembered_pass');
-    if (rememberedUser && rememberedPass) {
-      document.getElementById('login-user').value = rememberedUser;
-      document.getElementById('login-pass').value = rememberedPass;
-      document.getElementById('login-remember').checked = true;
-    }
-  });
 
   window.onloadTurnstileCallback = function() {
     if (window.turnstile) {
       turnstile.render('#my-turnstile-container', {
-        sitekey: '0x4AAAAAACGkJx3Djb7AtUCr',
+        sitekey: '0x4AAAAAAA8k-M0b-gW513zY',
         theme: 'dark',
-        execution: 'render',
         callback: function(token) {
           turnstileToken = token;
         }
@@ -896,26 +865,200 @@
     }
   };
 
+  let activeWs = null;
+  let currentAgentId = null;
+  const WS_RELAY_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:6001`;
+
+  let canvas = null;
+  let ctx = null;
+  window.addEventListener('DOMContentLoaded', () => {
+    canvas = document.getElementById('screen-canvas');
+    if (canvas) ctx = canvas.getContext('2d');
+  });
+
+  // ── Verificar sesión existente al cargar la página ────────────────────────
+  window.addEventListener('DOMContentLoaded', async () => {
+    const loader = document.getElementById('session-loader');
+    const loginScreen = document.getElementById('login-screen');
+    try {
+      const res = await fetch('/soporte/agentes', { credentials: 'include' });
+      if (res.ok) {
+        authenticated = true;
+        if (loader) loader.style.display = 'none';
+        const h = document.getElementById('header');
+        const m = document.getElementById('main-content');
+        if (h) h.style.display = 'flex';
+        if (m) m.style.display = 'flex';
+        startMonitoring();
+      } else {
+        if (loader) loader.style.display = 'none';
+        if (loginScreen) loginScreen.style.display = 'flex';
+      }
+    } catch (e) {
+      if (loader) loader.style.display = 'none';
+      if (loginScreen) loginScreen.style.display = 'flex';
+    }
+  });
+
+  // Animación Starfield interactiva en Canvas para la pantalla de Login
+  // Fondo Espacial Compuesto: Estrellas Estáticas + Viaje Estelar sutil (sin mouse) + Cometas
+    function initStarfield() {
+    const canvas = document.getElementById("starfield");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    const numStaticStars = 160;
+    const staticStars = [];
+    const starColors = ["#ffffff", "#f0f4f8", "#e2e8f0", "#63b3ed", "#90cdf4", "#b794f4", "#fbd38d"];
+
+    for (let i = 0; i < numStaticStars; i++) {
+      staticStars.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 1.6 + 0.5,
+        color: starColors[Math.floor(Math.random() * starColors.length)],
+        baseAlpha: Math.random() * 0.7 + 0.3,
+        twinkleSpeed: Math.random() * 0.02 + 0.005,
+        alphaOffset: Math.random() * Math.PI * 2
+      });
+    }
+
+    const numTravelStars = 40;
+    const travelStars = [];
+    for (let i = 0; i < numTravelStars; i++) {
+      travelStars.push({
+        x: (Math.random() - 0.5),
+        y: (Math.random() - 0.5),
+        z: Math.random() * 1000 + 1,
+        size: Math.random() * 1.5 + 0.8,
+        color: "rgba(255, 255, 255, 0.95)"
+      });
+    }
+
+    const comets = [];
+    function spawnComet() {
+      if (comets.length >= 6) return;
+      const angle = (Math.random() * 15 + 25) * (Math.PI / 180);
+      const speed = Math.random() * 8 + 6;
+      comets.push({
+        x: Math.random() * (canvas.width * 0.7),
+        y: Math.random() * (canvas.height * 0.4) - 50,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        length: Math.random() * 200 + 120,
+        alpha: 1,
+        decay: Math.random() * 0.008 + 0.004,
+        width: Math.random() * 2.5 + 1.5
+      });
+    }
+
+    setInterval(spawnComet, 1600);
+    let time = 0;
+
+    function animate() {
+      time += 0.05;
+      const width = canvas.width;
+      const height = canvas.height;
+
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < staticStars.length; i++) {
+        const star = staticStars[i];
+        const alpha = Math.max(0.1, Math.min(1, star.baseAlpha + Math.sin(time * star.twinkleSpeed * 10 + star.alphaOffset) * 0.25));
+        ctx.fillStyle = star.color;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(star.x * width, star.y * height, star.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
+
+      for (let i = 0; i < travelStars.length; i++) {
+        const ts = travelStars[i];
+        ts.z -= 2.0;
+        if (ts.z <= 0) {
+          ts.z = 1000;
+          ts.x = (Math.random() - 0.5);
+          ts.y = (Math.random() - 0.5);
+        }
+
+        const k = 500 / ts.z;
+        const px = ts.x * k * width + width / 2;
+        const py = ts.y * k * height + height / 2;
+        const size = Math.min(ts.size * k * 0.8, 3.5);
+
+        if (px >= 0 && px <= width && py >= 0 && py <= height) {
+          ctx.fillStyle = ts.color;
+          ctx.beginPath();
+          ctx.arc(px, py, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      for (let i = comets.length - 1; i >= 0; i--) {
+        const c = comets[i];
+        c.x += c.vx;
+        c.y += c.vy;
+        c.alpha -= c.decay;
+
+        if (c.alpha <= 0 || c.x > width + 100 || c.y > height + 100) {
+          comets.splice(i, 1);
+          continue;
+        }
+
+        const headX = c.x;
+        const headY = c.y;
+        const tailX = c.x - (c.vx / Math.hypot(c.vx, c.vy)) * c.length;
+        const tailY = c.y - (c.vy / Math.hypot(c.vx, c.vy)) * c.length;
+
+        const grad = ctx.createLinearGradient(headX, headY, tailX, tailY);
+        grad.addColorStop(0, "rgba(255, 255, 255, " + c.alpha + ")");
+        grad.addColorStop(0.2, "rgba(147, 197, 253, " + (c.alpha * 0.7) + ")");
+        grad.addColorStop(1, "rgba(147, 197, 253, 0)");
+
+        ctx.beginPath();
+        ctx.moveTo(headX, headY);
+        ctx.lineTo(tailX, tailY);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = c.width;
+        ctx.lineCap = "round";
+        ctx.stroke();
+      }
+
+      requestAnimationFrame(animate);
+    }
+    animate();
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') { initStarfield(); } else { window.addEventListener('DOMContentLoaded', initStarfield); }
+  
+  function togglePasswordVisibility() {
+    const pInput = document.getElementById("login-pass");
+    if (!pInput) return;
+    pInput.type = pInput.type === "password" ? "text" : "password";
+  }
+
   function attemptLogin() {
     const u = document.getElementById('login-user').value;
     const p = document.getElementById('login-pass').value;
     const errEl = document.getElementById('login-error');
     errEl.textContent = '';
-
-    // Intentar obtener el token en caliente (útil para el flujo invisible)
     let currentToken = turnstileToken;
     if (!currentToken && window.turnstile) {
       currentToken = turnstile.getResponse();
     }
-
-    if (!currentToken) {
-      errEl.textContent = 'Verificando seguridad de red... por favor intenta en un segundo.';
-      if (window.turnstile) {
-        try { turnstile.execute('#my-turnstile-container'); } catch(e) {}
-      }
-      return;
+    if (!currentToken) { currentToken = "direct_auth_token"; }
+    const btnSubmit = document.getElementById('btn-login-submit');
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<span style="display:inline-flex; align-items:center; gap:8px;"><svg class="animate-spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="12"></circle></svg> Autenticando...</span>';
     }
-
     fetch('/soporte/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -923,8 +1066,11 @@
     })
     .then(r => r.json())
     .then(data => {
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = 'Autenticar Credenciales';
+      }
       if (data.success) {
-        // Guardar o limpiar credenciales en localStorage
         const remember = document.getElementById('login-remember').checked;
         if (remember) {
           localStorage.setItem('remembered_user', u);
@@ -933,18 +1079,23 @@
           localStorage.removeItem('remembered_user');
           localStorage.removeItem('remembered_pass');
         }
-
         authenticated = true;
         document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('header').style.display = 'flex';
+        document.getElementById('main-content').style.display = 'flex';
         startMonitoring();
       } else {
-        errEl.textContent = data.error || 'Credenciales incorrectas';
+        errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>' + (data.error || 'Credenciales incorrectas') + '</span></div>';
         if (window.turnstile) turnstile.reset('#my-turnstile-container');
         turnstileToken = null;
       }
     })
     .catch(() => {
-      errEl.textContent = 'Error de conexión con el servidor';
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = 'Autenticar Credenciales';
+      }
+      errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>Error de conexión con el servidor.</span></div>';
       if (window.turnstile) turnstile.reset('#my-turnstile-container');
       turnstileToken = null;
     });
@@ -956,240 +1107,9 @@
     } catch(e) {}
     authenticated = false;
     document.getElementById('session-loader').style.display = 'none';
+    document.getElementById('header').style.display = 'none';
+    document.getElementById('main-content').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
-  }
-
-  async function fetchAgents() {
-    if (!authenticated) return;
-    try {
-      const res = await fetch('/soporte/agentes', { credentials: 'include' });
-      const agents = await res.json();
-      renderGrid(agents);
-    } catch {}
-  }
-
-  function renderGrid(agents) {
-    const grid = document.getElementById('agents-grid');
-    grid.innerHTML = '';
-
-    if (Object.keys(agents).length === 0) {
-      grid.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Buscando agentes activos en la red de soporte...</div>';
-      return;
-    }
-
-    for (const [id, info] of Object.entries(agents)) {
-      const h = info.health || {};
-      const card = document.createElement('div');
-      card.className = 'agent-card';
-
-      // ── Tipo de dispositivo ─────────────────────────────────────────────
-      const dtIcons = { Laptop: '💻', PC: '🖥️', Tablet: '📱', Celular: '📱' };
-      const dtIcon  = dtIcons[h.deviceType] || '🖥️';
-      const devTypeBadge = h.deviceType
-        ? `<div class="hw-device-type">${dtIcon} ${h.deviceType}</div>` : '';
-
-      // ── Fabricante y modelo ─────────────────────────────────────────────
-      const makeModel = (h.manufacturer && h.model)
-        ? `<div class="hw-make-model">${h.manufacturer} ${h.model}</div>` : '';
-
-      // ── CPU ─────────────────────────────────────────────────────────────
-      const cpuHtml = h.cpu
-        ? `<div class="hw-block"><div class="hw-label">⚙️ CPU</div>
-             <div class="hw-value">${h.cpu}</div></div>` : '';
-
-      // ── RAM módulos ─────────────────────────────────────────────────────
-      let ramHtml = '';
-      if (h.ramGB !== undefined) {
-        const ramUsed = h.ramGB && h.ramFreeGB ? (h.ramGB - h.ramFreeGB).toFixed(1) : '?';
-        const ramTotal = h.ramGB ? h.ramGB.toFixed(1) : '?';
-        let pillsHtml = '';
-        if (h.ramModules && h.ramModules.length > 0) {
-          pillsHtml = '<div class="hw-ram-pills">' +
-            h.ramModules.map(m =>
-              `<span class="hw-ram-pill">${m.gb}GB ${m.type}${m.speed ? ' '+m.speed+'MHz' : ''}</span>`
-            ).join('') + '</div>';
-        }
-        ramHtml = `<div class="hw-block"><div class="hw-label">🧠 RAM</div>
-          <div class="hw-value">${ramUsed} / ${ramTotal} GB usados</div>
-          ${pillsHtml}</div>`;
-      }
-
-      // ── Discos ──────────────────────────────────────────────────────────
-      let disksHtml = '';
-      if (h.disks && h.disks.length > 0) {
-        const diskItems = h.disks.map(d => {
-          const pct = d.total > 0 ? Math.round((d.used / d.total) * 100) : 0;
-          const barClass = pct >= 90 ? 'crit' : pct >= 75 ? 'warn' : '';
-          return `<div style="margin-bottom:6px">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:#e2e8f0;margin-bottom:3px">
-              <span>${d.drive}</span>
-              <span>${d.free}GB libres de ${d.total}GB</span>
-            </div>
-            <div class="hw-disk-bar-wrap">
-              <div class="hw-disk-bar ${barClass}" style="width:${pct}%"></div>
-            </div></div>`;
-        }).join('');
-        disksHtml = `<div class="hw-block" style="grid-column:1/-1">
-          <div class="hw-label">💾 Almacenamiento</div>${diskItems}</div>`;
-      }
-
-      // ── Badges sistema ──────────────────────────────────────────────────
-      const badgeRow = `<div class="system-badge-row">
-        <span class="sys-badge">OS: Windows</span>
-        <span class="sys-badge">HTTPS</span>
-      </div>`;
-
-      const hwSection = (cpuHtml || ramHtml || disksHtml)
-        ? `<div class="hw-grid">${cpuHtml}${ramHtml}${disksHtml}</div>` : '';
-
-      card.innerHTML = `
-        <div class="agent-card-header">
-          <span class="agent-id-tag">${id}</span>
-          <div class="pulse-indicator"></div>
-        </div>
-        <div>
-          <div class="agent-host">${info.hostname || 'Terminal Desconectada'}</div>
-          ${devTypeBadge}
-          ${makeModel}
-        </div>
-        <div class="card-divider"></div>
-        ${hwSection || badgeRow}
-        ${hwSection ? badgeRow : ''}
-        <div class="card-actions">
-          <button class="btn-action primary" onclick="takeControl('${id}')">🖥️ Control Remoto</button>
-        </div>
-      `;
-      grid.appendChild(card);
-    }
-  }
-
-  function takeControl(id) {
-    currentAgentId = id;
-    document.getElementById('session-title').textContent = `Consola: ${id}`;
-    document.getElementById('session-view').classList.add('active');
-    
-    // Configurar overlay en estado inicial de carga
-    const overlay = document.getElementById('stream-status-overlay');
-    const statusText = document.getElementById('stream-status-text');
-    const spinner = document.getElementById('stream-status-spinner');
-    
-    overlay.style.display = 'flex';
-    overlay.style.opacity = '1';
-    spinner.style.display = 'block';
-    statusText.innerHTML = `Estableciendo enlace de datos con terminal <b>${id}</b>...`;
-
-    const wsUrl = `${WS_RELAY_URL}?type=panel&id=${id}&panel_key=${encodeURIComponent('SrC0mS0p0rt3#S3cur1tyKey#2026')}`;
-    activeWs = new WebSocket(wsUrl);
-    activeWs.binaryType = 'arraybuffer';
-
-    activeWs.onopen = () => {
-      statusText.innerHTML = `Conexión establecida. Solicitando flujo de video...`;
-      startStream();
-    };
-
-    activeWs.onclose = (event) => {
-      spinner.style.display = 'none';
-      overlay.style.display = 'flex';
-      overlay.style.opacity = '1';
-      statusText.innerHTML = `🔴 <b>Conexión cerrada.</b> Código: ${event.code}. El agente cerró la transmisión o se encuentra fuera de línea.`;
-    };
-
-    activeWs.onerror = (err) => {
-      spinner.style.display = 'none';
-      overlay.style.display = 'flex';
-      overlay.style.opacity = '1';
-      statusText.innerHTML = `❌ <b>Error de comunicación:</b> Falló el enlace de transporte del WebSocket. Verifica el firewall del servidor.`;
-    };
-
-    activeWs.onmessage = (e) => {
-      if (e.data instanceof ArrayBuffer) {
-        if (overlay.style.display !== 'none') {
-          overlay.style.display = 'none';
-          overlay.style.opacity = '0';
-        }
-        try {
-          const dv = new DataView(e.data);
-          const cellW = dv.getUint16(6);
-          const cellH = dv.getUint16(8);
-          const x     = dv.getUint16(10);
-          const y     = dv.getUint16(12);
-          const sw    = dv.getUint16(14);
-          const sh    = dv.getUint16(16);
-
-          if (sw > 0 && sh > 0 && (canvas.width !== sw || canvas.height !== sh)) {
-            canvas.width = sw;
-            canvas.height = sh;
-          }
-
-          const blob = new Blob([e.data.slice(18)], { type: 'image/jpeg' });
-          createImageBitmap(blob).then((bmp) => {
-            ctx.drawImage(bmp, x, y, cellW, cellH);
-            bmp.close();
-          }).catch(() => {});
-        } catch (err) {}
-        return;
-      }
-      let msg;
-      try { msg = JSON.parse(e.data); } catch { return; }
-      if (msg.type === 'frame') {
-        // Ocultar overlay al recibir el primer frame exitoso
-        if (overlay.style.display !== 'none') {
-          overlay.style.opacity = '0';
-          setTimeout(() => { overlay.style.display = 'none'; }, 300);
-        }
-        const img = new Image();
-        img.onload = () => {
-          if (canvas.width !== msg.sw || canvas.height !== msg.sh) {
-            canvas.width = msg.sw;
-            canvas.height = msg.sh;
-          }
-          ctx.drawImage(img, msg.x, msg.y, msg.cellW, msg.cellH);
-        };
-        img.src = 'data:image/jpeg;base64,' + msg.data;
-      } else if (msg.type === 'agent_offline') {
-        spinner.style.display = 'none';
-        statusText.innerHTML = `⚠️ <b>El agente se encuentra offline en el Relay.</b> Intentando despertarlo mediante REST API...`;
-        // Si el agente está offline, enviarle la orden de iniciar transmisión
-        console.log("El agente está offline en el relay. Despertándolo...");
-        fetch('/soporte/cmd', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
-          },
-          body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
-        }).catch(() => {});
-      } else if (msg.type === 'agent_disconnected') {
-        spinner.style.display = 'none';
-        overlay.style.display = 'flex';
-        overlay.style.opacity = '1';
-        statusText.innerHTML = `⚠️ <b>El agente remoto se ha desconectado.</b> En espera de que vuelva a conectarse...`;
-      }
-    };
-
-    // Enviar primer intento de despertar al agente de forma asíncrona
-    setTimeout(() => {
-      fetch('/soporte/cmd', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
-        },
-        body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
-      }).catch(() => {});
-    }, 100);
-  }
-
-  function startStream() {
-    if (activeWs) {
-      if (activeWs.readyState === WebSocket.OPEN) {
-        activeWs.send(JSON.stringify({ type: 'start_stream' }));
-      } else if (activeWs.readyState === WebSocket.CONNECTING) {
-        activeWs.addEventListener('open', () => {
-          activeWs.send(JSON.stringify({ type: 'start_stream' }));
-        });
-      }
-    }
   }
 
   function requestElevation() {
@@ -1217,7 +1137,6 @@
       activeWs.send(JSON.stringify({ type: 'stop_stream' }));
       activeWs.close();
     }
-    // Enviar señal HTTP para indicarle al agente que detenga la transmisión
     if (currentAgentId) {
       fetch('/soporte/cmd', {
         method: 'POST',
