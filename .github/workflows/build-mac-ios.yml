@@ -56,15 +56,30 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Generar Icono Nactivo AppIcon.icns
+        run: |
+          chmod +x Mac/make_icon.sh
+          bash Mac/make_icon.sh || true
+
       - name: Compilar Aplicación Ejecutable macOS (.app) e Imagen de Disco (.dmg)
         run: |
           cd Mac
           swift build -c release
           
+          # 1. Crear la estructura oficial de App Bundle
           mkdir -p "IC-Desk.app/Contents/MacOS"
           mkdir -p "IC-Desk.app/Contents/Resources"
-          cp .build/release/ICDesk "IC-Desk.app/Contents/MacOS/IC-Desk"
           
+          # 2. Copiar binario ejecutable y asignar permisos de ejecución (+x)
+          cp .build/release/ICDesk "IC-Desk.app/Contents/MacOS/IC-Desk"
+          chmod +x "IC-Desk.app/Contents/MacOS/IC-Desk"
+          
+          # 3. Copiar icono de la app si fue generado
+          if [ -f "AppIcon.icns" ]; then
+            cp AppIcon.icns "IC-Desk.app/Contents/Resources/AppIcon.icns"
+          fi
+          
+          # 4. Generar Info.plist completo
           cat << 'EOF' > "IC-Desk.app/Contents/Info.plist"
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -76,24 +91,36 @@ jobs:
               <string>com.icdesk.ingcrea</string>
               <key>CFBundleName</key>
               <string>IC Desk</string>
+              <key>CFBundleDisplayName</key>
+              <string>IC Desk</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleShortVersionString</key>
               <string>4.0.0</string>
+              <key>CFBundleVersion</key>
+              <string>4.0.0</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
               <key>LSMinimumSystemVersion</key>
               <string>13.0</string>
               <key>NSHighResolutionCapable</key>
               <true/>
+              <key>NSPrincipalClass</key>
+              <string>NSApplication</string>
           </dict>
           </plist>
           EOF
 
+          # 5. Firma de Código Nactiva (Ad-Hoc o Certificado Apple)
           if security find-identity -v -p codesigning | grep -q "Distribution"; then
-            codesign --force --deep --sign "Apple Distribution" "IC-Desk.app"
-            echo "Aplicación IC-Desk.app firmada con éxito."
+            codesign --force --deep --options runtime --sign "Apple Distribution" "IC-Desk.app"
+            echo "Aplicación IC-Desk.app firmada con certificado de distribución."
+          else
+            codesign --force --deep --options runtime --sign - "IC-Desk.app"
+            echo "Aplicación IC-Desk.app firmada con firma Ad-Hoc de desarrollo."
           fi
 
-          # Crear Instalador Nativo de Mac (.dmg) usando hdiutil
+          # 6. Crear Instalador Nativo .dmg
           mkdir -p dmg_stage
           cp -R IC-Desk.app dmg_stage/
           ln -s /Applications dmg_stage/Applications
@@ -132,8 +159,8 @@ jobs:
           tag_name: v4.0.0
           name: IC Desk Release v4.0.0 (macOS & iOS)
           body: |
-            ## IC Desk v4.0.0 - Entregables Oficiales de Instalación Nativa
-            - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg`)
+            ## IC Desk v4.0.0 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
+            - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
             - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
             Mac/IC-Desk-macOS.dmg
