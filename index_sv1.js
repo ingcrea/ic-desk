@@ -12,7 +12,7 @@ import dotenv from 'dotenv';
 import sqlite3 from 'sqlite3';
 import dns from 'dns';
 import http from 'http';
-import { startRelayServer, wss } from './relay.js';
+import { startRelayServer, wss, agentSessions } from './relay.js';
 dns.setDefaultResultOrder('ipv4first');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -2167,17 +2167,28 @@ app.post('/soporte/logout', (req, res) => {
 app.get('/soporte/debug-agentes', (req, res) => {   res.json(activeSupportSessions); });
 
 app.get('/soporte/agentes', requireSupportAuth, (req, res) => {
-  // Retornar solo agentes activos en los últimos 60 segundos
   const now = Date.now();
   const activeAgents = {};
   for (const [id, session] of Object.entries(activeSupportSessions)) {
-    if (now - session.lastSeen <= 60000) {
+    if (now - session.lastSeen <= 120000) {
       activeAgents[id] = {
         id: session.id || id,
-        hostname: session.hostname,
+        hostname: session.hostname || id,
         isAdmin: session.isAdmin || false,
-        health: session.health
+        health: session.health || null
       };
+    }
+  }
+  if (typeof agentSessions !== 'undefined' && agentSessions.size > 0) {
+    for (const [id, session] of agentSessions.entries()) {
+      if (session.ws && session.ws.readyState === 1) {
+        activeAgents[id] = {
+          id: id,
+          hostname: session.hostname || activeAgents[id]?.hostname || id,
+          isAdmin: session.isAdmin || activeAgents[id]?.isAdmin || false,
+          health: session.health || activeAgents[id]?.health || null
+        };
+      }
     }
   }
   res.json(activeAgents);
