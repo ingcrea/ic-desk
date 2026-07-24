@@ -1,4 +1,4 @@
-name: Compilar e Instalables (.app & .ipa)
+name: Compilar e Instalables (.dmg & .ipa)
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-apple-packages:
-    name: Compilar e Instalables (.app & .ipa)
+    name: Compilar e Instalables (.dmg & .ipa)
     runs-on: macos-latest
     permissions:
       contents: write
@@ -56,7 +56,7 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Compilar Aplicación Ejecutable macOS (.app)
+      - name: Compilar Aplicación Ejecutable macOS (.app) e Imagen de Disco (.dmg)
         run: |
           cd Mac
           swift build -c release
@@ -93,7 +93,12 @@ jobs:
             echo "Aplicación IC-Desk.app firmada con éxito."
           fi
 
-          zip -r IC-Desk-macOS.app.zip IC-Desk.app
+          # Crear Instalador Nativo de Mac (.dmg) usando hdiutil
+          mkdir -p dmg_stage
+          cp -R IC-Desk.app dmg_stage/
+          ln -s /Applications dmg_stage/Applications
+          hdiutil create -volname "IC Desk" -srcfolder dmg_stage -ov -format UDZO IC-Desk-macOS.dmg
+          echo "Imagen de disco ejecutable IC-Desk-macOS.dmg creada con éxito."
 
       - name: Generar Paquete Instalable de iOS (.ipa)
         run: |
@@ -106,12 +111,13 @@ jobs:
             cp ICDesk_AppStore_Profile.mobileprovision Payload/ICDesk.app/embedded.mobileprovision
           fi
           zip -r IC-Desk-iOS.ipa Payload
+          echo "Paquete IC-Desk-iOS.ipa generado correctamente."
 
       - name: Subir Artefactos Temporales de Acción
         uses: actions/upload-artifact@v4
         with:
-          name: IC-Desk-macOS-App
-          path: Mac/IC-Desk-macOS.app.zip
+          name: IC-Desk-macOS-DMG
+          path: Mac/IC-Desk-macOS.dmg
 
       - name: Subir Artefacto de iOS (.ipa)
         uses: actions/upload-artifact@v4
@@ -119,16 +125,16 @@ jobs:
           name: IC-Desk-iOS-IPA
           path: Mac/IC-Desk-iOS.ipa
 
-      - name: Publicar Release Oficial en GitHub
+      - name: Publicar Release Oficial en GitHub (.dmg & .ipa)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: v4.0.0
           name: IC Desk Release v4.0.0 (macOS & iOS)
           body: |
-            ## IC Desk v4.0.0 - Versión Oficial Nativa Apple (macOS & iOS)
-            - **macOS App**: `IC-Desk-macOS.app.zip` (Aplicación Nativa Ejecutable `.app`)
-            - **iOS App**: `IC-Desk-iOS.ipa` (Paquete Instalable Nativo `.ipa`)
+            ## IC Desk v4.0.0 - Entregables Oficiales de Instalación Nativa
+            - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg`)
+            - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
-            Mac/IC-Desk-macOS.app.zip
+            Mac/IC-Desk-macOS.dmg
             Mac/IC-Desk-iOS.ipa
