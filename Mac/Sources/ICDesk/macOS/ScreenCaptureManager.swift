@@ -20,7 +20,7 @@ public class ScreenCaptureManager: NSObject, SCStreamOutput, SCStreamDelegate {
             return
         }
         
-        let filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
+        let filter = SCContentFilter(display: display, excludingApplications: [SCRunningApplication](), exceptingWindows: [SCWindow]())
         let configuration = SCStreamConfiguration()
         configuration.width = display.width
         configuration.height = display.height

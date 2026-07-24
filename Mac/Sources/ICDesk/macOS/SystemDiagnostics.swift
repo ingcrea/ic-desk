@@ -36,22 +36,21 @@ public class SystemDiagnostics {
     /// Obtiene el nivel de batería, ciclos y estado de salud.
     /// - Returns: Tupla con (nivel, ciclos, salud).
     private func getBatteryInfo() -> (Double?, Int?, String?) {
-        let snapshot = IOPSCopyPowerSourcesInfo().takeRetainedValue()
-        let sources = IOPSCopyPowerSourcesList(snapshot).takeRetainedValue() as Array
+        guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef] else {
+            return (nil, nil, nil)
+        }
         
         var level: Double? = nil
         var cycles: Int? = nil
         var health: String? = nil
         
         for source in sources {
-            if let description = IOPSGetPowerSourceDescription(snapshot, source).takeUnretainedValue() as? [String: Any] {
+            if let description = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue() as? [String: Any] {
                 if let currentCapacity = description[kIOPSCurrentCapacityKey] as? Int,
-                   let maxCapacity = description[kIOPSMaxCapacityKey] as? Int {
+                   let maxCapacity = description[kIOPSMaxCapacityKey] as? Int, maxCapacity > 0 {
                     level = Double(currentCapacity) / Double(maxCapacity)
                 }
-                
-                // Obtener detalles adicionales mediante comandos del sistema (system_profiler) si es necesario
-                // o usando IORegistry. Por brevedad y robustez usamos ShellExecutor para obtener la info extra:
             }
         }
         

@@ -28,13 +28,13 @@ public class ICDeskViewModel: ObservableObject {
     /// de estado y recepción de comandos de forma asíncrona.
     private func setupBindings() {
         Task {
-            await webSocketClient.onStateChange = { [weak self] state in
+            await webSocketClient.setOnStateChange { [weak self] state in
                 Task { @MainActor in
                     self?.sessionState = state
                 }
             }
             
-            await webSocketClient.onCommandReceived = { [weak self] command in
+            await webSocketClient.setOnCommandReceived { [weak self] command in
                 Task { @MainActor in
                     self?.handleCommand(command)
                 }

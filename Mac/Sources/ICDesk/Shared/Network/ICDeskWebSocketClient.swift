@@ -20,6 +20,14 @@ public actor ICDeskWebSocketClient {
     /// Closure que notifica la recepción de un comando remoto.
     public var onCommandReceived: ((RemoteCommand) -> Void)?
     
+    public func setOnStateChange(_ callback: @escaping (SessionState) -> Void) {
+        self.onStateChange = callback
+    }
+    
+    public func setOnCommandReceived(_ callback: @escaping (RemoteCommand) -> Void) {
+        self.onCommandReceived = callback
+    }
+    
     /// Inicializa un nuevo cliente WebSocket para IC Desk.
     /// - Parameter urlString: La URL base del servidor.
     public init(urlString: String = "wss://soporte.sercommx.com:6001/ws") {

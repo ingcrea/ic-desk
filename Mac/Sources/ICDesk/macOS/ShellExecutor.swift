@@ -1,6 +1,5 @@
-import Foundation
-
 #if os(macOS)
+import Foundation
 /// `ShellResponse` encapsula el resultado de la ejecución de un comando de terminal.
 public struct ShellResponse: Codable {
     public let success: Bool
