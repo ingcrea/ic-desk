@@ -857,6 +857,7 @@
 
 <script data-cfasync="false">
   let authenticated = false;
+  let monitoringInterval = null;
   
   let activeWs = null;
   let currentAgentId = null;
@@ -1090,10 +1091,26 @@
       await fetch('/soporte/logout', { method: 'POST', credentials: 'include' });
     } catch(e) {}
     authenticated = false;
-    document.getElementById('session-loader').style.display = 'none';
-    document.getElementById('header').style.display = 'none';
-    document.getElementById('main-content').style.display = 'none';
-    document.getElementById('login-screen').style.display = 'flex';
+    if (monitoringInterval) {
+      clearInterval(monitoringInterval);
+      monitoringInterval = null;
+    }
+    closeSession();
+    
+    const loader = document.getElementById('session-loader');
+    const header = document.getElementById('header');
+    const mainContent = document.getElementById('main-content');
+    const sessionView = document.getElementById('session-view');
+    const loginScreen = document.getElementById('login-screen');
+
+    if (loader) loader.style.setProperty('display', 'none', 'important');
+    if (header) header.style.setProperty('display', 'none', 'important');
+    if (mainContent) mainContent.style.setProperty('display', 'none', 'important');
+    if (sessionView) {
+      sessionView.classList.remove('active');
+      sessionView.style.setProperty('display', 'none', 'important');
+    }
+    if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
   }
 
   function requestElevation() {
@@ -1155,7 +1172,8 @@
 
   function startMonitoring() {
     fetchAgents();
-    setInterval(fetchAgents, 5000);
+    if (monitoringInterval) clearInterval(monitoringInterval);
+    monitoringInterval = setInterval(fetchAgents, 5000);
   }
 </script>
 </body>
