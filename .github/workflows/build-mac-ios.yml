@@ -13,6 +13,8 @@ jobs:
   build-apple-packages:
     name: Compilar e Instalables (.app & .ipa)
     runs-on: macos-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Descargar Código Fuente
@@ -25,7 +27,6 @@ jobs:
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          # 1. Crear variables de ruta temporales
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
@@ -34,16 +35,13 @@ jobs:
             echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
             echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
 
-            # 2. Crear Llavero (Keychain) temporal en el Runner de macOS
             security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
             security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
             security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-            # 3. Importar certificado .p12 al llavero
             security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-            # 4. Instalar Perfil de Aprovisionamiento de Apple
             mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
             cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
@@ -63,12 +61,10 @@ jobs:
           cd Mac
           swift build -c release
           
-          # Estructurar la carpeta ejecutable .app oficial de macOS
           mkdir -p "IC-Desk.app/Contents/MacOS"
           mkdir -p "IC-Desk.app/Contents/Resources"
           cp .build/release/ICDesk "IC-Desk.app/Contents/MacOS/IC-Desk"
           
-          # Generar Info.plist nativo para macOS
           cat << 'EOF' > "IC-Desk.app/Contents/Info.plist"
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -92,11 +88,12 @@ jobs:
           </plist>
           EOF
 
-          # Firmar la aplicación .app si el certificado está disponible
           if security find-identity -v -p codesigning | grep -q "Distribution"; then
             codesign --force --deep --sign "Apple Distribution" "IC-Desk.app"
             echo "Aplicación IC-Desk.app firmada con éxito."
           fi
+
+          zip -r IC-Desk-macOS.app.zip IC-Desk.app
 
       - name: Generar Paquete Instalable de iOS (.ipa)
         run: |
@@ -108,17 +105,30 @@ jobs:
           if [ -f "ICDesk_AppStore_Profile.mobileprovision" ]; then
             cp ICDesk_AppStore_Profile.mobileprovision Payload/ICDesk.app/embedded.mobileprovision
           fi
-          zip -r IC-Desk.ipa Payload
-          echo "Paquete IC-Desk.ipa generado correctamente."
+          zip -r IC-Desk-iOS.ipa Payload
 
-      - name: Subir Instalable de macOS (.app)
+      - name: Subir Artefactos Temporales de Acción
         uses: actions/upload-artifact@v4
         with:
           name: IC-Desk-macOS-App
-          path: Mac/IC-Desk.app
+          path: Mac/IC-Desk-macOS.app.zip
 
-      - name: Subir Instalable de iOS (.ipa)
+      - name: Subir Artefacto de iOS (.ipa)
         uses: actions/upload-artifact@v4
         with:
           name: IC-Desk-iOS-IPA
-          path: Mac/IC-Desk.ipa
+          path: Mac/IC-Desk-iOS.ipa
+
+      - name: Publicar Release Oficial en GitHub
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v4.0.0
+          name: IC Desk Release v4.0.0 (macOS & iOS)
+          body: |
+            ## IC Desk v4.0.0 - Versión Oficial Nativa Apple (macOS & iOS)
+            - **macOS App**: `IC-Desk-macOS.app.zip` (Aplicación Nativa Ejecutable `.app`)
+            - **iOS App**: `IC-Desk-iOS.ipa` (Paquete Instalable Nativo `.ipa`)
+          files: |
+            Mac/IC-Desk-macOS.app.zip
+            Mac/IC-Desk-iOS.ipa
