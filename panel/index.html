@@ -755,7 +755,7 @@
     </div>
     <!-- Cloudflare Turnstile -->
     <div style="display: flex; justify-content: center; padding: 12px 0;">
-      <div id="my-turnstile-container"></div>
+      
     </div>
     <button class="btn-login" id="btn-login-submit" onclick="attemptLogin()">Autenticar Credenciales</button>
     <div id="login-error"></div>
@@ -851,20 +851,7 @@
 
 <script data-cfasync="false">
   let authenticated = false;
-  let turnstileToken = null;
-
-  window.onloadTurnstileCallback = function() {
-    if (window.turnstile) {
-      turnstile.render('#my-turnstile-container', {
-        sitekey: '0x4AAAAAAA8k-M0b-gW513zY',
-        theme: 'dark',
-        callback: function(token) {
-          turnstileToken = token;
-        }
-      });
-    }
-  };
-
+  
   let activeWs = null;
   let currentAgentId = null;
   const WS_RELAY_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:6001`;
@@ -1048,12 +1035,7 @@
     const u = document.getElementById('login-user').value;
     const p = document.getElementById('login-pass').value;
     const errEl = document.getElementById('login-error');
-    errEl.textContent = '';
-    let currentToken = turnstileToken;
-    if (!currentToken && window.turnstile) {
-      currentToken = turnstile.getResponse();
-    }
-    if (!currentToken) { currentToken = "direct_auth_token"; }
+    if (errEl) errEl.textContent = '';
     const btnSubmit = document.getElementById('btn-login-submit');
     if (btnSubmit) {
       btnSubmit.disabled = true;
@@ -1062,7 +1044,7 @@
     fetch('/soporte/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: u, pass: p, turnstileToken: currentToken })
+      body: JSON.stringify({ user: u, pass: p, turnstileToken: "direct_auth_token" })
     })
     .then(r => r.json())
     .then(data => {
@@ -1071,8 +1053,8 @@
         btnSubmit.innerHTML = 'Autenticar Credenciales';
       }
       if (data.success) {
-        const remember = document.getElementById('login-remember').checked;
-        if (remember) {
+        const rememberEl = document.getElementById('login-remember');
+        if (rememberEl && rememberEl.checked) {
           localStorage.setItem('remembered_user', u);
           localStorage.setItem('remembered_pass', p);
         } else {
@@ -1085,9 +1067,7 @@
         document.getElementById('main-content').style.display = 'flex';
         startMonitoring();
       } else {
-        errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>' + (data.error || 'Credenciales incorrectas') + '</span></div>';
-        if (window.turnstile) turnstile.reset('#my-turnstile-container');
-        turnstileToken = null;
+        if (errEl) errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>' + (data.error || 'Credenciales incorrectas') + '</span></div>';
       }
     })
     .catch(() => {
@@ -1095,9 +1075,7 @@
         btnSubmit.disabled = false;
         btnSubmit.innerHTML = 'Autenticar Credenciales';
       }
-      errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>Error de conexión con el servidor.</span></div>';
-      if (window.turnstile) turnstile.reset('#my-turnstile-container');
-      turnstileToken = null;
+      if (errEl) errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>Error de conexión con el servidor.</span></div>';
     });
   }
 
@@ -1174,6 +1152,5 @@
     setInterval(fetchAgents, 5000);
   }
 </script>
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer data-cfasync="false"></script>
 </body>
 </html>
