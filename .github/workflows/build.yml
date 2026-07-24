@@ -35,8 +35,21 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path "Windows/IcDesk.cs") {
-            C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /target:winexe /out:Windows/IC-Desk.exe /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Net.Http.dll /win32icon:Windows/favicon.ico Windows/IcDesk.cs
-            Write-Output "IC-Desk.exe compilado con éxito."
+            $cscPath = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+            if (-not (Test-Path $cscPath)) {
+              $cscPath = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+            }
+            Write-Output "Usando compilador C#: $cscPath"
+            
+            # Compilación con soporte a System.dll, System.Drawing.dll y System.Windows.Forms.dll
+            & $cscPath /target:winexe /out:Windows/IC-Desk.exe /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll Windows/IcDesk.cs
+            
+            if (Test-Path "Windows/IC-Desk.exe") {
+              Write-Output "IC-Desk.exe compilado con éxito."
+            } else {
+              Write-Error "Fallo en la generación de IC-Desk.exe"
+              exit 1
+            }
           } else {
             Write-Error "No se encontró el archivo Windows/IcDesk.cs"
             exit 1

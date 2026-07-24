@@ -101,12 +101,13 @@ jobs:
       - name: Generar Paquete Instalable de iOS (.ipa)
         run: |
           cd Mac
-          # Estructurar la carpeta del payload oficial para iOS (.ipa)
           mkdir -p "Payload/ICDesk.app"
-          cp -r Sources/ Payload/ICDesk.app/
-          cp ICDesk_AppStore_Profile.mobileprovision Payload/ICDesk.app/embedded.mobileprovision
-
-          # Empaquetar la carpeta Payload en el archivo ejecutable .ipa
+          if [ -d "Sources" ]; then
+            cp -R Sources/ Payload/ICDesk.app/
+          fi
+          if [ -f "ICDesk_AppStore_Profile.mobileprovision" ]; then
+            cp ICDesk_AppStore_Profile.mobileprovision Payload/ICDesk.app/embedded.mobileprovision
+          fi
           zip -r IC-Desk.ipa Payload
           echo "Paquete IC-Desk.ipa generado correctamente."
 
