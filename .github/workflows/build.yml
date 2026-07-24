@@ -1,4 +1,4 @@
-name: Compilar Sercom Desk
+name: Compilar IC Desk (Windows)
 
 on:
   push:
@@ -7,9 +7,11 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-windows:
+    name: Compilar Executable (.exe)
     runs-on: windows-latest
 
     steps:
@@ -20,26 +22,28 @@ jobs:
         shell: pwsh
         run: |
           $csFile = "Windows/IcDesk.cs"
-          if (-not (Test-Path $csFile)) { $csFile = "Windows/SoporteRemotoGUI.cs" }
           if (Test-Path $csFile) {
             $content = Get-Content $csFile -Raw
             $content = $content -replace "SERVER_URL_PLACEHOLDER", "${{ secrets.SERCOM_SERVER_URL }}"
             $content = $content -replace "RELAY_WS_PLACEHOLDER", "${{ secrets.SERCOM_RELAY_WS_URL }}"
             $content = $content -replace "AGENT_TOKEN_PLACEHOLDER", "${{ secrets.SERCOM_AGENT_TOKEN }}"
             Set-Content $csFile -Value $content -NoNewline
-            Write-Output "Secretos inyectados de forma segura en $csFile antes de compilar."
-          } else {
-            Write-Output "Continuando compilación estándar."
+            Write-Output "Secretos inyectados de forma segura en $csFile."
           }
 
-      - name: Compilar Agente .exe (MSBuild)
+      - name: Compilar Agente IC-Desk.exe (csc.exe)
+        shell: pwsh
         run: |
           if (Test-Path "Windows/IcDesk.cs") {
-            C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /target:winexe /out:Windows/IC-Desk.exe /win32icon:favicon.ico Windows/IcDesk.cs
+            C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /target:winexe /out:Windows/IC-Desk.exe /r:System.Drawing.dll,System.Windows.Forms.dll,System.Net.Http.dll /win32icon:favicon.ico Windows/IcDesk.cs
+            Write-Output "IC-Desk.exe compilado con éxito."
+          } else {
+            Write-Error "No se encontró el archivo Windows/IcDesk.cs"
+            exit 1
           }
 
-      - name: Subir Binario Compilado Temporal
+      - name: Subir Binario Compilado de Windows (.exe)
         uses: actions/upload-artifact@v4
         with:
-          name: IC-Desk-Windows
-          path: Windows/*.exe
+          name: IC-Desk-Windows-Exe
+          path: Windows/IC-Desk.exe
