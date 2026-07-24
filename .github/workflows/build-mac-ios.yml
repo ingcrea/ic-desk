@@ -1,4 +1,4 @@
-name: Compilar y Generar Entregables (.app & .ipa)
+name: Compilar e Instalables (.app & .ipa)
 
 on:
   push:
@@ -49,15 +49,16 @@ jobs:
 
             echo "Certificados e identidades de firma de Apple listos."
           else
-            echo "Aviso: Ejecutando compilación estándar."
+            echo "Aviso: Modo compilación estándar sin firma activa."
           fi
 
-      - name: Seleccionar Xcode
+      - name: Seleccionar Xcode y Swift
         run: |
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
+          swift --version
 
-      - name: Generar Aplicación Ejecutable macOS (.app)
+      - name: Compilar Aplicación Ejecutable macOS (.app)
         run: |
           cd Mac
           swift build -c release
@@ -65,7 +66,7 @@ jobs:
           # Estructurar la carpeta ejecutable .app oficial de macOS
           mkdir -p "IC-Desk.app/Contents/MacOS"
           mkdir -p "IC-Desk.app/Contents/Resources"
-          cp .build/release/ICDeskMac "IC-Desk.app/Contents/MacOS/IC-Desk"
+          cp .build/release/ICDesk "IC-Desk.app/Contents/MacOS/IC-Desk"
           
           # Generar Info.plist nativo para macOS
           cat << 'EOF' > "IC-Desk.app/Contents/Info.plist"
@@ -94,7 +95,7 @@ jobs:
           # Firmar la aplicación .app si el certificado está disponible
           if security find-identity -v -p codesigning | grep -q "Distribution"; then
             codesign --force --deep --sign "Apple Distribution" "IC-Desk.app"
-            echo "Aplicación IC-Desk.app firmada con certificado de distribución."
+            echo "Aplicación IC-Desk.app firmada con éxito."
           fi
 
       - name: Generar Paquete Instalable de iOS (.ipa)
@@ -102,11 +103,10 @@ jobs:
           cd Mac
           # Estructurar la carpeta del payload oficial para iOS (.ipa)
           mkdir -p "Payload/ICDesk.app"
-          cp -r Shared/ Payload/ICDesk.app/
-          cp -r iOS/ Payload/ICDesk.app/
+          cp -r Sources/ Payload/ICDesk.app/
           cp ICDesk_AppStore_Profile.mobileprovision Payload/ICDesk.app/embedded.mobileprovision
 
-          # Empaquetar la carpeta Payload en el archivo de paquete ejecutable .ipa
+          # Empaquetar la carpeta Payload en el archivo ejecutable .ipa
           zip -r IC-Desk.ipa Payload
           echo "Paquete IC-Desk.ipa generado correctamente."
 
