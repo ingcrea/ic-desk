@@ -1829,6 +1829,34 @@ const AGENT_VERSION    = "v5.0.1"; // incrementar con cada release del agente
 const SERCOM_AGENT_TOKEN = "SercomAgentToken2026SecureHashKey";
 
 const activeSupportSessions = {};
+
+// ── Persistencia de Agentes Registrados ──────────────────────────────────────
+const AGENTS_STORE_PATH = path.join(__dirname, 'known_agents.json');
+
+function loadKnownAgents() {
+  try {
+    if (fs.existsSync(AGENTS_STORE_PATH)) {
+      const raw = fs.readFileSync(AGENTS_STORE_PATH, 'utf8');
+      const data = JSON.parse(raw);
+      Object.assign(activeSupportSessions, data);
+      console.log(`[AGENTES] Cargados ${Object.keys(data).length} equipos conocidos desde disco.`);
+    }
+  } catch (err) {
+    console.error('[AGENTES] Error al cargar equipos desde disco:', err.message);
+  }
+}
+
+function saveKnownAgents() {
+  try {
+    fs.writeFileSync(AGENTS_STORE_PATH, JSON.stringify(activeSupportSessions, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[AGENTES] Error al guardar equipos en disco:', err.message);
+  }
+}
+
+// Cargar al iniciar
+loadKnownAgents();
+
 // Sesiones de soporte persistidas en SQLite (sobreviven reinicios)
 const supportSessions = {}; // cache en memoria, cargado desde SQLite
 db.run(`CREATE TABLE IF NOT EXISTS soporte_sessions (
@@ -2168,30 +2196,38 @@ app.get('/soporte/debug-agentes', (req, res) => {   res.json(activeSupportSessio
 
 app.get('/soporte/agentes', requireSupportAuth, (req, res) => {
   const now = Date.now();
-  const activeAgents = {};
+  const allAgents = {};
+
+  // 1. Cargar todos los equipos conocidos
   for (const [id, session] of Object.entries(activeSupportSessions)) {
-    if (now - session.lastSeen <= 120000) {
-      activeAgents[id] = {
-        id: session.id || id,
-        hostname: session.hostname || id,
-        isAdmin: session.isAdmin || false,
-        health: session.health || null
-      };
-    }
+    const isRecentlyActive = (now - (session.lastSeen || 0)) <= 300000; // 5 minutos
+    allAgents[id] = {
+      id: session.id || id,
+      hostname: session.hostname || id,
+      isAdmin: session.isAdmin || false,
+      health: session.health || null,
+      online: isRecentlyActive,
+      lastSeen: session.lastSeen
+    };
   }
+
+  // 2. Fusionar equipos conectados por WebSocket Relay (online directo)
   if (typeof agentSessions !== 'undefined' && agentSessions.size > 0) {
     for (const [id, session] of agentSessions.entries()) {
       if (session.ws && session.ws.readyState === 1) {
-        activeAgents[id] = {
+        allAgents[id] = {
           id: id,
-          hostname: session.hostname || activeAgents[id]?.hostname || id,
-          isAdmin: session.isAdmin || activeAgents[id]?.isAdmin || false,
-          health: session.health || activeAgents[id]?.health || null
+          hostname: session.hostname || allAgents[id]?.hostname || id,
+          isAdmin: session.isAdmin || allAgents[id]?.isAdmin || false,
+          health: session.health || allAgents[id]?.health || null,
+          online: true,
+          lastSeen: Date.now()
         };
       }
     }
   }
-  res.json(activeAgents);
+
+  res.json(allAgents);
 });
 
 app.get('/soporte/health', requireSupportAuth, (req, res) => {
