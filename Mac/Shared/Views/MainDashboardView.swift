@@ -10,41 +10,111 @@ public struct MainDashboardView: View {
     public init() {}
 
     public var body: some View {
-        VStack(spacing: 20) {
-            Text("IC Desk")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+        ZStack {
+            // Fondo degradado
+            LinearGradient(gradient: Gradient(colors: [Color(red: 0.05, green: 0.1, blue: 0.2), Color.black]),
+                           startPoint: .topLeading,
+                           endPoint: .bottomTrailing)
+                .edgesIgnoringSafeArea(.all)
             
-            // Sub-vista presentacional que muestra el estado
-            SessionStatusView(state: viewModel.sessionState)
-            
-            HStack(spacing: 16) {
-                Button(action: {
-                    if viewModel.sessionState == .disconnected || viewModel.sessionState == .error {
-                        viewModel.connect()
-                    } else {
-                        viewModel.disconnect()
-                    }
-                }) {
-                    Text(viewModel.sessionState == .disconnected ? "Conectar" : "Desconectar")
-                        .padding()
-                        .background(viewModel.sessionState == .disconnected ? Color.blue : Color.red)
+            VStack(spacing: 24) {
+                // Título con acento
+                HStack(spacing: 0) {
+                    Text("IC ")
                         .foregroundColor(.white)
-                        .cornerRadius(8)
+                    Text("Desk")
+                        .foregroundColor(Color.blue)
                 }
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .padding(.top, 20)
+                
+                // Tarjeta Glassmorphism
+                VStack(spacing: 20) {
+                    Text("Tu PIN de Soporte")
+                        .font(.headline)
+                        .foregroundColor(.white.opacity(0.8))
+                    
+                    Text(generateSupportPIN())
+                        .font(.system(size: 48, weight: .black, design: .monospaced))
+                        .foregroundColor(.white)
+                        .tracking(4)
+                    
+                    SessionStatusView(state: viewModel.sessionState)
+                    
+                    Button(action: {
+                        if viewModel.sessionState == .disconnected || viewModel.sessionState == .error {
+                            viewModel.connect()
+                        } else {
+                            viewModel.disconnect()
+                        }
+                    }) {
+                        Text(viewModel.sessionState == .disconnected ? "Conectar al Servidor" : "Desconectar")
+                            .font(.headline)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(viewModel.sessionState == .disconnected ? Color.blue.opacity(0.8) : Color.red.opacity(0.8))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(30)
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color.white.opacity(0.05))
+                        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+                .padding(.horizontal, 24)
+                
+                // Lista de características de diagnóstico visuales
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Diagnósticos en tiempo real")
+                        .font(.headline)
+                        .foregroundColor(.white.opacity(0.7))
+                        .padding(.bottom, 4)
+                    
+                    DiagnosticFeatureRow(icon: "cpu", text: "Telemetría de CPU y Memoria")
+                    DiagnosticFeatureRow(icon: "battery.100", text: "Salud y Ciclos de Batería")
+                    DiagnosticFeatureRow(icon: "internaldrive", text: "Monitoreo de Discos")
+                    DiagnosticFeatureRow(icon: "network", text: "Conexión Segura (WSS)")
+                }
+                .padding(.horizontal, 30)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Spacer()
             }
-            
-            Divider()
-            
-            // Sub-vista de diagnósticos
-            DiagnosticsView(metrics: viewModel.currentMetrics)
-            
-            Spacer()
         }
-        .padding()
         #if os(macOS)
-        .frame(minWidth: 400, minHeight: 500)
+        .frame(minWidth: 450, minHeight: 650)
         #endif
+    }
+    
+    /// Genera un PIN aleatorio de 6 dígitos para soporte.
+    private func generateSupportPIN() -> String {
+        // En un caso real esto se obtendría del servidor o se sincronizaría.
+        let randomPIN = String(format: "%06d", Int.random(in: 100000...999999))
+        return randomPIN
+    }
+}
+
+/// Fila reutilizable para las características de diagnóstico
+struct DiagnosticFeatureRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(.blue)
+                .frame(width: 24, height: 24)
+            Text(text)
+                .foregroundColor(.white.opacity(0.9))
+                .font(.subheadline)
+        }
     }
 }
 

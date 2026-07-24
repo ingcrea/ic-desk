@@ -39,12 +39,59 @@ public actor ICDeskWebSocketClient {
         reconnectDelay = 1.0 // Reset del delay de reconexión tras éxito
         
         Task {
+            await registerAgent()
             await listenForMessages()
+        }
+        
+        startHeartbeat()
+    }
+    
+    /// Tarea de heartbeat.
+    private var heartbeatTask: Task<Void, Never>?
+    
+    /// Inicia el latido periódico para mantener viva la sesión.
+    private func startHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 segundos
+                guard webSocketTask != nil else { break }
+                let pingMessage = ["type": "heartbeat", "timestamp": "\(Date().timeIntervalSince1970)"]
+                try? await send(data: pingMessage)
+            }
+        }
+    }
+    
+    /// Envía el mensaje inicial de registro al servidor.
+    private func registerAgent() async {
+        let osName: String
+        #if os(macOS)
+        osName = "macOS"
+        #elseif os(iOS)
+        osName = "iOS"
+        #else
+        osName = "Unknown"
+        #endif
+        
+        let registerMessage = [
+            "type": "register",
+            "agentId": AgentIdentifier.getAgentID(),
+            "name": Host.current().localizedName ?? "Unknown",
+            "os": osName,
+            "hostname": Host.current().name ?? "Unknown"
+        ]
+        
+        do {
+            try await send(data: registerMessage)
+            print("Registro de agente enviado con éxito.")
+        } catch {
+            print("Error al enviar registro de agente: \(error)")
         }
     }
     
     /// Cierra de manera limpia la conexión activa.
     public func disconnect() {
+        heartbeatTask?.cancel()
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         webSocketTask = nil
         onStateChange?(.disconnected)

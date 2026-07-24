@@ -23,10 +23,54 @@ public class InputControlManager {
             if let mouseDown = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
                let mouseUp = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) {
                 mouseDown.post(tap: .cghidEventTap)
-                // Pequeño retraso humano
-                usleep(50000)
+                usleep(50_000)
                 mouseUp.post(tap: .cghidEventTap)
             }
+        }
+    }
+    
+    /// Simula un clic derecho en la ubicación actual.
+    public func simulateRightClick() {
+        if let currentEvent = CGEvent(source: nil) {
+            let point = currentEvent.location
+            if let mouseDown = CGEvent(mouseEventSource: nil, mouseType: .rightMouseDown, mouseCursorPosition: point, mouseButton: .right),
+               let mouseUp = CGEvent(mouseEventSource: nil, mouseType: .rightMouseUp, mouseCursorPosition: point, mouseButton: .right) {
+                mouseDown.post(tap: .cghidEventTap)
+                usleep(50_000)
+                mouseUp.post(tap: .cghidEventTap)
+            }
+        }
+    }
+    
+    /// Simula un doble clic izquierdo.
+    public func simulateDoubleClick() {
+        if let currentEvent = CGEvent(source: nil) {
+            let point = currentEvent.location
+            if let mouseDown = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
+               let mouseUp = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) {
+                
+                mouseDown.setIntegerValueField(.mouseEventClickState, value: 1)
+                mouseDown.post(tap: .cghidEventTap)
+                mouseUp.setIntegerValueField(.mouseEventClickState, value: 1)
+                mouseUp.post(tap: .cghidEventTap)
+                
+                usleep(50_000)
+                
+                mouseDown.setIntegerValueField(.mouseEventClickState, value: 2)
+                mouseDown.post(tap: .cghidEventTap)
+                mouseUp.setIntegerValueField(.mouseEventClickState, value: 2)
+                mouseUp.post(tap: .cghidEventTap)
+            }
+        }
+    }
+    
+    /// Simula un evento de scroll del ratón.
+    /// - Parameters:
+    ///   - deltaY: Cantidad de desplazamiento vertical.
+    ///   - deltaX: Cantidad de desplazamiento horizontal.
+    public func simulateScroll(deltaY: Int32, deltaX: Int32 = 0) {
+        if let scrollEvent = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: deltaY, wheel2: deltaX, wheel3: 0) {
+            scrollEvent.post(tap: .cghidEventTap)
         }
     }
     
@@ -37,6 +81,26 @@ public class InputControlManager {
            let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false) {
             keyDown.post(tap: .cghidEventTap)
             keyUp.post(tap: .cghidEventTap)
+        }
+    }
+    
+    /// Simula la escritura de una cadena de caracteres usando un teclado virtual.
+    /// - Parameter text: El texto a escribir.
+    public func typeText(_ text: String) {
+        let utf16Chars = Array(text.utf16)
+        var events: [CGEvent] = []
+        
+        for char in utf16Chars {
+            var charCode = char
+            if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
+                event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &charCode)
+                events.append(event)
+            }
+        }
+        
+        for event in events {
+            event.post(tap: .cghidEventTap)
+            usleep(10_000)
         }
     }
 }
