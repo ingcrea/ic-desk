@@ -1170,6 +1170,74 @@
     }
   });
 
+    async function fetchAgents() {
+    try {
+      const res = await fetch('/soporte/agentes', { credentials: 'include' });
+      if (!res.ok) {
+        if (res.status === 401) { logout(); }
+        return;
+      }
+      const agents = await res.json();
+      const grid = document.getElementById('agents-grid');
+      if (!grid) return;
+
+      const agentKeys = Object.keys(agents || {});
+      if (agentKeys.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 48px 24px; background: rgba(17, 24, 39, 0.4); border: 1px dashed var(--border); border-radius: 16px;">
+            <div style="font-size: 36px; margin-bottom: 12px;">🖥️</div>
+            <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px;">No hay equipos clientes conectados</h3>
+            <p style="font-size: 13px; color: var(--text-muted); max-width: 420px; margin: 0 auto 16px auto;">Para iniciar el soporte remoto, abre IC Desk en una computadora o dispositivo móvil. Se conectará automáticamente aquí.</p>
+            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+              <a href="/d/win" class="os-btn" style="display: inline-flex;">Windows (.exe)</a>
+              <a href="/d/mac" class="os-btn" style="display: inline-flex;">macOS (.dmg)</a>
+              <a href="/d/ios" class="os-btn" style="display: inline-flex;">iOS (.ipa)</a>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      for (const [id, agent] of Object.entries(agents)) {
+        const host = agent.hostname || id;
+        const isAdmin = agent.isAdmin ? '<span class="sys-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border-color: rgba(16, 185, 129, 0.3);">ADMIN</span>' : '';
+        
+        html += `
+          <div class="agent-card">
+            <div class="agent-card-header">
+              <div>
+                <div class="agent-id-tag">ID: ${id}</div>
+                <div class="agent-host">${host} ${isAdmin}</div>
+              </div>
+              <div class="pulse-indicator" title="En Línea"></div>
+            </div>
+            <div class="card-divider"></div>
+            <div class="system-badge-row">
+              <span class="sys-badge">En línea (60 FPS)</span>
+              <span class="sys-badge">Cifrado WSS</span>
+            </div>
+            <div class="card-actions">
+              <button class="btn-action primary" onclick="connectToAgent('${id}')">🖥️ Conectar Remotamente</button>
+            </div>
+          </div>
+        `;
+      }
+      grid.innerHTML = html;
+    } catch (e) {
+      console.error('Error al obtener agentes:', e);
+    }
+  }
+
+  function connectToAgent(agentId) {
+    currentAgentId = agentId;
+    const sessionView = document.getElementById('session-view');
+    const sessionTitle = document.getElementById('session-title');
+    if (sessionTitle) sessionTitle.textContent = `Consola de Control - ID: ${agentId}`;
+    if (sessionView) sessionView.classList.add('active');
+    startStream();
+  }
+
   function startMonitoring() {
     fetchAgents();
     if (monitoringInterval) clearInterval(monitoringInterval);
