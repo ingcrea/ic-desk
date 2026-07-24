@@ -2173,7 +2173,7 @@ app.get('/soporte/agentes', requireSupportAuth, (req, res) => {
   for (const [id, session] of Object.entries(activeSupportSessions)) {
     if (now - session.lastSeen <= 60000) {
       activeAgents[id] = {
-        id: session.id,
+        id: session.id || id,
         hostname: session.hostname,
         isAdmin: session.isAdmin || false,
         health: session.health

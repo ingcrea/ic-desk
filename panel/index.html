@@ -758,6 +758,10 @@
       
     </div>
     <button class="btn-login" id="btn-login-submit" onclick="attemptLogin()">Autenticar Credenciales</button>
+        <!-- Cloudflare Turnstile -->
+    <div style="display: flex; justify-content: center; padding: 12px 0;">
+      <div class="cf-turnstile" data-sitekey="1x00000000000000000000AA" data-theme="dark" data-callback="onTurnstileSuccess"></div>
+    </div>
     <div id="login-error"></div>
     
     <!-- FOOTER DE DESCARGAS DE AGENTES -->
@@ -1170,7 +1174,7 @@
     }
   });
 
-    async function fetchAgents() {
+      async function fetchAgents() {
     try {
       const res = await fetch('/soporte/agentes', { credentials: 'include' });
       if (!res.ok) {
@@ -1200,25 +1204,62 @@
 
       let html = '';
       for (const [id, agent] of Object.entries(agents)) {
-        const host = agent.hostname || id;
+        const agentId = agent.id || id;
+        const host = agent.hostname || agentId;
         const isAdmin = agent.isAdmin ? '<span class="sys-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border-color: rgba(16, 185, 129, 0.3);">ADMIN</span>' : '';
+        const hw = agent.health || {};
+        
+        let hwDetails = '';
+        if (hw.cpu || hw.ramGB || hw.osCaption) {
+          const modelStr = [hw.manufacturer, hw.model].filter(Boolean).join(' ') || '';
+          const diskUsed = (hw.disks && hw.disks[0]) ? `${hw.disks[0].used}GB / ${hw.disks[0].total}GB` : '';
+          const diskPct = (hw.disks && hw.disks[0] && hw.disks[0].total) ? Math.min(100, Math.round((hw.disks[0].used / hw.disks[0].total) * 100)) : 0;
+          
+          hwDetails = `
+            <div class="hw-make-model">${modelStr}</div>
+            <div class="hw-grid">
+              <div class="hw-block">
+                <div class="hw-label">PROCESADOR / SO</div>
+                <div class="hw-value">${hw.cpu || hw.osCaption || 'Genérico'}</div>
+              </div>
+              <div class="hw-block">
+                <div class="hw-label">MEMORIA RAM</div>
+                <div class="hw-value">${hw.ramGB ? hw.ramGB + ' GB DDR' : 'N/A'} <small>(${hw.ramFreeGB ? hw.ramFreeGB + 'GB libre' : ''})</small></div>
+              </div>
+            </div>
+            ${diskUsed ? `
+            <div class="hw-block" style="margin-top: 8px;">
+              <div class="hw-label">ALMACENAMIENTO (C:)</div>
+              <div class="hw-value" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>${diskUsed}</span>
+                <span>${diskPct}%</span>
+              </div>
+              <div class="hw-disk-row">
+                <div class="hw-disk-bar-wrap">
+                  <div class="hw-disk-bar ${diskPct > 85 ? 'crit' : (diskPct > 70 ? 'warn' : '')}" style="width: ${diskPct}%;"></div>
+                </div>
+              </div>
+            </div>` : ''}
+          `;
+        }
         
         html += `
           <div class="agent-card">
             <div class="agent-card-header">
               <div>
-                <div class="agent-id-tag">ID: ${id}</div>
+                <div class="agent-id-tag">ID: ${agentId}</div>
                 <div class="agent-host">${host} ${isAdmin}</div>
               </div>
               <div class="pulse-indicator" title="En Línea"></div>
             </div>
+            ${hwDetails}
             <div class="card-divider"></div>
             <div class="system-badge-row">
-              <span class="sys-badge">En línea (60 FPS)</span>
+              <span class="sys-badge">${hw.osCaption || 'En línea (60 FPS)'}</span>
               <span class="sys-badge">Cifrado WSS</span>
             </div>
             <div class="card-actions">
-              <button class="btn-action primary" onclick="connectToAgent('${id}')">🖥️ Conectar Remotamente</button>
+              <button class="btn-action primary" onclick="connectToAgent('${agentId}')">🖥️ Conectar Remotamente</button>
             </div>
           </div>
         `;
@@ -1244,5 +1285,6 @@
     monitoringInterval = setInterval(fetchAgents, 5000);
   }
 </script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </body>
 </html>
