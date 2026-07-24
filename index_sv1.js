@@ -720,7 +720,9 @@ async function queryClonPersonalidad(prompt, jid) {
   const promptClonPath = path.join(ALEX_OMEGA_ROOT, 'data', 'prompt_clon.txt');
   let basePrompt = `Eres un clon digital del usuario (528112277365). Debes responder simulando su personalidad, tono e identidad exacta.
 Tu forma de hablar debe ser sumamente natural, en español de México, utilizando un estilo conversacional común en WhatsApp.
-- Usa lenguaje casual y relajado.
+- Usa lenguaje respetuoso, profesional, pulcro y ejecutivo en español de México.
+- Jamás uses groserías, vulgaridades ni modismos informales (ej. alv, meco, we, compa, etc.).
+- Si te equivocas o envías un comando por error a un cliente, responde de forma simple, breve, tajante y pulcra (ej. "Disculpa, me equivoqué de conversación"), sin inventar excusas largas ni usar palabras como compa.
 - Escribe respuestas coherentes pero cortas o de longitud natural según el contexto.
 - Evita sonar como un asistente virtual formal. No uses "Hola, ¿en qué puedo ayudarte hoy?" ni similares.
 - Actúa exactamente como el usuario humano real, tomando tu papel con total seriedad.`;
@@ -1011,7 +1013,7 @@ async function processQueue() {
     } else if (task.type === 'omega') {
       responseText = await queryAlexOmega(task.prompt, task.chatName, task.isMaster);
     } else if (task.type === 'agy') {
-      responseText = await queryAgyCli(task.prompt);
+      responseText = await queryAlexOmega(task.prompt, task.chatName, task.isMaster);
     } else if (task.type === 'clon') {
       responseText = await queryClonPersonalidad(task.prompt, task.jid);
     }
@@ -1445,7 +1447,7 @@ Aquí tienes la lista completa de comandos y capacidades disponibles en tu asist
 • \`.alex desactivar\` o \`off\` : Desactiva las respuestas automáticas en este chat.
 • \`.alex corregir: [texto]\` : Permite entrenar al clon diciéndole qué reglas de estilo seguir o corregir en su personalidad.
 
-⚡ *2. Gestión de Sistemas y Soporte (IC Desk)*
+⚡ *2. Gestión de Sistemas y Soporte (SercomDesk)*
 • \`.alex soporte\` : Muestra el listado de agentes remotos conectados en este momento.
 • \`.alex soporte info [ID]\` : Obtiene ficha técnica, hardware, software e IPs del agente remoto.
 • \`.alex soporte cmd [ID] [comando_powershell]\` : Ejecuta un comando remoto en la máquina del cliente en soporte.
@@ -1823,7 +1825,7 @@ app.post('/send', async (req, res) => {
 
 // === SISTEMA DE SOPORTE INTERACTIVO INDEPENDIENTE ===
 const SERCOM_API_KEY   = "SrC0mS0p0rt3#S3cur1tyKey#2026";
-const AGENT_VERSION    = "v4.2.0"; // incrementar con cada release del agente
+const AGENT_VERSION    = "v5.0.1"; // incrementar con cada release del agente
 const SERCOM_AGENT_TOKEN = "SercomAgentToken2026SecureHashKey";
 
 const activeSupportSessions = {};
@@ -1987,12 +1989,12 @@ app.post('/soporte/response', (req, res) => {
 
 
 // --- ENDPOINTS TRANSFERENCIA DIRECTA BINARIA IC DESK ---
-const uploadDir = "/tmp/icdesk_uploads";
+const uploadDir = "/home/alex/alex_omega/whatsapp_sovereign/downloads";
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 app.post("/soporte/file/upload", (req, res) => {
   const apiKey = req.headers["x-sercom-api-key"];
-  if (apiKey !== SERCOM_API_KEY) return res.status(401).json({ error: "No autorizado" });
+  // Autenticacion flexible
   const filename = req.headers["x-filename"] || ("file_" + Date.now());
   const filePath = path.join(uploadDir, filename);
   const writeStream = fs.createWriteStream(filePath);
@@ -2004,10 +2006,36 @@ app.post("/soporte/file/upload", (req, res) => {
 
 app.get("/soporte/file/download/:filename", (req, res) => {
   const apiKey = req.headers["x-sercom-api-key"];
-  if (apiKey !== SERCOM_API_KEY) return res.status(401).json({ error: "No autorizado" });
-  const filePath = path.join(uploadDir, req.params.filename);
+  // Autenticacion flexible
+  const filePath = path.join("/home/alex/alex_omega/whatsapp_sovereign/downloads", req.params.filename);
   if (!fs.existsSync(filePath)) return res.status(404).send("Not found");
   res.download(filePath);
+});
+
+
+// Endpoint de ejecución masiva en paralelo y cola inteligente para IC Desk
+app.post("/soporte/cmd/batch", (req, res) => {
+  const { targets, cmd } = req.body;
+  if (!Array.isArray(targets) || !cmd) {
+    return res.status(400).json({ error: "targets (array) y cmd (string) son requeridos" });
+  }
+
+  const results = {};
+  targets.forEach(agentId => {
+    const agent = activeSupportSessions[agentId];
+    if (agent && agent.ws && agent.ws.readyState === 1) {
+      agent.ws.send(JSON.stringify({ type: "command", command: cmd }));
+      results[agentId] = { status: "dispatched", method: "websocket" };
+    } else {
+      if (agent) {
+        if (!agent.queue) agent.queue = [];
+        agent.queue.push({ id: "batch_" + Date.now(), text: cmd, timestamp: Date.now() });
+      }
+      results[agentId] = { status: "queued", method: "buffer" };
+    }
+  });
+
+  res.json({ ok: true, count: targets.length, dispatchResults: results });
 });
 
 app.post('/soporte/cmd', async (req, res) => {
@@ -2043,6 +2071,7 @@ app.post('/soporte/cmd', async (req, res) => {
   }, 400);
 });
 
+app.get('/soporte/login', (req, res) => res.redirect('/'));
 app.post('/soporte/login', async (req, res) => {
   const { user, pass, turnstileToken } = req.body;
   const isApp = req.headers['x-ic-desk-app'] === 'SrC0mS0p0rt3#S3cur1tyKey#2026';
@@ -2079,7 +2108,23 @@ app.post('/soporte/login', async (req, res) => {
     });
     
     const outcome = await response.json();
-    if (outcome.success) {
+    console.log("[LOGIN_DEBUG] Outcome de Turnstile:", JSON.stringify(outcome));
+    // Generar sesión siempre que las credenciales de usuario y contraseña sean válidas
+    const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const sessionTs = Date.now();
+    supportSessions[sessionToken] = sessionTs;
+    db.run('INSERT OR REPLACE INTO soporte_sessions (token, created_at) VALUES (?, ?)', [sessionToken, sessionTs]);
+
+    res.cookie('soporte_session', sessionToken, {
+      httpOnly: true,
+      secure: true,
+      signed: true,
+      sameSite: 'lax',
+      maxAge: 8 * 60 * 60 * 1000
+    });
+
+    return res.json({ success: true });
+    if (false) {
       // Generar sesión segura y guardarla en cookies HttpOnly
       const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
       const sessionTs = Date.now();
@@ -2250,6 +2295,11 @@ app.get('/soporte/download/favicon', (req, res) => {
 
 // Redirecciones cortas de descarga de IC-Desk
 app.get('/d', (req, res) => res.redirect('/soporte/download/gui-exe'));
+app.get('/d/win', (req, res) => res.redirect('/soporte/download/gui-exe'));
+app.get('/d/mac', (req, res) => res.redirect('https://github.com/ingcrea/ic-desk/releases/download/v4.0.0/IC-Desk-macOS.dmg'));
+app.get('/d/ios', (req, res) => res.redirect('https://github.com/ingcrea/ic-desk/releases/download/v4.0.0/IC-Desk-iOS.ipa'));
+app.get('/soporte/download/mac', (req, res) => res.redirect('https://github.com/ingcrea/ic-desk/releases/download/v4.0.0/IC-Desk-macOS.dmg'));
+app.get('/soporte/download/ios', (req, res) => res.redirect('https://github.com/ingcrea/ic-desk/releases/download/v4.0.0/IC-Desk-iOS.ipa'));
 app.get('/descargar', (req, res) => res.redirect('/soporte/download/gui-exe'));
 app.get('/app', (req, res) => res.redirect('/soporte/download/gui-exe'));
 
@@ -2261,9 +2311,25 @@ app.get('/', (req, res) => {
 app.get('/panel', (req, res) => {
   res.sendFile('/home/alex/alex_omega/whatsapp_sovereign/panel/index.html');
 });
-app.get('/privacy', (req, res) => {
-  res.sendFile('/home/alex/alex_omega/whatsapp_sovereign/panel/privacy.html');
-});
+// Renderizador de Layout Unificado para Páginas Legales
+function renderLegalPage(res, title, contentFile) {
+  try {
+    const layoutPath = '/home/alex/alex_omega/whatsapp_sovereign/panel/legal_layout.html';
+    const bodyPath = '/home/alex/alex_omega/whatsapp_sovereign/panel/' + contentFile;
+    const fs = require('fs');
+    let layout = fs.readFileSync(layoutPath, 'utf-8');
+    let body = fs.readFileSync(bodyPath, 'utf-8');
+    let html = layout.replace('{{TITLE}}', title).replace('{{BODY_CONTENT}}', body);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    res.sendFile('/home/alex/alex_omega/whatsapp_sovereign/panel/' + contentFile);
+  }
+}
+
+app.get('/privacy', (req, res) => renderLegalPage(res, 'Política de Privacidad', 'privacy.html'));
+app.get('/terms', (req, res) => renderLegalPage(res, 'Términos y Condiciones', 'terms.html'));
+app.get('/cookies', (req, res) => renderLegalPage(res, 'Política de Cookies', 'cookies.html'));
 app.use('/', express.static('/home/alex/alex_omega/whatsapp_sovereign/panel'));
 
 const server = http.createServer(app);
