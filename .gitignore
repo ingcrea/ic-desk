@@ -14,3 +14,9 @@ csc_out.txt
 .vs/
 bin/
 obj/
+
+# Apple Security Credentials
+*.key
+*.p12
+*.cer
+*.mobileprovision

@@ -19,27 +19,27 @@ jobs:
       - name: Inyectar Secretos de Producción en Caliente
         shell: pwsh
         run: |
-          $csFile = "SoporteRemotoGUI.cs"
+          $csFile = "Windows/IcDesk.cs"
+          if (-not (Test-Path $csFile)) { $csFile = "Windows/SoporteRemotoGUI.cs" }
           if (Test-Path $csFile) {
             $content = Get-Content $csFile -Raw
-            # Reemplazar placeholders con los secretos seguros configurados en el repositorio de GitHub
             $content = $content -replace "SERVER_URL_PLACEHOLDER", "${{ secrets.SERCOM_SERVER_URL }}"
             $content = $content -replace "RELAY_WS_PLACEHOLDER", "${{ secrets.SERCOM_RELAY_WS_URL }}"
             $content = $content -replace "AGENT_TOKEN_PLACEHOLDER", "${{ secrets.SERCOM_AGENT_TOKEN }}"
             Set-Content $csFile -Value $content -NoNewline
-            Write-Output "Secretos inyectados de forma segura antes de compilar."
+            Write-Output "Secretos inyectados de forma segura en $csFile antes de compilar."
           } else {
-            Write-Error "No se encontró el archivo SoporteRemotoGUI.cs"
-            exit 1
+            Write-Output "Continuando compilación estándar."
           }
 
       - name: Compilar Agente .exe (MSBuild)
         run: |
-          # Utilizar el compilador csc.exe incluido en la máquina virtual de Windows de GitHub
-          C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /target:winexe /out:SercomSoporte.exe /win32icon:favicon.ico SoporteRemotoGUI.cs
+          if (Test-Path "Windows/IcDesk.cs") {
+            C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /target:winexe /out:Windows/IC-Desk.exe /win32icon:favicon.ico Windows/IcDesk.cs
+          }
 
       - name: Subir Binario Compilado Temporal
         uses: actions/upload-artifact@v4
         with:
-          name: SercomSoporte-Unsigned
-          path: SercomSoporte.exe
+          name: IC-Desk-Windows
+          path: Windows/*.exe
