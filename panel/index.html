@@ -92,8 +92,11 @@
       background: transparent !important;
       pointer-events: none;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: space-between;
+      padding: 20px 16px;
+      overflow-y: auto;
       z-index: 20;
     }
 
@@ -129,12 +132,15 @@
     }
 
     .login-card {
-      background: rgba(17, 24, 39, 0.7);
+      background: rgba(17, 24, 39, 0.75);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 18px 28px;
-      width: 440px;
+      padding: 20px 24px;
+      width: 460px;
       max-width: 92vw;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+      margin: auto 0;
       backdrop-filter: blur(20px);
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 80px rgba(0, 102, 204, 0.15);
       text-align: center;
@@ -790,7 +796,7 @@
       </div>
     </div>
   </div>
-  <footer style="position: absolute; bottom: 20px; width: 100%; text-align: center; font-size: 13px; color: var(--text-muted); z-index: 10; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+  <footer style="position: relative; margin-top: 16px; width: 100%; text-align: center; font-size: 13px; color: var(--text-muted); z-index: 30; pointer-events: auto; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
     <a href="/privacy" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🔒 Privacidad</a>
     <a href="/terms" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">📜 Términos</a>
     <a href="/cookies" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🍪 Cookies</a>
