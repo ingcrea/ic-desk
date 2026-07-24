@@ -1284,6 +1284,114 @@
     startStream();
   }
 
+    function startStream() {
+    if (!currentAgentId) return;
+    
+    const overlay = document.getElementById('stream-status-overlay');
+    const overlayText = document.getElementById('stream-status-text');
+    const overlaySpinner = document.getElementById('stream-status-spinner');
+    
+    if (overlay) overlay.style.display = 'flex';
+    if (overlayText) overlayText.textContent = `Estableciendo túnel cifrado con el equipo ID: ${currentAgentId}...`;
+    if (overlaySpinner) overlaySpinner.style.display = 'block';
+
+    if (activeWs) {
+      try { activeWs.close(); } catch(e) {}
+      activeWs = null;
+    }
+
+    const wsUrl = `${WS_RELAY_URL}/?type=panel&id=${encodeURIComponent(currentAgentId)}&panel_key=SrC0mS0p0rt3%23S3cur1tyKey%232026`;
+    console.log('[STREAM] Conectando WebSocket:', wsUrl);
+    
+    activeWs = new WebSocket(wsUrl);
+    
+    activeWs.onopen = () => {
+      console.log('[STREAM] WebSocket Panel Conectado!');
+      if (overlayText) overlayText.textContent = `Vinculado. Solicitando transmisión de pantalla...`;
+      activeWs.send(JSON.stringify({ type: 'start_stream' }));
+    };
+
+    activeWs.onmessage = (event) => {
+      let data = event.data;
+      if (typeof data === 'string') {
+        try {
+          const msg = JSON.parse(data);
+          if (msg.type === 'connected') {
+            if (overlayText) overlayText.textContent = `Agente vinculado. Iniciando transmisión de video...`;
+            activeWs.send(JSON.stringify({ type: 'start_stream' }));
+            return;
+          }
+          if (msg.type === 'agent_offline') {
+            if (overlayText) overlayText.textContent = `⚠️ El cliente remoto (ID: ${currentAgentId}) no tiene la transmisión de pantalla activa en este momento.`;
+            if (overlaySpinner) overlaySpinner.style.display = 'none';
+            return;
+          }
+          if (msg.type === 'agent_disconnected') {
+            if (overlayText) overlayText.textContent = `❌ El cliente remoto se ha desconectado.`;
+            if (overlaySpinner) overlaySpinner.style.display = 'none';
+            if (overlay) overlay.style.display = 'flex';
+            return;
+          }
+          if (msg.type === 'frame' && msg.data) {
+            data = msg.data;
+          }
+        } catch (e) {}
+      }
+
+      // Renderizar cuadro de imagen en canvas
+      if (typeof data === 'string' && (data.startsWith('data:image') || data.length > 100)) {
+        if (overlay) overlay.style.display = 'none';
+        const img = new Image();
+        img.onload = () => {
+          if (canvas && ctx) {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+          }
+        };
+        img.src = data.startsWith('data:image') ? data : `data:image/jpeg;base64,${data}`;
+      }
+    };
+
+    activeWs.onerror = (err) => {
+      console.error('[STREAM] Error en WebSocket:', err);
+      if (overlayText) overlayText.textContent = `❌ Error de red al conectar con la consola de control.`;
+      if (overlaySpinner) overlaySpinner.style.display = 'none';
+    };
+
+    activeWs.onclose = (e) => {
+      console.log('[STREAM] WebSocket cerrado:', e.code, e.reason);
+    };
+  }
+
+  // Interacción de mouse sobre el canvas remoto
+  window.addEventListener('DOMContentLoaded', () => {
+    const c = document.getElementById('screen-canvas');
+    if (!c) return;
+
+    function sendMouseInput(evtType, e) {
+      if (!activeWs || activeWs.readyState !== WebSocket.OPEN || !currentAgentId) return;
+      const rect = c.getBoundingClientRect();
+      const scaleX = c.width / rect.width;
+      const scaleY = c.height / rect.height;
+      const x = Math.round((e.clientX - rect.left) * scaleX);
+      const y = Math.round((e.clientY - rect.top) * scaleY);
+      
+      const payload = {
+        type: 'mouse_event',
+        event: evtType,
+        x: x,
+        y: y,
+        button: e.button === 2 ? 'right' : 'left'
+      };
+      activeWs.send(JSON.stringify(payload));
+    }
+
+    c.addEventListener('click', (e) => sendMouseInput('click', e));
+    c.addEventListener('contextmenu', (e) => { e.preventDefault(); sendMouseInput('right_click', e); });
+    c.addEventListener('dblclick', (e) => sendMouseInput('double_click', e));
+  });
+
   function startMonitoring() {
     fetchAgents();
     if (monitoringInterval) clearInterval(monitoringInterval);
