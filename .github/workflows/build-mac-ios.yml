@@ -1,4 +1,4 @@
-name: Compilar y Firmar Sercom Desk (macOS & iOS)
+name: Compilar y Firmar Releases (macOS & iOS)
 
 on:
   push:
@@ -7,10 +7,11 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  build-apple:
-    name: Compilar y Firmar (macOS & iOS)
+  build-mac-ios:
+    name: Compilar y Firmar Release (macOS & iOS)
     runs-on: macos-latest
 
     steps:
@@ -30,40 +31,57 @@ jobs:
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # 2. Decodificar Certificado y Perfil desde Secrets de GitHub
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+          if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
+            echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+            echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
 
-          # 3. Crear Llavero (Keychain) temporal en el Runner de macOS
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            # 3. Crear Llavero (Keychain) temporal en el Runner de macOS
+            security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # 4. Importar certificado .p12 al llavero
-          security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            # 4. Importar certificado .p12 al llavero
+            security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # 5. Instalar Perfil de Aprovisionamiento de Apple
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+            # 5. Instalar Perfil de Aprovisionamiento de Apple
+            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+            cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-          echo "Certificado de Firma y Perfil de Apple instalados con éxito en el Runner."
+            echo "Certificados de firma instalados correctamente."
+          else
+            echo "Aviso: Ejecutando en modo compilación sin firma (Secrets pendientes)."
+          fi
 
-      - name: Preparar Entorno Swift / Xcode
+      - name: Preparar Entorno Swift & Xcode
         run: |
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
+          swift --version
 
-      - name: Compilar Proyecto para macOS (Si existe proyecto Xcode en Mac/)
+      - name: Compilar Binario Nativo de macOS (Release)
         run: |
-          if [ -d "Mac" ] && [ -f "Mac/ICDesk.xcodeproj" ]; then
-            xcodebuild -project Mac/ICDesk.xcodeproj -scheme ICDesk -configuration Release -destination 'platform=macOS' CODE_SIGN_STYLE="Manual" PROVISIONING_PROFILE_SPECIFIER="ICDesk_AppStore_Profile" build
-          else
-            echo "Directorio Mac preparado para recibir proyecto Xcode nativo."
-          fi
+          cd Mac
+          swift build -c release
+          mkdir -p build/release
+          cp -r .build/release/ICDeskMac build/release/IC-Desk-Mac
+          cd build/release
+          zip -r IC-Desk-macOS-Release.zip IC-Desk-Mac
 
-      - name: Subir Artifacts de Firma (macOS & iOS)
+      - name: Generar Artifact Release de macOS
         uses: actions/upload-artifact@v4
         with:
-          name: ICDesk-Apple-Signed
-          path: |
-            Mac/*.mobileprovision
+          name: IC-Desk-macOS-Release
+          path: Mac/build/release/IC-Desk-macOS-Release.zip
+
+      - name: Empaquetar Código de iOS (App Group Ready)
+        run: |
+          cd Mac
+          mkdir -p build/release-ios
+          zip -r build/release-ios/IC-Desk-iOS-Source.zip Shared/ iOS/ Package.swift AppEntry.swift ICDesk_AppStore_Profile.mobileprovision
+
+      - name: Generar Artifact Release de iOS
+        uses: actions/upload-artifact@v4
+        with:
+          name: IC-Desk-iOS-Release
+          path: Mac/build/release-ios/IC-Desk-iOS-Source.zip
