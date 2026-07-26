@@ -19,8 +19,8 @@ def main():
     print(f"🚀 Iniciando compilación y sincronización de Release {version}...")
 
     repo_dir = "/home/ingcrea/github/ic-desk"
-    cs_file = os.path.join(repo_dir, "IcDesk.cs")
-    exe_file = os.path.join(repo_dir, "IC-Desk.exe")
+    cs_file = os.path.join(repo_dir, "Windows/IcDesk.cs")
+    exe_file = os.path.join(repo_dir, "Windows/IC-Desk.exe")
 
     # 1. Inyectar versión exacta en IcDesk.cs
     with open(cs_file, "r", encoding="utf-8") as f:
@@ -35,7 +35,7 @@ def main():
 
     
     # Inyectar logotipo en base64 si existe
-    logo_file = os.path.join(repo_dir, "logo-texto-blanco.png")
+    logo_file = os.path.join(repo_dir, "Windows/logo-texto-blanco.png")
     if os.path.exists(logo_file):
         with open(logo_file, "rb") as lf:
             logo_b64 = base64.b64encode(lf.read()).decode("utf-8")
@@ -47,7 +47,7 @@ def main():
 
     
     # Inyectar ícono en base64 si existe
-    ico_file = os.path.join(repo_dir, "favicon.ico")
+    ico_file = os.path.join(repo_dir, "Windows/favicon.ico")
     if os.path.exists(ico_file):
         with open(ico_file, "rb") as icf:
             ico_b64 = base64.b64encode(icf.read()).decode("utf-8")
