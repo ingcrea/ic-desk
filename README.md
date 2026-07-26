@@ -1,80 +1,42 @@
-# IC-Desk — Sistema de Soporte Remoto por Ingenieria Creativa
+# IC-Desk — Cliente de Soporte Remoto Open-Source
 
-Sistema de soporte técnico remoto desarrollado por **Ingenieria Creativa (IngCrea)**. Elimina la dependencia de AnyDesk y RustDesk con una solución 100% propia, integrada con el bot de WhatsApp corporativo.
+Cliente de soporte técnico remoto ultraligero y de alto rendimiento. Diseñado con una arquitectura nativa orientada a la eficiencia extrema (cero dependencias externas) y captura de video acelerada por hardware.
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📁 Estructura Pública del Proyecto
 
 ```
 ic-desk/
-├── client/
-│   └── IcDesk.cs                # Agente Windows en C# (.NET 4.8)
-├── server/
-│   ├── relay.js                  # Servidor WebSocket relay (puerto 6002)
-│   └── package.json              # Dependencias Node.js (ws@8)
-├── panel/
-│   └── index.html               # Panel web del técnico (HTML5 Canvas)
-├── agent_spec.md                # Especificación técnica del agente
-├── system_mapping.md            # Mapeo de infraestructura y API endpoints
-└── project_roadmap.md           # Roadmap y fases de desarrollo
+├── Windows/
+│   └── IcDesk.cs                # Agente nativo Windows en C# (.NET)
+└── Mac/
+    └── ICDesk/                  # Agente nativo macOS / iOS en Swift
 ```
 
 ---
 
-## 🚀 Fases Implementadas
+## 🚀 Características del Agente (v6.1.0)
 
-| Fase | Descripción | Estado |
-|------|-------------|--------|
-| 1 | Consola remota PowerShell + Health Check via WhatsApp | ✅ Completado |
-| 2 | Sincronización de portapapeles bidireccional | ✅ Completado |
-| 3 | Streaming de pantalla en tiempo real (Canvas WebSocket) | ✅ Completado |
-| 4 | Control de mouse, teclado y elevación UAC a demanda | ✅ Completado |
+* **Video H.264 Acelerado por GPU:** Utiliza las APIs nativas del sistema operativo (como DXGI Desktop Duplication y Media Foundation en Windows) para capturar y codificar la pantalla directamente desde la Tarjeta Gráfica (Cero latencia).
+* **Peso Pluma Extremo:** Archivo ejecutable huérfano solitario de ~314 KB. No requiere instalar DLLs gigantes, ni motores web embebidos.
+* **Mecanismo OTA Integrado:** El agente C# cuenta con un actualizador automático transparente (Over-The-Air) integrado en la misma capa de red de `.NET`.
+* **Soporte Bidireccional:** Portapapeles compartido de manera nativa y recepción de inyección de inputs (Mouse/Teclado).
 
 ---
 
-## 🏗️ Cómo Compilar el Agente (en Windows del cliente)
+## 🏗️ Cómo Compilar el Agente de Windows manualmente
 
-```powershell
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe `
-  /out:IC-Desk.exe `
-  /target:winexe `
-  /win32icon:favicon.ico `
-  IcDesk.cs
-```
-
----
-
-## 🖥️ Cómo Desplegar el Relay
-
+Para entornos Linux (CI/CD):
 ```bash
-cd server/
-npm install
-node relay.js
+mcs -out:IC-Desk.exe -r:System.Net.Http,System.Drawing,System.Windows.Forms IcDesk.cs
+```
+
+Para entornos Windows:
+```powershell
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /out:IC-Desk.exe /target:winexe IcDesk.cs
 ```
 
 ---
 
-## 🔐 Claves de Autenticación
-
-> [!IMPORTANT]
-> Los secretos y tokens de autenticación no deben hardcodearse en el repositorio. Deben definirse mediante variables de entorno o archivos de configuración locales.
-
-| Clave | Uso | Valor Recomendado |
-|-------|-----|-------------------|
-| `X-Sercom-Agent-Token` | Header del agente C# | *Definido en configuración local / Variables de entorno del servidor* |
-| `X-Sercom-API-Key` | API Key para Panel/Scripts | *Definido en configuración local / Variables de entorno del servidor* |
-| `panel_key` | Query param del Panel Web | *Definido en configuración local / Variables de entorno del servidor* |
-
----
-
-## 📡 Puertos de Infraestructura
-
-| Puerto | Servicio |
-|--------|---------|
-| `6001` | API REST (Express + Bot WhatsApp) |
-| `6002` | WebSocket Relay (Streaming en tiempo real) |
-
----
-
-**Ingenieria Creativa © 2026** — Todos los derechos reservados.
+**IC Desk © 2026** — *Proyecto cliente Open-Source.*
