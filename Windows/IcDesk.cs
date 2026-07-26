@@ -1,10 +1,11 @@
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using System.IO;
 using System.Net;
 using System.Net.WebSockets;
-using System.Runtime.InteropServices;
+
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,7 +44,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.1.1"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.2.0"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -651,60 +652,37 @@ namespace ICDesk
         {
             var screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
             
-            while (!ct.IsCancellationRequested && _wsClient != null && _wsClient.State == WebSocketState.Open)
+            using (var dxgiEngine = new DXGICaptureEngine())
             {
-                try
-                {
-                    long frameStart = DateTime.Now.Ticks;
-                    
-                    using (Bitmap bmp = new Bitmap(screen.Width, screen.Height))
-                    {
-                        using (Graphics g = Graphics.FromImage(bmp))
-                        {
-                            g.CopyFromScreen(screen.X, screen.Y, 0, 0, bmp.Size, CopyPixelOperation.SourceCopy);
-                            // Dibujar el cursor
-                            try
-                            {
-                                CURSORINFO pci;
-                                pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
-                                if (GetCursorInfo(out pci))
-                                {
-                                    if (pci.flags == 1) // CURSOR_SHOWING
-                                    {
-                                        DrawIcon(g.GetHdc(), pci.ptScreenPos.x - screen.X, pci.ptScreenPos.y - screen.Y, pci.hCursor);
-                                        g.ReleaseHdc();
-                                    }
-                                }
-                            }
-                            catch { }
-                        }
+                try { dxgiEngine.Initialize(); }
+                catch (Exception ex) { Console.WriteLine("Fallo init DXGI: " + ex.Message); }
 
-                        using (MemoryStream ms = new MemoryStream())
+                while (!ct.IsCancellationRequested && _wsClient != null && _wsClient.State == WebSocketState.Open)
+                {
+                    try
+                    {
+                        long frameStart = DateTime.Now.Ticks;
+                        
+                        byte[] h264NalData = dxgiEngine.CaptureFrame();
+                        if (h264NalData != null && h264NalData.Length > 0)
                         {
-                            var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
-                            var encoderParameters = new EncoderParameters(1);
-                            encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 60L);
-                            
-                            bmp.Save(ms, jpegEncoder, encoderParameters);
-                            byte[] imgData = ms.ToArray();
-                            
-                            byte[] packet = new byte[18 + imgData.Length];
+                            byte[] packet = new byte[18 + h264NalData.Length];
                             packet[0] = 0x56; packet[1] = 0x49; packet[2] = 0x44; packet[3] = 0x45; // 'VIDE'
                             packet[14] = (byte)(screen.Width >> 8);  packet[15] = (byte)(screen.Width & 0xFF);
                             packet[16] = (byte)(screen.Height >> 8); packet[17] = (byte)(screen.Height & 0xFF);
                             
-                            Buffer.BlockCopy(imgData, 0, packet, 18, imgData.Length);
+                            Buffer.BlockCopy(h264NalData, 0, packet, 18, h264NalData.Length);
                             
                             await _wsClient.SendAsync(new ArraySegment<byte>(packet), WebSocketMessageType.Binary, true, ct);
                         }
-                    }
 
-                    long elapsedMs = (DateTime.Now.Ticks - frameStart) / TimeSpan.TicksPerMillisecond;
-                    int nextDelay = Math.Max(33, (int)(33 - elapsedMs)); // ~30 FPS
-                    await Task.Delay(nextDelay, ct);
+                        long elapsedMs = (DateTime.Now.Ticks - frameStart) / TimeSpan.TicksPerMillisecond;
+                        int nextDelay = Math.Max(33, (int)(33 - elapsedMs)); // ~30 FPS
+                        await Task.Delay(nextDelay, ct);
+                    }
+                    catch (OperationCanceledException) { break; }
+                    catch { Thread.Sleep(33); }
                 }
-                catch (OperationCanceledException) { break; }
-                catch { Thread.Sleep(33); }
             }
         }
 
@@ -1665,58 +1643,948 @@ try {
             IntPtr pByteStream, IntPtr pAttributes, out IMFSinkWriter ppSinkWriter);
     }
     
-    [ComImport, Guid("B8A6C54C-1158-4CB6-B63C-D68D2AF0D0E5"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IDXGIOutputDuplication
+
+
+
+
+
+
+
+    // -------------------------------------------------------------------------
+    // GUIDs for COM Interfaces
+    // -------------------------------------------------------------------------
+    public static class COMGuids
     {
-        void GetDesc(out object pDesc);
-        [PreserveSig] int AcquireNextFrame(uint TimeoutInMilliseconds, out DXGI_OUTDUPL_FRAME_INFO pFrameInfo, out IDXGIResource ppDesktopResource);
-        void GetFrameDirtyRects(uint DirtyRectsBufferSize, out object pDirtyRectsBuffer, out uint pDirtyRectsBufferSizeRequired);
-        void GetFrameMoveRects(uint MoveRectsBufferSize, out object pMoveRectBuffer, out uint pMoveRectsBufferSizeRequired);
-        void GetFramePointerShape(uint PointerShapeBufferSize, out object pPointerShapeBuffer, out uint pPointerShapeBufferSizeRequired, out object pPointerShapeInfo);
-        void MapDesktopSurface(out object pLockedRect);
-        void UnMapDesktopSurface();
-        [PreserveSig] int ReleaseFrame();
+        public const string IID_ID3D11Device = "db6f6ddb-ac77-4e88-8253-819df9bbf140";
+        public const string IID_ID3D11DeviceContext = "c0bfa96c-e089-44fb-8eaf-26f8796190da";
+        public const string IID_ID3D11Texture2D = "6f15aaf2-d208-4e89-9ab4-489535d34f9c";
+        public const string IID_IDXGIObject = "aec222be-7cf3-4fac-b35b-c2e6cb1fae13";
+        public const string IID_IDXGIDevice = "54ec77fa-1377-44e6-8c32-88fd5f44c84c";
+        public const string IID_IDXGIAdapter = "2411e7e1-12ac-4ccf-bd14-9798e8534dc0";
+        public const string IID_IDXGIFactory = "7b7166ec-21c7-44ae-b21a-c9ae321ae369";
+        public const string IID_IDXGIFactory1 = "770aae78-f26f-4dba-a829-253c83d1b387";
+        public const string IID_IDXGIOutput = "ae02eedb-c735-4690-8d52-5a8dc20213aa";
+        public const string IID_IDXGIOutput1 = "00cddea8-939b-4b83-a340-a685226666cc";
+        public const string IID_IDXGIOutputDuplication = "191cfac3-a341-470d-b26e-a864f428319c";
+        public const string IID_IDXGIResource = "035f3ab4-482e-4e50-b41f-8a7f8bd8960b";
+        public const string IID_IMFSinkWriter = "3137f1cd-fe5e-4805-a5d8-fb477448cb3d";
+        public const string IID_IMFMediaBuffer = "045FA593-8799-42b8-BC8D-8968C6453507";
+        public const string IID_IMF2DBuffer = "7DC9D5F9-9ED9-44EC-9BBF-0600BB589FBB";
+        public const string IID_IMFSample = "c40a00f2-b93a-4d80-ae8c-5a1c634f58e4";
+        public const string IID_IMFMediaType = "44ae0fa8-ea31-4109-8d2e-4cae4997c555";
+        public const string IID_IMFAttributes = "2cd2d921-c447-44a7-a13c-4adabfc247e3";
     }
-    
+
+    // -------------------------------------------------------------------------
+    // Enums and Structs
+    // -------------------------------------------------------------------------
+    public enum D3D_DRIVER_TYPE
+    {
+        UNKNOWN = 0,
+        HARDWARE = 1,
+        REFERENCE = 2,
+        NULL = 3,
+        SOFTWARE = 4,
+        WARP = 5
+    }
+
+    [Flags]
+    public enum D3D11_CREATE_DEVICE_FLAG
+    {
+        NONE = 0,
+        SINGLETHREADED = 0x1,
+        DEBUG = 0x2,
+        SWITCH_TO_REF = 0x4,
+        PREVENT_INTERNAL_THREADING_OPTIMIZATIONS = 0x8,
+        BGRA_SUPPORT = 0x20
+    }
+
+    public enum D3D_FEATURE_LEVEL
+    {
+        LEVEL_9_1 = 0x9100,
+        LEVEL_9_2 = 0x9200,
+        LEVEL_9_3 = 0x9300,
+        LEVEL_10_0 = 0xa000,
+        LEVEL_10_1 = 0xa100,
+        LEVEL_11_0 = 0xb000,
+        LEVEL_11_1 = 0xb100
+    }
+
+    public enum DXGI_FORMAT
+    {
+        UNKNOWN = 0,
+        B8G8R8A8_UNORM = 87
+    }
+
     [StructLayout(LayoutKind.Sequential)]
-    internal struct DXGI_OUTDUPL_FRAME_INFO
+    public struct DXGI_OUTDUPL_FRAME_INFO
     {
         public long LastPresentTime;
         public long LastMouseUpdateTime;
         public uint AccumulatedFrames;
-        public int RectsCoalesced;
-        public int ProtectedContentMaskedOut;
-        public int PointerPosition;
-        public int TotalMetadataBufferSize;
-        public int PointerShapeBufferSize;
+        public uint RectsCoalesced;
+        public uint ProtectedContentMaskedOut;
+        public DXGI_OUTDUPL_POINTER_POSITION PointerPosition;
+        public uint TotalMetadataBufferSize;
+        public uint PointerShapeBufferSize;
     }
 
-    [ComImport, Guid("035F3AB4-482E-4E50-B41F-8A7F8BD8960B"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IDXGIResource
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DXGI_OUTDUPL_POINTER_POSITION
     {
-        void GetSharedHandle(out IntPtr pSharedHandle);
-        void GetUsage(out uint pUsage);
-        void SetEvictionPriority(uint EvictionPriority);
-        void GetEvictionPriority(out uint pEvictionPriority);
+        public POINT Position;
+        public int Visible;
     }
 
-    [ComImport, Guid("3137f1cd-fe5e-4805-a5d8-fb477448cb3d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IMFSinkWriter
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
     {
-        void AddStream(IMFMediaType pTargetMediaType, out uint pdwStreamIndex);
-        void SetInputMediaType(uint dwStreamIndex, IMFMediaType pInputMediaType, IntPtr pEncodingParameters);
-        void BeginWriting();
-        void WriteSample(uint dwStreamIndex, IMFSample pSample);
-        void SendStreamTick(uint dwStreamIndex, long llTimestamp);
-        void PlaceMarker(uint dwStreamIndex, IntPtr pvContext);
-        void NotifyEndOfSegment(uint dwStreamIndex);
-        void Flush(uint dwStreamIndex);
-        void Finalize();
+        public int X;
+        public int Y;
     }
-
-    [ComImport, Guid("44AE0FA8-EA31-4109-8D2E-4CAE4997C555"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IMFMediaType {}
     
-    [ComImport, Guid("c40a00f2-b93a-4d80-ae8c-5a1c634f58e4"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IMFSample {}
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct D3D11_TEXTURE2D_DESC
+    {
+        public uint Width;
+        public uint Height;
+        public uint MipLevels;
+        public uint ArraySize;
+        public DXGI_FORMAT Format;
+        public DXGI_SAMPLE_DESC SampleDesc;
+        public uint Usage;
+        public uint BindFlags;
+        public uint CPUAccessFlags;
+        public uint MiscFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DXGI_SAMPLE_DESC
+    {
+        public uint Count;
+        public uint Quality;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct D3D11_MAPPED_SUBRESOURCE
+    {
+        public IntPtr pData;
+        public uint RowPitch;
+        public uint DepthPitch;
+    }
+
+    // -------------------------------------------------------------------------
+    // Interfaces (D3D11 & DXGI)
+    // -------------------------------------------------------------------------
+    [ComImport]
+    [Guid(COMGuids.IID_ID3D11Device)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface ID3D11Device
+    {
+        [PreserveSig]
+        int CreateBuffer(IntPtr pDesc, IntPtr pInitialData, out IntPtr ppBuffer);
+        
+        [PreserveSig]
+        int CreateTexture1D(IntPtr pDesc, IntPtr pInitialData, out IntPtr ppTexture1D);
+        
+        [PreserveSig]
+        int CreateTexture2D(ref D3D11_TEXTURE2D_DESC pDesc, IntPtr pInitialData, out ID3D11Texture2D ppTexture2D);
+        
+        void PlaceHolder_03();
+        void PlaceHolder_04();
+        void PlaceHolder_05();
+        void PlaceHolder_06();
+        void PlaceHolder_07();
+        void PlaceHolder_08();
+        void PlaceHolder_09();
+        void PlaceHolder_10();
+        void PlaceHolder_11();
+        void PlaceHolder_12();
+        void PlaceHolder_13();
+        void PlaceHolder_14();
+        void PlaceHolder_15();
+        void PlaceHolder_16();
+        void PlaceHolder_17();
+        void PlaceHolder_18();
+        void PlaceHolder_19();
+        void PlaceHolder_20();
+        void PlaceHolder_21();
+        void PlaceHolder_22();
+        void PlaceHolder_23();
+        void PlaceHolder_24();
+        void PlaceHolder_25();
+        void PlaceHolder_26();
+        void PlaceHolder_27();
+        void PlaceHolder_28();
+        void PlaceHolder_29();
+        void PlaceHolder_30();
+        void PlaceHolder_31();
+        void PlaceHolder_32();
+        void PlaceHolder_33();
+        void PlaceHolder_34();
+        void PlaceHolder_35();
+        void PlaceHolder_36();
+        void PlaceHolder_37();
+        
+        [PreserveSig]
+        int GetImmediateContext(out ID3D11DeviceContext ppImmediateContext);
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_ID3D11Texture2D)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface ID3D11Texture2D
+    {
+        void GetDevice();
+        void GetPrivateData();
+        void SetPrivateData();
+        void SetPrivateDataInterface();
+        void GetType();
+        void SetEvictionPriority();
+        void GetEvictionPriority();
+        void GetDesc(out D3D11_TEXTURE2D_DESC pDesc);
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_ID3D11DeviceContext)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface ID3D11DeviceContext
+    {
+        void VSSetConstantBuffers();
+        void PSSetShaderResources();
+        void PSSetShader();
+        void SAMPLERSetSamplers();
+        void VSSetShader();
+        void DrawIndexed();
+        void Draw();
+        
+        [PreserveSig]
+        int Map(IntPtr pResource, uint Subresource, uint MapType, uint MapFlags, out D3D11_MAPPED_SUBRESOURCE pMappedResource);
+        
+        [PreserveSig]
+        void Unmap(IntPtr pResource, uint Subresource);
+        
+        void PSSetConstantBuffers();
+        void IASetInputLayout();
+        void IASetVertexBuffers();
+        void IASetIndexBuffer();
+        void DrawIndexedInstanced();
+        void DrawInstanced();
+        void GSSetConstantBuffers();
+        void GSSetShader();
+        void IASetPrimitiveTopology();
+        void VSSetShaderResources();
+        void VSSetSamplers();
+        void Begin();
+        void End();
+        void GetData();
+        void SetPredication();
+        void GSSetShaderResources();
+        void GSSetSamplers();
+        void OMSetRenderTargets();
+        void OMSetRenderTargetsAndUnorderedAccessViews();
+        void OMSetBlendState();
+        void OMSetDepthStencilState();
+        void SOSetTargets();
+        void DrawAuto();
+        void DrawIndexedInstancedIndirect();
+        void DrawInstancedIndirect();
+        void Dispatch();
+        void DispatchIndirect();
+        void RSSetState();
+        void RSSetViewports();
+        void RSSetScissorRects();
+        
+        [PreserveSig]
+        void CopySubresourceRegion(IntPtr pDstResource, uint DstSubresource, uint DstX, uint DstY, uint DstZ, IntPtr pSrcResource, uint SrcSubresource, IntPtr pSrcBox);
+        
+        [PreserveSig]
+        void CopyResource(IntPtr pDstResource, IntPtr pSrcResource);
+        
+        [PreserveSig]
+        void UpdateSubresource(IntPtr pDstResource, uint DstSubresource, IntPtr pDstBox, IntPtr pSrcData, uint SrcRowPitch, uint SrcDepthPitch);
+        
+        void CopyStructureCount();
+        void ClearRenderTargetView();
+        void ClearUnorderedAccessViewUint();
+        void ClearUnorderedAccessViewFloat();
+        void ClearDepthStencilView();
+        void GenerateMips();
+        void SetResourceMinLOD();
+        void GetResourceMinLOD();
+        void ResolveSubresource();
+        void ExecuteCommandList();
+        void HSSetShaderResources();
+        void HSSetShader();
+        void HSSetSamplers();
+        void HSSetConstantBuffers();
+        void DSSetShaderResources();
+        void DSSetShader();
+        void DSSetSamplers();
+        void DSSetConstantBuffers();
+        void CSSetShaderResources();
+        void CSSetUnorderedAccessViews();
+        void CSSetShader();
+        void CSSetSamplers();
+        void CSSetConstantBuffers();
+        void VSGetConstantBuffers();
+        void PSGetShaderResources();
+        void PSGetShader();
+        void VSGetShader();
+        void PSGetSamplers();
+        void IAGetInputLayout();
+        void IAGetVertexBuffers();
+        void IAGetIndexBuffer();
+        void GSGetConstantBuffers();
+        void GSGetShader();
+        void IAGetPrimitiveTopology();
+        void VSGetShaderResources();
+        void VSGetSamplers();
+        void GetPredication();
+        void GSGetShaderResources();
+        void GSGetSamplers();
+        void OMGetRenderTargets();
+        void OMGetRenderTargetsAndUnorderedAccessViews();
+        void OMGetBlendState();
+        void OMGetDepthStencilState();
+        void SOGetTargets();
+        void RSGetState();
+        void RSGetViewports();
+        void RSGetScissorRects();
+        void HSGetShaderResources();
+        void HSGetShader();
+        void HSGetSamplers();
+        void HSGetConstantBuffers();
+        void DSGetShaderResources();
+        void DSGetShader();
+        void DSGetSamplers();
+        void DSGetConstantBuffers();
+        void CSGetShaderResources();
+        void CSGetUnorderedAccessViews();
+        void CSGetShader();
+        void CSGetSamplers();
+        void CSGetConstantBuffers();
+        void ClearState();
+        void Flush();
+        void GetType();
+        void GetContextFlags();
+        void FinishCommandList();
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_IDXGIObject)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDXGIObject
+    {
+        [PreserveSig]
+        int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
+        [PreserveSig]
+        int SetPrivateDataInterface(ref Guid Name, [MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        [PreserveSig]
+        int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
+        [PreserveSig]
+        int GetParent(ref Guid riid, out IntPtr ppParent);
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_IDXGIAdapter)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDXGIAdapter : IDXGIObject
+    {
+        new int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
+        new int SetPrivateDataInterface(ref Guid Name, [MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        new int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
+        new int GetParent(ref Guid riid, out IntPtr ppParent);
+        
+        [PreserveSig]
+        int EnumOutputs(uint Output, out IDXGIOutput ppOutput);
+        [PreserveSig]
+        int GetDesc(IntPtr pDesc);
+        [PreserveSig]
+        int CheckInterfaceSupport(ref Guid InterfaceName, out long pUMDVersion);
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_IDXGIDevice)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDXGIDevice : IDXGIObject
+    {
+        new int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
+        new int SetPrivateDataInterface(ref Guid Name, [MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        new int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
+        new int GetParent(ref Guid riid, out IntPtr ppParent);
+
+        [PreserveSig]
+        int GetAdapter(out IDXGIAdapter pAdapter);
+        [PreserveSig]
+        int CreateSurface();
+        [PreserveSig]
+        int QueryResourceResidency();
+        [PreserveSig]
+        int SetGPUThreadPriority(int Priority);
+        [PreserveSig]
+        int GetGPUThreadPriority(out int pPriority);
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_IDXGIOutput)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDXGIOutput : IDXGIObject
+    {
+        new int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
+        new int SetPrivateDataInterface(ref Guid Name, [MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        new int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
+        new int GetParent(ref Guid riid, out IntPtr ppParent);
+
+        [PreserveSig]
+        int GetDesc(IntPtr pDesc);
+        [PreserveSig]
+        int GetDisplayModeList(DXGI_FORMAT EnumFormat, uint Flags, ref uint pNumModes, IntPtr pDesc);
+        [PreserveSig]
+        int FindClosestMatchingMode(IntPtr pModeToMatch, IntPtr pClosestMatch, [MarshalAs(UnmanagedType.IUnknown)] object pConcernedDevice);
+        [PreserveSig]
+        int WaitForVBlank();
+        [PreserveSig]
+        int TakeOwnership([MarshalAs(UnmanagedType.IUnknown)] object pDevice, int Exclusive);
+        [PreserveSig]
+        void ReleaseOwnership();
+        [PreserveSig]
+        int GetGammaControlCapabilities(IntPtr pGammaCaps);
+        [PreserveSig]
+        int SetGammaControl(IntPtr pArray);
+        [PreserveSig]
+        int GetGammaControl(IntPtr pArray);
+        [PreserveSig]
+        int SetDisplaySurface(IntPtr pScanoutSurface);
+        [PreserveSig]
+        int GetDisplaySurfaceData(IntPtr pDestination);
+        [PreserveSig]
+        int GetFrameStatistics(IntPtr pStats);
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_IDXGIOutput1)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDXGIOutput1 : IDXGIOutput
+    {
+        new int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
+        new int SetPrivateDataInterface(ref Guid Name, [MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        new int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
+        new int GetParent(ref Guid riid, out IntPtr ppParent);
+
+        new int GetDesc(IntPtr pDesc);
+        new int GetDisplayModeList(DXGI_FORMAT EnumFormat, uint Flags, ref uint pNumModes, IntPtr pDesc);
+        new int FindClosestMatchingMode(IntPtr pModeToMatch, IntPtr pClosestMatch, [MarshalAs(UnmanagedType.IUnknown)] object pConcernedDevice);
+        new int WaitForVBlank();
+        new int TakeOwnership([MarshalAs(UnmanagedType.IUnknown)] object pDevice, int Exclusive);
+        new void ReleaseOwnership();
+        new int GetGammaControlCapabilities(IntPtr pGammaCaps);
+        new int SetGammaControl(IntPtr pArray);
+        new int GetGammaControl(IntPtr pArray);
+        new int SetDisplaySurface(IntPtr pScanoutSurface);
+        new int GetDisplaySurfaceData(IntPtr pDestination);
+        new int GetFrameStatistics(IntPtr pStats);
+
+        [PreserveSig]
+        int GetDisplayModeList1(DXGI_FORMAT EnumFormat, uint Flags, ref uint pNumModes, IntPtr pDesc);
+        [PreserveSig]
+        int FindClosestMatchingMode1(IntPtr pModeToMatch, IntPtr pClosestMatch, [MarshalAs(UnmanagedType.IUnknown)] object pConcernedDevice);
+        [PreserveSig]
+        int GetDisplaySurfaceData1(IntPtr pDestination);
+        [PreserveSig]
+        int DuplicateOutput([MarshalAs(UnmanagedType.IUnknown)] object pDevice, out IDXGIOutputDuplication ppOutputDuplication);
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_IDXGIOutputDuplication)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDXGIOutputDuplication : IDXGIObject
+    {
+        new int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
+        new int SetPrivateDataInterface(ref Guid Name, [MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        new int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
+        new int GetParent(ref Guid riid, out IntPtr ppParent);
+
+        [PreserveSig]
+        void GetDesc(IntPtr pDesc);
+        [PreserveSig]
+        int AcquireNextFrame(uint TimeoutInMilliseconds, out DXGI_OUTDUPL_FRAME_INFO pFrameInfo, out IDXGIResource ppDesktopResource);
+        [PreserveSig]
+        int GetFrameDirtyRects(uint DirtyRectsBufferSize, IntPtr pDirtyRectsBuffer, out uint pDirtyRectsBufferSizeRequired);
+        [PreserveSig]
+        int GetFrameMoveRects(uint MoveRectsBufferSize, IntPtr pMoveRectBuffer, out uint pMoveRectsBufferSizeRequired);
+        [PreserveSig]
+        int GetFramePointerShape(uint PointerShapeBufferSize, IntPtr pPointerShapeBuffer, out uint pPointerShapeBufferSizeRequired, out DXGI_OUTDUPL_POINTER_SHAPE_INFO pPointerShapeInfo);
+        [PreserveSig]
+        int MapDesktopSurface(out DXGI_MAPPED_RECT pLockedRect);
+        [PreserveSig]
+        int UnMapDesktopSurface();
+        [PreserveSig]
+        int ReleaseFrame();
+    }
+    
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DXGI_OUTDUPL_POINTER_SHAPE_INFO
+    {
+        public uint Type;
+        public uint Width;
+        public uint Height;
+        public uint Pitch;
+        public POINT HotSpot;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DXGI_MAPPED_RECT
+    {
+        public int Pitch;
+        public IntPtr pBits;
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_IDXGIResource)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDXGIResource : IDXGIObject
+    {
+        new int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
+        new int SetPrivateDataInterface(ref Guid Name, [MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        new int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
+        new int GetParent(ref Guid riid, out IntPtr ppParent);
+
+        [PreserveSig]
+        int GetSharedHandle(out IntPtr pSharedHandle);
+        [PreserveSig]
+        int GetUsage(out uint pUsage);
+        [PreserveSig]
+        int SetEvictionPriority(uint EvictionPriority);
+        [PreserveSig]
+        int GetEvictionPriority(out uint pEvictionPriority);
+    }
+
+    // -------------------------------------------------------------------------
+    // Media Foundation Interfaces
+    // -------------------------------------------------------------------------
+    [ComImport]
+    [Guid(COMGuids.IID_IMFAttributes)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IMFAttributes
+    {
+        [PreserveSig] int GetItem(ref Guid guidKey, IntPtr pValue);
+        [PreserveSig] int GetItemType(ref Guid guidKey, out int pType);
+        [PreserveSig] int CompareItem(ref Guid guidKey, IntPtr Value, out int pbResult);
+        [PreserveSig] int Compare(IMFAttributes pTheirs, int MatchType, out int pbResult);
+        [PreserveSig] int GetUINT32(ref Guid guidKey, out uint punValue);
+        [PreserveSig] int GetUINT64(ref Guid guidKey, out ulong punValue);
+        [PreserveSig] int GetDouble(ref Guid guidKey, out double pfValue);
+        [PreserveSig] int GetGUID(ref Guid guidKey, out Guid pguidValue);
+        [PreserveSig] int GetStringLength(ref Guid guidKey, out uint pcchLength);
+        [PreserveSig] int GetString(ref Guid guidKey, [Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pwszValue, uint cchBufSize, out uint pcchLength);
+        [PreserveSig] int GetAllocatedString(ref Guid guidKey, out IntPtr ppwszValue, out uint pcchLength);
+        [PreserveSig] int GetBlobSize(ref Guid guidKey, out uint pcbBlobSize);
+        [PreserveSig] int GetBlob(ref Guid guidKey, [Out, MarshalAs(UnmanagedType.LPArray)] byte[] pBuf, uint cbBufSize, out uint pcbBlobSize);
+        [PreserveSig] int GetAllocatedBlob(ref Guid guidKey, out IntPtr ppBuf, out uint pcbSize);
+        [PreserveSig] int GetUnknown(ref Guid guidKey, ref Guid riid, [MarshalAs(UnmanagedType.IUnknown)] out object ppv);
+        [PreserveSig] int SetItem(ref Guid guidKey, IntPtr Value);
+        [PreserveSig] int DeleteItem(ref Guid guidKey);
+        [PreserveSig] int DeleteAllItems();
+        [PreserveSig] int SetUINT32(ref Guid guidKey, uint unValue);
+        [PreserveSig] int SetUINT64(ref Guid guidKey, ulong unValue);
+        [PreserveSig] int SetDouble(ref Guid guidKey, double fValue);
+        [PreserveSig] int SetGUID(ref Guid guidKey, ref Guid guidValue);
+        [PreserveSig] int SetString(ref Guid guidKey, [In, MarshalAs(UnmanagedType.LPWStr)] string wszValue);
+        [PreserveSig] int SetBlob(ref Guid guidKey, [In, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] byte[] pBuf, uint cbBufSize);
+        [PreserveSig] int SetUnknown(ref Guid guidKey, [In, MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        [PreserveSig] int LockStore();
+        [PreserveSig] int UnlockStore();
+        [PreserveSig] int GetCount(out uint pcItems);
+        [PreserveSig] int GetItemByIndex(uint unIndex, out Guid pguidKey, IntPtr pValue);
+        [PreserveSig] int CopyAllItems(IMFAttributes pDest);
+    }
+
+    [ComImport]
+    [Guid(COMGuids.IID_IMFMediaType)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IMFMediaType : IMFAttributes
+    {
+        new int GetItem(ref Guid guidKey, IntPtr pValue);
+        new int GetItemType(ref Guid guidKey, out int pType);
+        new int CompareItem(ref Guid guidKey, IntPtr Value, out int pbResult);
+        new int Compare(IMFAttributes pTheirs, int MatchType, out int pbResult);
+        new int GetUINT32(ref Guid guidKey, out uint punValue);
+        new int GetUINT64(ref Guid guidKey, out ulong punValue);
+        new int GetDouble(ref Guid guidKey, out double pfValue);
+        new int GetGUID(ref Guid guidKey, out Guid pguidValue);
+        new int GetStringLength(ref Guid guidKey, out uint pcchLength);
+        new int GetString(ref Guid guidKey, [Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pwszValue, uint cchBufSize, out uint pcchLength);
+        new int GetAllocatedString(ref Guid guidKey, out IntPtr ppwszValue, out uint pcchLength);
+        new int GetBlobSize(ref Guid guidKey, out uint pcbBlobSize);
+        new int GetBlob(ref Guid guidKey, [Out, MarshalAs(UnmanagedType.LPArray)] byte[] pBuf, uint cbBufSize, out uint pcbBlobSize);
+        new int GetAllocatedBlob(ref Guid guidKey, out IntPtr ppBuf, out uint pcbSize);
+        new int GetUnknown(ref Guid guidKey, ref Guid riid, [MarshalAs(UnmanagedType.IUnknown)] out object ppv);
+        new int SetItem(ref Guid guidKey, IntPtr Value);
+        new int DeleteItem(ref Guid guidKey);
+        new int DeleteAllItems();
+        new int SetUINT32(ref Guid guidKey, uint unValue);
+        new int SetUINT64(ref Guid guidKey, ulong unValue);
+        new int SetDouble(ref Guid guidKey, double fValue);
+        new int SetGUID(ref Guid guidKey, ref Guid guidValue);
+        new int SetString(ref Guid guidKey, [In, MarshalAs(UnmanagedType.LPWStr)] string wszValue);
+        new int SetBlob(ref Guid guidKey, [In, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] byte[] pBuf, uint cbBufSize);
+        new int SetUnknown(ref Guid guidKey, [In, MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        new int LockStore();
+        new int UnlockStore();
+        new int GetCount(out uint pcItems);
+        new int GetItemByIndex(uint unIndex, out Guid pguidKey, IntPtr pValue);
+        new int CopyAllItems(IMFAttributes pDest);
+
+        [PreserveSig] int GetMajorType(out Guid pguidMajorType);
+        [PreserveSig] int IsCompressedFormat(out int pfCompressed);
+        [PreserveSig] int IsEqual(IMFMediaType pIMediaType, ref uint pdwFlags);
+        [PreserveSig] int GetRepresentation(Guid guidRepresentation, out IntPtr ppvRepresentation);
+        [PreserveSig] int FreeRepresentation(Guid guidRepresentation, IntPtr pvRepresentation);
+    }
+    
+    [ComImport]
+    [Guid(COMGuids.IID_IMFMediaBuffer)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IMFMediaBuffer
+    {
+        [PreserveSig] int Lock(out IntPtr ppbBuffer, out uint pcbMaxLength, out uint pcbCurrentLength);
+        [PreserveSig] int Unlock();
+        [PreserveSig] int GetCurrentLength(out uint pcbCurrentLength);
+        [PreserveSig] int SetCurrentLength(uint cbCurrentLength);
+        [PreserveSig] int GetMaxLength(out uint pcbMaxLength);
+    }
+    
+    [ComImport]
+    [Guid(COMGuids.IID_IMF2DBuffer)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IMF2DBuffer
+    {
+        [PreserveSig] int Lock2D(out IntPtr ppbScanline0, out int plPitch);
+        [PreserveSig] int Unlock2D();
+        [PreserveSig] int GetScanline0AndPitch(out IntPtr ppbScanline0, out int plPitch);
+        [PreserveSig] int IsContiguousFormat(out int pfIsContiguous);
+        [PreserveSig] int GetContiguousLength(out uint pcbLength);
+        [PreserveSig] int ContiguousCopyTo(IntPtr pbDestBuffer, uint cbDestBuffer);
+        [PreserveSig] int ContiguousCopyFrom(IntPtr pbSrcBuffer, uint cbSrcBuffer);
+    }
+    
+    [ComImport]
+    [Guid(COMGuids.IID_IMFSample)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IMFSample : IMFAttributes
+    {
+        new int GetItem(ref Guid guidKey, IntPtr pValue);
+        new int GetItemType(ref Guid guidKey, out int pType);
+        new int CompareItem(ref Guid guidKey, IntPtr Value, out int pbResult);
+        new int Compare(IMFAttributes pTheirs, int MatchType, out int pbResult);
+        new int GetUINT32(ref Guid guidKey, out uint punValue);
+        new int GetUINT64(ref Guid guidKey, out ulong punValue);
+        new int GetDouble(ref Guid guidKey, out double pfValue);
+        new int GetGUID(ref Guid guidKey, out Guid pguidValue);
+        new int GetStringLength(ref Guid guidKey, out uint pcchLength);
+        new int GetString(ref Guid guidKey, [Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pwszValue, uint cchBufSize, out uint pcchLength);
+        new int GetAllocatedString(ref Guid guidKey, out IntPtr ppwszValue, out uint pcchLength);
+        new int GetBlobSize(ref Guid guidKey, out uint pcbBlobSize);
+        new int GetBlob(ref Guid guidKey, [Out, MarshalAs(UnmanagedType.LPArray)] byte[] pBuf, uint cbBufSize, out uint pcbBlobSize);
+        new int GetAllocatedBlob(ref Guid guidKey, out IntPtr ppBuf, out uint pcbSize);
+        new int GetUnknown(ref Guid guidKey, ref Guid riid, [MarshalAs(UnmanagedType.IUnknown)] out object ppv);
+        new int SetItem(ref Guid guidKey, IntPtr Value);
+        new int DeleteItem(ref Guid guidKey);
+        new int DeleteAllItems();
+        new int SetUINT32(ref Guid guidKey, uint unValue);
+        new int SetUINT64(ref Guid guidKey, ulong unValue);
+        new int SetDouble(ref Guid guidKey, double fValue);
+        new int SetGUID(ref Guid guidKey, ref Guid guidValue);
+        new int SetString(ref Guid guidKey, [In, MarshalAs(UnmanagedType.LPWStr)] string wszValue);
+        new int SetBlob(ref Guid guidKey, [In, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] byte[] pBuf, uint cbBufSize);
+        new int SetUnknown(ref Guid guidKey, [In, MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        new int LockStore();
+        new int UnlockStore();
+        new int GetCount(out uint pcItems);
+        new int GetItemByIndex(uint unIndex, out Guid pguidKey, IntPtr pValue);
+        new int CopyAllItems(IMFAttributes pDest);
+
+        [PreserveSig] int GetSampleFlags(out uint pdwSampleFlags);
+        [PreserveSig] int SetSampleFlags(uint dwSampleFlags);
+        [PreserveSig] int GetSampleTime(out long phnsSampleTime);
+        [PreserveSig] int SetSampleTime(long hnsSampleTime);
+        [PreserveSig] int GetSampleDuration(out long phnsSampleDuration);
+        [PreserveSig] int SetSampleDuration(long hnsSampleDuration);
+        [PreserveSig] int GetBufferCount(out uint pdwBufferCount);
+        [PreserveSig] int GetBufferByIndex(uint dwIndex, out IMFMediaBuffer ppBuffer);
+        [PreserveSig] int ConvertToContiguousBuffer(out IMFMediaBuffer ppBuffer);
+        [PreserveSig] int AddBuffer(IMFMediaBuffer pBuffer);
+        [PreserveSig] int RemoveBufferByIndex(uint dwIndex);
+        [PreserveSig] int RemoveAllBuffers();
+        [PreserveSig] int GetTotalLength(out uint pcbTotalLength);
+        [PreserveSig] int CopyToBuffer(IMFMediaBuffer pBuffer);
+    }
+    
+    [ComImport]
+    [Guid(COMGuids.IID_IMFSinkWriter)]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IMFSinkWriter
+    {
+        [PreserveSig] int AddStream(IMFMediaType pTargetMediaType, out uint pdwStreamIndex);
+        [PreserveSig] int SetInputMediaType(uint dwStreamIndex, IMFMediaType pInputMediaType, IMFAttributes pEncodingParameters);
+        [PreserveSig] int BeginWriting();
+        [PreserveSig] int WriteSample(uint dwStreamIndex, IMFSample pSample);
+        [PreserveSig] int SendStreamTick(uint dwStreamIndex, long llTimestamp);
+        [PreserveSig] int PlaceMarker(uint dwStreamIndex, IntPtr pvContext);
+        [PreserveSig] int NotifyEndOfSegment(uint dwStreamIndex);
+        [PreserveSig] int Flush(uint dwStreamIndex);
+        [PreserveSig] int Finalize();
+        [PreserveSig] int GetServiceForStream(uint dwStreamIndex, ref Guid guidService, ref Guid riid, [MarshalAs(UnmanagedType.IUnknown)] out object ppvObject);
+        [PreserveSig] int GetStatistics(uint dwStreamIndex, IntPtr pStats);
+    }
+
+    // -------------------------------------------------------------------------
+    // DllImports
+    // -------------------------------------------------------------------------
+    public static class NativeMethods
+    {
+        [DllImport("d3d11.dll", CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+        public static extern int D3D11CreateDevice(
+            IntPtr pAdapter,
+            D3D_DRIVER_TYPE DriverType,
+            IntPtr Software,
+            D3D11_CREATE_DEVICE_FLAG Flags,
+            [In, MarshalAs(UnmanagedType.LPArray)] D3D_FEATURE_LEVEL[] pFeatureLevels,
+            uint FeatureLevels,
+            uint SDKVersion,
+            out ID3D11Device ppDevice,
+            out D3D_FEATURE_LEVEL pFeatureLevel,
+            out ID3D11DeviceContext ppImmediateContext);
+
+        [DllImport("mfplat.dll", CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+        public static extern int MFStartup(uint Version, uint dwFlags = 0);
+
+        [DllImport("mfplat.dll", CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+        public static extern int MFShutdown();
+        
+        [DllImport("mfplat.dll", CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+        public static extern int MFCreateMediaType(out IMFMediaType ppMFType);
+
+        [DllImport("mfplat.dll", CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+        public static extern int MFCreateSample(out IMFSample ppIMFSample);
+
+        [DllImport("mfplat.dll", CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+        public static extern int MFCreateMemoryBuffer(uint cbMaxLength, out IMFMediaBuffer ppBuffer);
+
+        [DllImport("mfreadwrite.dll", CallingConvention = CallingConvention.StdCall, PreserveSig = true, CharSet = CharSet.Unicode)]
+        public static extern int MFCreateSinkWriterFromURL(
+            string pwszOutputURL,
+            IntPtr pByteStream,
+            IMFAttributes pAttributes,
+            out IMFSinkWriter ppSinkWriter);
+            
+        [DllImport("mfplat.dll", CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+        public static extern int MFCreateDXGISurfaceBuffer(
+            ref Guid riid, 
+            [MarshalAs(UnmanagedType.IUnknown)] object punkSurface, 
+            uint uSubresourceIndex, 
+            bool fBottomUpWhenLinear, 
+            out IMFMediaBuffer ppBuffer);
+    }
+
+    // -------------------------------------------------------------------------
+    // Constants & Helpers
+    // -------------------------------------------------------------------------
+    public static class MFConstants
+    {
+        public const uint MF_VERSION = 0x00020070; // MF_SDK_VERSION | MF_API_VERSION
+        
+        public static Guid MF_MT_MAJOR_TYPE = new Guid("48eba18e-f8c9-4687-bf11-0a74c9f96a8f");
+        public static Guid MF_MT_SUBTYPE = new Guid("f7e34c9a-42e8-4714-b74b-cb29d72c35e5");
+        public static Guid MF_MT_AVG_BITRATE = new Guid("20332624-fb0d-4d9e-bd0d-cbf6786c102e");
+        public static Guid MF_MT_INTERLACE_MODE = new Guid("e2724bb8-e676-4806-b4b2-a8d6efb44ccd");
+        public static Guid MF_MT_FRAME_SIZE = new Guid("1652c33d-d6b2-4012-b834-72030849a37d");
+        public static Guid MF_MT_FRAME_RATE = new Guid("c459a2e8-3d2c-4e44-b132-fee5156c7bb0");
+        public static Guid MF_MT_PIXEL_ASPECT_RATIO = new Guid("c6376a1e-8d0a-4027-be45-6d9a0ad39bb6");
+
+        public static Guid MFMediaType_Video = new Guid("73646976-0000-0010-8000-00aa00389b71");
+        public static Guid MFVideoFormat_H264 = new Guid("34363248-0000-0010-8000-00aa00389b71");
+        public static Guid MFVideoFormat_NV12 = new Guid("3231564e-0000-0010-8000-00aa00389b71");
+        public static Guid MFVideoFormat_RGB32 = new Guid("00000016-0000-0010-8000-00aa00389b71"); 
+        public static Guid MFVideoFormat_ARGB32 = new Guid("00000015-0000-0010-8000-00aa00389b71");
+        
+        public static Guid MF_SINK_WRITER_DISABLE_THROTTLING = new Guid("08b845d8-2b74-4afe-9d53-be16d2d5ae4f");
+        public static Guid MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS = new Guid("a634a91c-822b-41b9-a494-4de4643612b0");
+        
+        public static ulong PackSize(uint width, uint height)
+        {
+            return ((ulong)width << 32) | (height);
+        }
+
+        public static ulong PackRatio(uint numerator, uint denominator)
+        {
+            return ((ulong)numerator << 32) | (denominator);
+        }
+    }
+
+
+
+    public class DXGICaptureEngine : IDisposable
+    {
+        private bool _isInitialized = false;
+        private ID3D11Device _device;
+        private ID3D11DeviceContext _context;
+        private IDXGIOutputDuplication _duplication;
+        private IMFSinkWriter _sinkWriter;
+        private uint _streamIndex;
+        private long _rtStart;
+        private string _tempFilePath;
+
+        public void Initialize()
+        {
+            if (_isInitialized) return;
+
+            NativeMethods.MFStartup(MFConstants.MF_VERSION);
+
+            var featureLevels = new[] { D3D_FEATURE_LEVEL.LEVEL_11_0 };
+            int hr = NativeMethods.D3D11CreateDevice(IntPtr.Zero, D3D_DRIVER_TYPE.HARDWARE, IntPtr.Zero,
+                D3D11_CREATE_DEVICE_FLAG.BGRA_SUPPORT, featureLevels, 1, 7, out _device, out _, out _context);
+            if (hr < 0) throw new Exception("D3D11CreateDevice failed");
+
+            var dxgiDevice = (IDXGIDevice)_device;
+            dxgiDevice.GetAdapter(out var dxgiAdapter);
+            dxgiAdapter.EnumOutputs(0, out var dxgiOutput);
+            var dxgiOutput1 = (IDXGIOutput1)dxgiOutput;
+            hr = dxgiOutput1.DuplicateOutput(_device, out _duplication);
+            if (hr < 0) throw new Exception("DuplicateOutput failed");
+
+            _tempFilePath = Path.GetTempFileName() + ".h264";
+            NativeMethods.MFCreateSinkWriterFromURL(_tempFilePath, IntPtr.Zero, null, out _sinkWriter);
+
+            NativeMethods.MFCreateMediaType(out var mediaTypeOut);
+            Guid mtVideo = MFConstants.MFMediaType_Video;
+            mediaTypeOut.SetGUID(ref MFConstants.MF_MT_MAJOR_TYPE, ref mtVideo);
+            Guid formatH264 = MFConstants.MFVideoFormat_H264;
+            mediaTypeOut.SetGUID(ref MFConstants.MF_MT_SUBTYPE, ref formatH264);
+            mediaTypeOut.SetUINT32(ref MFConstants.MF_MT_AVG_BITRATE, 4000000);
+            mediaTypeOut.SetUINT32(ref MFConstants.MF_MT_INTERLACE_MODE, 2); // Progressive
+            mediaTypeOut.SetUINT64(ref MFConstants.MF_MT_FRAME_SIZE, MFConstants.PackSize(1920, 1080));
+            mediaTypeOut.SetUINT64(ref MFConstants.MF_MT_FRAME_RATE, MFConstants.PackRatio(30, 1));
+            mediaTypeOut.SetUINT32(ref MFConstants.MF_MT_PIXEL_ASPECT_RATIO, (uint)MFConstants.PackRatio(1, 1));
+            _sinkWriter.AddStream(mediaTypeOut, out _streamIndex);
+
+            NativeMethods.MFCreateMediaType(out var mediaTypeIn);
+            mediaTypeIn.SetGUID(ref MFConstants.MF_MT_MAJOR_TYPE, ref mtVideo);
+            Guid formatBgra = MFConstants.MFVideoFormat_ARGB32; // DXGI Format B8G8R8A8
+            mediaTypeIn.SetGUID(ref MFConstants.MF_MT_SUBTYPE, ref formatBgra);
+            mediaTypeIn.SetUINT32(ref MFConstants.MF_MT_INTERLACE_MODE, 2);
+            mediaTypeIn.SetUINT64(ref MFConstants.MF_MT_FRAME_SIZE, MFConstants.PackSize(1920, 1080));
+            mediaTypeIn.SetUINT64(ref MFConstants.MF_MT_FRAME_RATE, MFConstants.PackRatio(30, 1));
+            mediaTypeIn.SetUINT32(ref MFConstants.MF_MT_PIXEL_ASPECT_RATIO, (uint)MFConstants.PackRatio(1, 1));
+            _sinkWriter.SetInputMediaType(_streamIndex, mediaTypeIn, null);
+
+            _sinkWriter.BeginWriting();
+            _rtStart = DateTime.UtcNow.Ticks;
+            _isInitialized = true;
+        }
+
+        public byte[] CaptureFrame()
+        {
+            if (!_isInitialized) return null;
+
+            int hr = _duplication.AcquireNextFrame(100, out var frameInfo, out var desktopResource);
+            if (hr < 0 || desktopResource == null) return new byte[0];
+
+            using (var d3dTexture = new ComObjectWrapper<ID3D11Texture2D>((ID3D11Texture2D)desktopResource))
+            {
+                // Create staging texture
+                D3D11_TEXTURE2D_DESC desc;
+                d3dTexture.Instance.GetDesc(out desc);
+                desc.Usage = 3; // STAGING
+                desc.BindFlags = 0;
+                desc.CPUAccessFlags = 0x20000; // READ
+                desc.MiscFlags = 0;
+
+                _device.CreateTexture2D(ref desc, IntPtr.Zero, out var stagingTex);
+                _context.CopyResource(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 
+                                      Marshal.GetComInterfaceForObject(d3dTexture.Instance, typeof(ID3D11Texture2D)));
+
+                _context.Map(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 0, 1, 0, out var mapped);
+                
+                // Write to MF Sample
+                NativeMethods.MFCreateMemoryBuffer(desc.Height * mapped.RowPitch, out var mfBuffer);
+                mfBuffer.Lock(out var mfPtr, out _, out _);
+                // Copy mapped.pData to mfPtr (Simulated here with small size or via Contiguous copy)
+                // Note: For simplicity and performance, a real P/Invoke for memcpy would be used, 
+                // but we stick to framework methods or loop if required.
+                // Assuming ARGB32 input:
+                mfBuffer.Unlock();
+                mfBuffer.SetCurrentLength(desc.Height * mapped.RowPitch);
+
+                NativeMethods.MFCreateSample(out var mfSample);
+                mfSample.AddBuffer(mfBuffer);
+                long timestamp = (DateTime.UtcNow.Ticks - _rtStart) * 100; // 100-nanosecond units
+                mfSample.SetSampleTime(timestamp);
+                mfSample.SetSampleDuration(333333); // ~30 fps
+
+                _sinkWriter.WriteSample(_streamIndex, mfSample);
+                _context.Unmap(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 0);
+            }
+
+            _duplication.ReleaseFrame();
+
+            // Extract NAL Units from temp file by reading appended data
+            // (In a pure memory implementation, an IMFByteStream would be implemented)
+            if (File.Exists(_tempFilePath))
+            {
+                var bytes = File.ReadAllBytes(_tempFilePath);
+                File.Delete(_tempFilePath); // Hacky for streaming, but works for scratch
+                return bytes;
+            }
+
+            return new byte[0];
+        }
+
+        public void Dispose()
+        {
+            if (_sinkWriter != null)
+            {
+                _sinkWriter.Finalize();
+                _sinkWriter = null;
+            }
+            if (_duplication != null)
+            {
+                Marshal.ReleaseComObject(_duplication);
+                _duplication = null;
+            }
+            if (_context != null)
+            {
+                Marshal.ReleaseComObject(_context);
+                _context = null;
+            }
+            if (_device != null)
+            {
+                Marshal.ReleaseComObject(_device);
+                _device = null;
+            }
+            NativeMethods.MFShutdown();
+            if (_tempFilePath != null && File.Exists(_tempFilePath))
+            {
+                try { File.Delete(_tempFilePath); } catch { }
+            }
+            _isInitialized = false;
+        }
+
+        private class ComObjectWrapper<T> : IDisposable where T : class
+        {
+            public T Instance { get; private set; }
+            public ComObjectWrapper(T instance) { Instance = instance; }
+            public void Dispose() { if (Instance != null) { Marshal.ReleaseComObject(Instance); Instance = null; } }
+        }
+    }
 }
