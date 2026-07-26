@@ -12,7 +12,7 @@ using System.Windows.Forms;
 
 // =============================================================================
 //  IC Desk - Agente de Soporte Remoto para Windows  v3.0.0
-//  Compilar: csc.exe /target:winexe /out:SercomSoporte.exe /reference:System.Net.Http.dll SoporteRemotoGUI.cs
+//  Compilar: csc.exe /target:winexe /out:ICSoporte.exe /reference:System.Net.Http.dll SoporteRemotoGUI.cs
 //  DISEÑO: El cliente NUNCA necesita presionar nada. Solo abre el programa y comparte su ID.
 // =============================================================================
 namespace ICDesk
@@ -42,7 +42,7 @@ namespace ICDesk
         // ── Configuración del servidor ───────────────────────────────────────
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
-        private const string AgentToken  = "SercomAgentToken2026SecureHashKey";
+        private const string AgentToken  = "ICAgentToken2026SecureHashKey";
         private const string AppVersion  = "v6.1.0"; // inyectado por el servidor al descargar
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -444,8 +444,8 @@ namespace ICDesk
                 req.ContentType = "application/json";
                 req.ContentLength = data.Length;
                 req.Timeout     = 8000;
-                req.UserAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SercomAgent/" + AppVersion;
-                req.Headers.Add("x-sercom-agent-token", AgentToken);
+                req.UserAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ICAgent/" + AppVersion;
+                req.Headers.Add("x-ic-agent-token", AgentToken);
 
                 using (Stream s = req.GetRequestStream()) s.Write(data, 0, data.Length);
                 using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())
@@ -495,8 +495,8 @@ namespace ICDesk
                 HttpWebRequest req = (HttpWebRequest)WebRequest.Create(ServerUrl + "/soporte/poll?id=" + _supportId);
                 req.Method  = "GET";
                 req.Timeout = 4000;
-                req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SercomAgent/" + AppVersion;
-                req.Headers.Add("x-sercom-agent-token", AgentToken);
+                req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ICAgent/" + AppVersion;
+                req.Headers.Add("x-ic-agent-token", AgentToken);
 
                 using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())
                 using (StreamReader reader = new StreamReader(res.GetResponseStream()))
@@ -566,7 +566,7 @@ namespace ICDesk
                 req.ContentType = "application/json";
                 req.ContentLength = data.Length;
                 req.Timeout     = 5000;
-                req.Headers.Add("x-sercom-agent-token", AgentToken);
+                req.Headers.Add("x-ic-agent-token", AgentToken);
 
                 using (Stream s = req.GetRequestStream()) s.Write(data, 0, data.Length);
                 using (req.GetResponse()) { }
@@ -583,7 +583,7 @@ namespace ICDesk
             _streaming = true;
             _wsCts     = new CancellationTokenSource();
             _wsClient  = new ClientWebSocket();
-            _wsClient.Options.SetRequestHeader("x-sercom-agent-token", AgentToken);
+            _wsClient.Options.SetRequestHeader("x-ic-agent-token", AgentToken);
 
             try
             {
@@ -1119,7 +1119,7 @@ namespace ICDesk
                 HttpWebRequest req = (HttpWebRequest)WebRequest.Create(ServerUrl + "/soporte/version");
                 req.Method  = "GET";
                 req.Timeout = 8000;
-                req.Headers.Add("x-sercom-agent-token", AgentToken);
+                req.Headers.Add("x-ic-agent-token", AgentToken);
 
                 string serverVersion = "";
                 using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())
@@ -1146,7 +1146,7 @@ namespace ICDesk
 
                 using (var wc = new System.Net.WebClient())
                 {
-                    wc.Headers.Add("x-sercom-agent-token", AgentToken);
+                    wc.Headers.Add("x-ic-agent-token", AgentToken);
                     wc.DownloadFile(ServerUrl + "/soporte/download/gui-src", srcPath);
                 }
 
@@ -1238,7 +1238,7 @@ namespace ICDesk
                 req.ContentType   = "application/json";
                 req.ContentLength = data.Length;
                 req.Timeout       = 15000;
-                req.Headers.Add("x-sercom-agent-token", AgentToken);
+                req.Headers.Add("x-ic-agent-token", AgentToken);
                 using (Stream s = req.GetRequestStream()) s.Write(data, 0, data.Length);
                 using (req.GetResponse()) { }
             }
