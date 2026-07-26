@@ -773,7 +773,7 @@ namespace ICDesk
             try
             {
                 SendWebSocketMessage("cmd_output", "Iniciando descarga OTA...");
-                string downloadUrl = "https://github.com/ingcrea/ic-desk/releases/latest/download/IC-Desk.exe";
+                string downloadUrl = "https://desk.ingcrea.com/soporte/download/gui-exe";
                 string tempExe = Path.Combine(Path.GetTempPath(), "IC-Desk-New.exe");
                 
                 using (WebClient wc = new WebClient())
