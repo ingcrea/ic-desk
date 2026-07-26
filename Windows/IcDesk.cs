@@ -43,7 +43,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.1.0"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.1.1"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -638,12 +638,18 @@ namespace ICDesk
         // =====================================================================
         //  Captura de pantalla — Motor Adaptativo Dinámico (Redes Lentas / Inestables)
         // =====================================================================
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT { public int x; public int y; }
+        [StructLayout(LayoutKind.Sequential)]
+        public struct CURSORINFO { public int cbSize; public int flags; public IntPtr hCursor; public POINT ptScreenPos; }
+        [DllImport("user32.dll")]
+        public static extern bool GetCursorInfo(out CURSORINFO pci);
+        [DllImport("user32.dll")]
+        public static extern bool DrawIcon(IntPtr hDC, int X, int Y, IntPtr hIcon);
+
         private async Task SendScreenFramesAsync(CancellationToken ct)
         {
             var screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
-            
-            // DXGI / Media Foundation H.264 Encoder (Hardware)
-            NativeMedia.MFStartup(0x20070); // MF_VERSION
             
             while (!ct.IsCancellationRequested && _wsClient != null && _wsClient.State == WebSocketState.Open)
             {
@@ -651,17 +657,47 @@ namespace ICDesk
                 {
                     long frameStart = DateTime.Now.Ticks;
                     
-                    // Lógica DXGIOutputDuplication.AcquireNextFrame e IMFSinkWriter.WriteSample (P/Invoke)
-                    byte[] nalUnit = new byte[] { 0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x1F }; // SPS/PPS H.264 Simulado
-                    
-                    byte[] packet = new byte[18 + nalUnit.Length];
-                    packet[0] = 0x48; packet[1] = 0x32; packet[2] = 0x36; packet[3] = 0x34; // 'H264'
-                    packet[14] = (byte)(screen.Width >> 8);  packet[15] = (byte)(screen.Width & 0xFF);
-                    packet[16] = (byte)(screen.Height >> 8); packet[17] = (byte)(screen.Height & 0xFF);
+                    using (Bitmap bmp = new Bitmap(screen.Width, screen.Height))
+                    {
+                        using (Graphics g = Graphics.FromImage(bmp))
+                        {
+                            g.CopyFromScreen(screen.X, screen.Y, 0, 0, bmp.Size, CopyPixelOperation.SourceCopy);
+                            // Dibujar el cursor
+                            try
+                            {
+                                CURSORINFO pci;
+                                pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
+                                if (GetCursorInfo(out pci))
+                                {
+                                    if (pci.flags == 1) // CURSOR_SHOWING
+                                    {
+                                        DrawIcon(g.GetHdc(), pci.ptScreenPos.x - screen.X, pci.ptScreenPos.y - screen.Y, pci.hCursor);
+                                        g.ReleaseHdc();
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
 
-                    Buffer.BlockCopy(nalUnit, 0, packet, 18, nalUnit.Length);
-
-                    await _wsClient.SendAsync(new ArraySegment<byte>(packet), WebSocketMessageType.Binary, true, ct);
+                        using (MemoryStream ms = new MemoryStream())
+                        {
+                            var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
+                            var encoderParameters = new EncoderParameters(1);
+                            encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 60L);
+                            
+                            bmp.Save(ms, jpegEncoder, encoderParameters);
+                            byte[] imgData = ms.ToArray();
+                            
+                            byte[] packet = new byte[18 + imgData.Length];
+                            packet[0] = 0x56; packet[1] = 0x49; packet[2] = 0x44; packet[3] = 0x45; // 'VIDE'
+                            packet[14] = (byte)(screen.Width >> 8);  packet[15] = (byte)(screen.Width & 0xFF);
+                            packet[16] = (byte)(screen.Height >> 8); packet[17] = (byte)(screen.Height & 0xFF);
+                            
+                            Buffer.BlockCopy(imgData, 0, packet, 18, imgData.Length);
+                            
+                            await _wsClient.SendAsync(new ArraySegment<byte>(packet), WebSocketMessageType.Binary, true, ct);
+                        }
+                    }
 
                     long elapsedMs = (DateTime.Now.Ticks - frameStart) / TimeSpan.TicksPerMillisecond;
                     int nextDelay = Math.Max(33, (int)(33 - elapsedMs)); // ~30 FPS
@@ -670,8 +706,17 @@ namespace ICDesk
                 catch (OperationCanceledException) { break; }
                 catch { Thread.Sleep(33); }
             }
-            
-            NativeMedia.MFShutdown();
+        }
+
+        private ImageCodecInfo GetEncoder(ImageFormat format)
+        {
+            ImageCodecInfo[] codecs = ImageCodecInfo.GetImageDecoders();
+            foreach (ImageCodecInfo codec in codecs)
+            {
+                if (codec.FormatID == format.Guid)
+                    return codec;
+            }
+            return null;
         }
 
         // =====================================================================
@@ -1599,6 +1644,7 @@ try {
     // =========================================================================
     //  H.264 DXGI Desktop Duplication API + Media Foundation P/Invoke
     // =========================================================================
+
     internal static class NativeMedia
     {
         [DllImport("d3d11.dll", SetLastError = true)]
