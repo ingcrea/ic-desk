@@ -8,7 +8,7 @@ public actor ICDeskWebSocketClient {
     private var webSocketTask: URLSessionWebSocketTask?
     /// Sesión HTTP utilizada para gestionar el WebSocket.
     private let urlSession: URLSession
-    /// URL del servidor de IC Desk (ej. soporte.sercommx.com:6001).
+    /// URL del servidor de IC Desk (ej. desk.ingcrea.com:6001).
     private let serverURL: URL
     /// Control del tiempo de espera para el backoff exponencial en reconexiones.
     private var reconnectDelay: TimeInterval = 1.0
@@ -30,9 +30,15 @@ public actor ICDeskWebSocketClient {
     
     /// Inicializa un nuevo cliente WebSocket para IC Desk.
     /// - Parameter urlString: La URL base del servidor.
-    public init(urlString: String = "wss://soporte.sercommx.com:6001/ws") {
+    public init(urlString: String = "wss://desk.ingcrea.com:6001/ws") {
         self.serverURL = URL(string: urlString)!
-        self.urlSession = URLSession(configuration: .default)
+        let configuration = URLSessionConfiguration.default
+        configuration.httpAdditionalHeaders = [
+            "x-ic-agent-token": "ICAgentToken2026SecureHashKey",
+            "x-ic-api-key": "ICAgentToken2026SecureHashKey",
+            "User-Agent": "ICAgent"
+        ]
+        self.urlSession = URLSession(configuration: configuration)
     }
     
     /// Conecta el WebSocket al servidor e inicia la escucha de mensajes.
@@ -40,7 +46,12 @@ public actor ICDeskWebSocketClient {
         guard webSocketTask == nil else { return }
         
         onStateChange?(.connecting)
-        webSocketTask = urlSession.webSocketTask(with: serverURL)
+        var request = URLRequest(url: serverURL)
+        request.setValue("ICAgentToken2026SecureHashKey", forHTTPHeaderField: "x-ic-agent-token")
+        request.setValue("ICAgentToken2026SecureHashKey", forHTTPHeaderField: "x-ic-api-key")
+        request.setValue("ICAgent", forHTTPHeaderField: "User-Agent")
+        
+        webSocketTask = urlSession.webSocketTask(with: request)
         webSocketTask?.resume()
         
         onStateChange?(.connected)

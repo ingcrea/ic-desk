@@ -1,4 +1,4 @@
-# Especificación Técnica del Agente - Sercom Soporte
+# Especificación Técnica del Agente - IC Soporte
 
 Este documento detalla el diseño, la lógica de negocio y las funciones del cliente de soporte remoto desarrollado en **C# (.NET Framework 4.8)** para el entorno de Windows de los clientes.
 
@@ -9,7 +9,7 @@ Este documento detalla el diseño, la lógica de negocio y las funciones del cli
 La ventana gráfica del cliente está diseñada para ser minimalista, limpia y corporativa (estilo Fluent de Windows 11), eliminando la consola negra CMD de fondo usando la bandera de compilación `/target:winexe`.
 
 * **Fondo de Ventana:** Blanco Puro (`#FFFFFF`) para una sensación limpia y SaaS.
-* **Header de Marca:** Logotipo de **Sercom Mx** (inyectado dinámicamente en caliente por Express en Base64) centrado arriba.
+* **Header de Marca:** Logotipo de **Ingenieria Creativa** (inyectado dinámicamente en caliente por Express en Base64) centrado arriba.
 * **Contenedor del ID de Soporte:** Un control `Panel` gris claro (`#F3F4F6`) con un borde gris suave de `1px` (`#E5E7EB`) que enmarca la etiqueta del ID.
 * **Código de Soporte:** Texto grande en negrita (`Segoe UI Semibold`, `26pt`) en azul oscuro institucional (`#0A2540`).
 * **Botón de Cierre:** Botón plano (`FlatStyle.Flat`) azul oscuro que cambia a azul cobalto en Hover, con el puntero del mouse en modo mano (`Cursors.Hand`) para mejorar el UX.
@@ -43,7 +43,7 @@ Al iniciar, el agente ejecuta en segundo plano un script de PowerShell optimizad
 
 El agente inicia un hilo de fondo (`RunSupportLoop`) de forma indefinida:
 
-1. **Autenticación en el Servidor:** Realiza una petición POST a `/soporte/register` enviando su ID, hostname y JSON de salud. Añade la cabecera secreta `X-Sercom-Agent-Token` para autenticar su origen legítimo.
+1. **Autenticación en el Servidor:** Realiza una petición POST a `/soporte/register` enviando su ID, hostname y JSON de salud. Añade la cabecera secreta `X-IC-Agent-Token` para autenticar su origen legítimo.
 2. **Sondeo de Comandos (Polling):** Cada 1 segundo realiza una petición GET a `/soporte/poll?id=XXXX-XXXX` (también con el token de agente).
 3. **Ejecución y Respuesta:** Si hay un comando en cola, detiene el estado visual a "Ejecutando acción remota...", corre el comando en PowerShell de forma silenciosa, y envía la salida de consola en una petición POST a `/soporte/response` antes de volver a ponerse en verde "Conectado. Esperando instrucciones...".
 4. **Resiliencia ante Caídas:** Si la llamada de red falla (por ejemplo, el bot de WhatsApp en SV1 se apaga o reinicia), el bucle no se destruye. Pone el estado en "Reintentando conexión en 5s..." y reintenta de forma infinita reconectarse cada 5 segundos hasta recuperar el enlace de forma transparente.

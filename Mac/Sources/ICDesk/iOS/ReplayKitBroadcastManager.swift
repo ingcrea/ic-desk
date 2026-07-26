@@ -28,7 +28,7 @@ public class ReplayKitBroadcastManager {
     public func setupSharedPreferences() {
         if let sharedDefaults = UserDefaults(suiteName: appGroupIdentifier) {
             sharedDefaults.set(true, forKey: "isICDeskBroadcastAuthorized")
-            sharedDefaults.set("wss://soporte.sercommx.com:6001/ws", forKey: "broadcastTargetURL")
+            sharedDefaults.set("wss://desk.ingcrea.com:6001/ws", forKey: "broadcastTargetURL")
         }
     }
 }
