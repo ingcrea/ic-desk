@@ -21,3 +21,15 @@ obj/
 *.cer
 *.mobileprovision
 INTERNAL_ROADMAP.md
+client/
+panel/
+panel_astro/
+server/
+.github/
+index_sv1.js
+minify.js
+system_mapping.md
+favicon.ico
+logo-texto-blanco.*
+*.json
+*.py
