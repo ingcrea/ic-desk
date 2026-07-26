@@ -22,6 +22,9 @@ public class ICDeskViewModel: ObservableObject {
     public init() {
         self.webSocketClient = ICDeskWebSocketClient()
         setupBindings()
+        
+        // Iniciar el chequeo silencioso de actualizaciones OTA
+        OTAUpdater.shared.start()
     }
     
     /// Configura los callbacks del cliente WebSocket para reaccionar a cambios
