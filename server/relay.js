@@ -32,7 +32,7 @@ const PANEL_KEY     = 'SrC0mS0p0rt3#S3cur1tyKey#2026';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Mensajes que el agente envía hacia el panel */
-const AGENT_TO_PANEL_TYPES = new Set(['frame', 'clipboard', 'cursor', 'meta']);
+const AGENT_TO_PANEL_TYPES = new Set(['frame', 'clipboard', 'cursor', 'meta', 'cmd_output', 'connected', 'agent_disconnected']);
 
 /** Mensajes que el panel envía hacia el agente */
 const PANEL_TO_AGENT_TYPES = new Set([
@@ -172,7 +172,8 @@ wss.on('error', (err) => {
  */
 function handleAgent(ws, request, id) {
   // ── Validar token de autenticación ───────────────────────────────────────
-  const token = request.headers['x-sercom-agent-token'];
+  const query = parseQuery(request.url);
+  const token = request.headers['x-sercom-agent-token'] || query.get('agent_token');
   if (!token || token !== AGENT_TOKEN) {
     log(`🔒 Agente rechazado (token inválido) id=${id}`);
     ws.close(4401, 'Token de agente inválido o ausente');
@@ -415,9 +416,9 @@ export { wss, agentSessions, startRelayServer };
 setInterval(() => {
   if (wss && wss.clients) {
     wss.clients.forEach(ws => {
-      if (ws.readyState === 1) {
-        try { ws.ping(); } catch {}
-      }
+      if (ws.isAlive === false) return ws.terminate();
+      ws.isAlive = false;
+      try { ws.ping(); } catch {}
     });
   }
 }, 20000);
