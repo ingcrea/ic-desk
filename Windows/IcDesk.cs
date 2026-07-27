@@ -44,7 +44,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.2.1"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.2.2"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -83,6 +83,14 @@ namespace ICDesk
         [STAThread]
         public static void Main(string[] args)
         {
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => {
+                try {
+                    System.IO.File.WriteAllText(
+                        System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ICDesk_Crash.txt"), 
+                        "CRASH GLOBAL:\r\n" + e.ExceptionObject.ToString());
+                } catch {}
+            };
+
             bool isElevating = args != null && args.Length > 0 && args[0] == "--elevated";
             
             bool createdNew;
