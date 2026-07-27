@@ -44,7 +44,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.2.3"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.2.4"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -660,37 +660,81 @@ namespace ICDesk
         {
             var screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
             
-            using (var dxgiEngine = new DXGICaptureEngine())
-            {
-                try { dxgiEngine.Initialize(); }
-                catch (Exception ex) { Console.WriteLine("Fallo init DXGI: " + ex.Message); }
+            bool useDxgi = false;
+            DXGICaptureEngine dxgiEngine = null;
 
+            try 
+            { 
+                dxgiEngine = new DXGICaptureEngine();
+                dxgiEngine.Initialize(); 
+                useDxgi = true;
+            }
+            catch { }
+
+            try
+            {
                 while (!ct.IsCancellationRequested && _wsClient != null && _wsClient.State == WebSocketState.Open)
                 {
                     try
                     {
                         long frameStart = DateTime.Now.Ticks;
-                        
-                        byte[] h264NalData = dxgiEngine.CaptureFrame();
+                        byte[] h264NalData = null;
+
+                        if (useDxgi && dxgiEngine != null)
+                        {
+                            try { h264NalData = dxgiEngine.CaptureFrame(); }
+                            catch { useDxgi = false; }
+                        }
+
+                        if (!useDxgi || h264NalData == null || h264NalData.Length == 0)
+                        {
+                            using (var bmp = new Bitmap(screen.Width, screen.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                            {
+                                using (var g = Graphics.FromImage(bmp))
+                                {
+                                    g.CopyFromScreen(screen.X, screen.Y, 0, 0, screen.Size, CopyPixelOperation.SourceCopy);
+                                    CURSORINFO pci;
+                                    pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
+                                    if (GetCursorInfo(out pci) && pci.flags == 1)
+                                    {
+                                        DrawIcon(g.GetHdc(), pci.ptScreenPos.x - screen.X, pci.ptScreenPos.y - screen.Y, pci.hCursor);
+                                        g.ReleaseHdc();
+                                    }
+                                }
+
+                                using (var ms = new MemoryStream())
+                                {
+                                    var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
+                                    var encoderParameters = new EncoderParameters(1);
+                                    encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 40L);
+                                    bmp.Save(ms, jpegEncoder, encoderParameters);
+                                    h264NalData = ms.ToArray();
+                                }
+                            }
+                        }
+
                         if (h264NalData != null && h264NalData.Length > 0)
                         {
                             byte[] packet = new byte[18 + h264NalData.Length];
-                            packet[0] = 0x56; packet[1] = 0x49; packet[2] = 0x44; packet[3] = 0x45; // 'VIDE'
+                            packet[0] = 0x56; packet[1] = 0x49; packet[2] = 0x44; packet[3] = 0x45;
                             packet[14] = (byte)(screen.Width >> 8);  packet[15] = (byte)(screen.Width & 0xFF);
                             packet[16] = (byte)(screen.Height >> 8); packet[17] = (byte)(screen.Height & 0xFF);
-                            
                             Buffer.BlockCopy(h264NalData, 0, packet, 18, h264NalData.Length);
                             
                             await _wsClient.SendAsync(new ArraySegment<byte>(packet), WebSocketMessageType.Binary, true, ct);
                         }
 
                         long elapsedMs = (DateTime.Now.Ticks - frameStart) / TimeSpan.TicksPerMillisecond;
-                        int nextDelay = Math.Max(33, (int)(33 - elapsedMs)); // ~30 FPS
+                        int nextDelay = Math.Max(33, (int)(33 - elapsedMs));
                         await Task.Delay(nextDelay, ct);
                     }
                     catch (OperationCanceledException) { break; }
                     catch { Thread.Sleep(33); }
                 }
+            }
+            finally
+            {
+                if (dxgiEngine != null) { try { dxgiEngine.Dispose(); } catch { } }
             }
         }
 
