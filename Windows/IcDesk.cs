@@ -26,6 +26,8 @@ namespace ICDesk
 
     internal static class Win32
     {
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool BlockInput(bool fBlockIt);
         public const uint INPUT_MOUSE = 0, INPUT_KEYBOARD = 1;
         public const uint MOUSEEVENTF_MOVE = 0x0001, MOUSEEVENTF_LEFTDOWN = 0x0002, MOUSEEVENTF_LEFTUP = 0x0004;
         public const uint MOUSEEVENTF_RIGHTDOWN = 0x0008, MOUSEEVENTF_RIGHTUP = 0x0010;
@@ -45,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.4.3"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.5.0"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -83,7 +85,14 @@ namespace ICDesk
         //  Punto de Entrada (Instancia Única con Mutex)
         // =====================================================================
         [STAThread]
-        public static void Main(string[] args)
+                public static bool IsAdministrator()
+        {
+            try {
+                return (new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()))
+                       .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            } catch { return false; }
+        }
+public static void Main(string[] args)
         {
             try {
 
