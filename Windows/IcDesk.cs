@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.ServiceProcess;
 
 // =============================================================================
 //  IC Desk - Agente de Soporte Remoto para Windows  v3.0.0
@@ -44,7 +45,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.2.4"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.4.0"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -83,6 +84,40 @@ namespace ICDesk
         [STAThread]
         public static void Main(string[] args)
         {
+            if (args != null && args.Length > 0)
+            {
+                if (args[0] == "--service")
+                {
+                    ServiceBase.Run(new IcDeskService());
+                    return;
+                }
+                else if (args[0] == "--install-service")
+                {
+                    try {
+                        string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                        string sysDir = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\IC-Desk";
+                        if (!System.IO.Directory.Exists(sysDir)) System.IO.Directory.CreateDirectory(sysDir);
+                        string destExe = sysDir + "\\IC-Desk.exe";
+                        System.IO.File.Copy(exePath, destExe, true);
+                        
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                            FileName = "sc.exe",
+                            Arguments = $"create \"IC-Desk\" binPath= \"\\\"" + destExe + "\\\" --service\" start= auto obj= LocalSystem displayname= \"IC-Desk Soporte Remoto\"",
+                            WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden, CreateNoWindow = true
+                        }).WaitForExit();
+                        
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                            FileName = "sc.exe",
+                            Arguments = "start \"IC-Desk\"",
+                            WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden, CreateNoWindow = true
+                        }).WaitForExit();
+                        
+                        Console.WriteLine("Servicio instalado e iniciado correctamente.");
+                    } catch (Exception ex) { Console.WriteLine("Error instalando servicio: " + ex.Message); }
+                    return;
+                }
+            }
+
             AppDomain.CurrentDomain.UnhandledException += (s, e) => {
                 try {
                     System.IO.File.WriteAllText(
@@ -102,6 +137,21 @@ namespace ICDesk
             }
 
             Application.EnableVisualStyles();
+
+            // Iniciar Ícono en Bandeja del Sistema (Tray Icon)
+            NotifyIcon trayIcon = new NotifyIcon();
+            trayIcon.Text = "IC-Desk Soporte Activo";
+            trayIcon.Visible = true;
+            try {
+                // Intentar usar un icono del sistema o cargarlo
+                trayIcon.Icon = SystemIcons.Application;
+            } catch {}
+            
+            ContextMenu trayMenu = new ContextMenu();
+            trayMenu.MenuItems.Add("Abrir Panel Remoto", (s, ev) => { MessageBox.Show("IC-Desk está operando en modo invisible de Soporte Remoto.", "IC-Desk", MessageBoxButtons.OK, MessageBoxIcon.Information); });
+            trayMenu.MenuItems.Add("Cerrar Conexión (Salir)", (s, ev) => { trayIcon.Visible = false; Environment.Exit(0); });
+            trayIcon.ContextMenu = trayMenu;
+
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new SoporteRemotoGUI());
         }
@@ -2599,4 +2649,36 @@ try {
             public void Dispose() { if (Instance != null) { Marshal.ReleaseComObject(Instance); Instance = null; } }
         }
     }
+
+    // =====================================================================
+    //  Servicio de Windows (Para ejecución persistente sin UAC)
+    // =====================================================================
+    public class IcDeskService : System.ServiceProcess.ServiceBase
+    {
+        public IcDeskService()
+        {
+            this.ServiceName = "IC-Desk";
+        }
+
+        protected override void OnStart(string[] args)
+        {
+            // Ejecutar la lógica en un hilo separado para que SCM no se bloquee
+            new System.Threading.Thread(() =>
+            {
+                // Prevenir que el servicio muestre UI si hay MessageBoxes perdidos
+                try {
+                    typeof(SoporteRemotoGUI).GetMethod("InitializeLogic", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).Invoke(null, null);
+                    System.Windows.Forms.Application.Run();
+                } catch (System.Exception ex) {
+                    System.IO.File.WriteAllText(System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.CommonApplicationData), "ICDesk_Service_Crash.txt"), ex.ToString());
+                }
+            }).Start();
+        }
+
+        protected override void OnStop()
+        {
+            System.Environment.Exit(0);
+        }
+    }
+
 }

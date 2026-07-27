@@ -63,7 +63,7 @@ def main():
     print(f"✅ Versión {version} inyectada en IcDesk.cs")
 
     # 2. Compilar ejecutable .exe nativo con mcs
-    cmd_compile = f"mcs /target:winexe /win32icon:{ico_file} /out:{exe_file} /r:System.Windows.Forms.dll,System.Drawing.dll,System.dll,System.Core.dll {cs_file}"
+    cmd_compile = f"mcs /target:winexe /win32icon:{ico_file} /out:{exe_file} /r:System.Windows.Forms.dll,System.Drawing.dll,System.ServiceProcess.dll,System.dll,System.Core.dll {cs_file}"
     res = subprocess.run(cmd_compile, shell=True, capture_output=True, text=True)
     if res.returncode != 0:
         print(f"❌ Error de compilación:\n{res.stderr}")
