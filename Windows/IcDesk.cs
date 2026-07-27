@@ -45,7 +45,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.4.1"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.4.2"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -136,29 +136,32 @@ namespace ICDesk
                 if (!createdNew && !isElevating) {
                     return;
                 }
-            } catch (System.UnauthorizedAccessException) {
-                // Si falla por permisos, significa que hay otra instancia corriendo como admin o system.
-                // En este caso cerramos silenciosamente.
+            } catch (System.UnauthorizedAccessException ex) {
+                System.IO.File.WriteAllText(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ICDesk_Mutex_Crash.txt"), "Mutex Error: " + ex.ToString());
+                return;
+            } catch (System.Exception ex2) {
+                System.IO.File.WriteAllText(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ICDesk_Mutex_Crash_Other.txt"), "Mutex Other Error: " + ex2.ToString());
                 return;
             }
 
             Application.EnableVisualStyles();
 
+            Application.SetCompatibleTextRenderingDefault(false);
+
             // Iniciar Ícono en Bandeja del Sistema (Tray Icon)
             NotifyIcon trayIcon = new NotifyIcon();
             trayIcon.Text = "IC-Desk Soporte Activo";
-            trayIcon.Visible = true;
             try {
-                // Intentar usar un icono del sistema o cargarlo
                 trayIcon.Icon = Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            } catch {}
+            } catch {
+                trayIcon.Icon = SystemIcons.Application;
+            }
+            trayIcon.Visible = true;
             
             ContextMenu trayMenu = new ContextMenu();
             trayMenu.MenuItems.Add("Abrir Panel Remoto", (s, ev) => { MessageBox.Show("IC-Desk está operando en modo invisible de Soporte Remoto.", "IC-Desk", MessageBoxButtons.OK, MessageBoxIcon.Information); });
             trayMenu.MenuItems.Add("Cerrar Conexión (Salir)", (s, ev) => { trayIcon.Visible = false; Environment.Exit(0); });
             trayIcon.ContextMenu = trayMenu;
-
-            Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new SoporteRemotoGUI());
         
             } catch (System.Exception ex) {
