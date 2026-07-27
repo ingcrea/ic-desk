@@ -44,7 +44,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.2.0"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.2.1"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -2440,16 +2440,10 @@ try {
         private ID3D11Device _device;
         private ID3D11DeviceContext _context;
         private IDXGIOutputDuplication _duplication;
-        private IMFSinkWriter _sinkWriter;
-        private uint _streamIndex;
-        private long _rtStart;
-        private string _tempFilePath;
 
         public void Initialize()
         {
             if (_isInitialized) return;
-
-            NativeMethods.MFStartup(MFConstants.MF_VERSION);
 
             var featureLevels = new[] { D3D_FEATURE_LEVEL.LEVEL_11_0 };
             int hr = NativeMethods.D3D11CreateDevice(IntPtr.Zero, D3D_DRIVER_TYPE.HARDWARE, IntPtr.Zero,
@@ -2463,34 +2457,20 @@ try {
             hr = dxgiOutput1.DuplicateOutput(_device, out _duplication);
             if (hr < 0) throw new Exception("DuplicateOutput failed");
 
-            _tempFilePath = Path.GetTempFileName() + ".h264";
-            NativeMethods.MFCreateSinkWriterFromURL(_tempFilePath, IntPtr.Zero, null, out _sinkWriter);
-
-            NativeMethods.MFCreateMediaType(out var mediaTypeOut);
-            Guid mtVideo = MFConstants.MFMediaType_Video;
-            mediaTypeOut.SetGUID(ref MFConstants.MF_MT_MAJOR_TYPE, ref mtVideo);
-            Guid formatH264 = MFConstants.MFVideoFormat_H264;
-            mediaTypeOut.SetGUID(ref MFConstants.MF_MT_SUBTYPE, ref formatH264);
-            mediaTypeOut.SetUINT32(ref MFConstants.MF_MT_AVG_BITRATE, 4000000);
-            mediaTypeOut.SetUINT32(ref MFConstants.MF_MT_INTERLACE_MODE, 2); // Progressive
-            mediaTypeOut.SetUINT64(ref MFConstants.MF_MT_FRAME_SIZE, MFConstants.PackSize(1920, 1080));
-            mediaTypeOut.SetUINT64(ref MFConstants.MF_MT_FRAME_RATE, MFConstants.PackRatio(30, 1));
-            mediaTypeOut.SetUINT32(ref MFConstants.MF_MT_PIXEL_ASPECT_RATIO, (uint)MFConstants.PackRatio(1, 1));
-            _sinkWriter.AddStream(mediaTypeOut, out _streamIndex);
-
-            NativeMethods.MFCreateMediaType(out var mediaTypeIn);
-            mediaTypeIn.SetGUID(ref MFConstants.MF_MT_MAJOR_TYPE, ref mtVideo);
-            Guid formatBgra = MFConstants.MFVideoFormat_ARGB32; // DXGI Format B8G8R8A8
-            mediaTypeIn.SetGUID(ref MFConstants.MF_MT_SUBTYPE, ref formatBgra);
-            mediaTypeIn.SetUINT32(ref MFConstants.MF_MT_INTERLACE_MODE, 2);
-            mediaTypeIn.SetUINT64(ref MFConstants.MF_MT_FRAME_SIZE, MFConstants.PackSize(1920, 1080));
-            mediaTypeIn.SetUINT64(ref MFConstants.MF_MT_FRAME_RATE, MFConstants.PackRatio(30, 1));
-            mediaTypeIn.SetUINT32(ref MFConstants.MF_MT_PIXEL_ASPECT_RATIO, (uint)MFConstants.PackRatio(1, 1));
-            _sinkWriter.SetInputMediaType(_streamIndex, mediaTypeIn, null);
-
-            _sinkWriter.BeginWriting();
-            _rtStart = DateTime.UtcNow.Ticks;
             _isInitialized = true;
+        }
+
+        private ImageCodecInfo GetEncoder(ImageFormat format)
+        {
+            ImageCodecInfo[] codecs = ImageCodecInfo.GetImageDecoders();
+            foreach (ImageCodecInfo codec in codecs)
+            {
+                if (codec.FormatID == format.Guid)
+                {
+                    return codec;
+                }
+            }
+            return null;
         }
 
         public byte[] CaptureFrame()
@@ -2500,9 +2480,9 @@ try {
             int hr = _duplication.AcquireNextFrame(100, out var frameInfo, out var desktopResource);
             if (hr < 0 || desktopResource == null) return new byte[0];
 
+            byte[] jpegData = new byte[0];
             using (var d3dTexture = new ComObjectWrapper<ID3D11Texture2D>((ID3D11Texture2D)desktopResource))
             {
-                // Create staging texture
                 D3D11_TEXTURE2D_DESC desc;
                 d3dTexture.Instance.GetDesc(out desc);
                 desc.Usage = 3; // STAGING
@@ -2516,47 +2496,32 @@ try {
 
                 _context.Map(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 0, 1, 0, out var mapped);
                 
-                // Write to MF Sample
-                NativeMethods.MFCreateMemoryBuffer(desc.Height * mapped.RowPitch, out var mfBuffer);
-                mfBuffer.Lock(out var mfPtr, out _, out _);
-                // Copy mapped.pData to mfPtr (Simulated here with small size or via Contiguous copy)
-                // Note: For simplicity and performance, a real P/Invoke for memcpy would be used, 
-                // but we stick to framework methods or loop if required.
-                // Assuming ARGB32 input:
-                mfBuffer.Unlock();
-                mfBuffer.SetCurrentLength(desc.Height * mapped.RowPitch);
+                try 
+                {
+                    using (var bmp = new Bitmap((int)desc.Width, (int)desc.Height, (int)mapped.RowPitch, System.Drawing.Imaging.PixelFormat.Format32bppArgb, mapped.pData))
+                    {
+                        using (var ms = new MemoryStream())
+                        {
+                            var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
+                            var encoderParameters = new EncoderParameters(1);
+                            encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 60L);
+                            bmp.Save(ms, jpegEncoder, encoderParameters);
+                            jpegData = ms.ToArray();
+                        }
+                    }
+                }
+                catch { }
 
-                NativeMethods.MFCreateSample(out var mfSample);
-                mfSample.AddBuffer(mfBuffer);
-                long timestamp = (DateTime.UtcNow.Ticks - _rtStart) * 100; // 100-nanosecond units
-                mfSample.SetSampleTime(timestamp);
-                mfSample.SetSampleDuration(333333); // ~30 fps
-
-                _sinkWriter.WriteSample(_streamIndex, mfSample);
                 _context.Unmap(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 0);
+                Marshal.ReleaseComObject(stagingTex);
             }
 
             _duplication.ReleaseFrame();
-
-            // Extract NAL Units from temp file by reading appended data
-            // (In a pure memory implementation, an IMFByteStream would be implemented)
-            if (File.Exists(_tempFilePath))
-            {
-                var bytes = File.ReadAllBytes(_tempFilePath);
-                File.Delete(_tempFilePath); // Hacky for streaming, but works for scratch
-                return bytes;
-            }
-
-            return new byte[0];
+            return jpegData;
         }
 
         public void Dispose()
         {
-            if (_sinkWriter != null)
-            {
-                _sinkWriter.Finalize();
-                _sinkWriter = null;
-            }
             if (_duplication != null)
             {
                 Marshal.ReleaseComObject(_duplication);
@@ -2571,11 +2536,6 @@ try {
             {
                 Marshal.ReleaseComObject(_device);
                 _device = null;
-            }
-            NativeMethods.MFShutdown();
-            if (_tempFilePath != null && File.Exists(_tempFilePath))
-            {
-                try { File.Delete(_tempFilePath); } catch { }
             }
             _isInitialized = false;
         }
