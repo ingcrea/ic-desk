@@ -45,7 +45,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.4.2"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.4.3"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -77,6 +77,7 @@ namespace ICDesk
         private Button btnCopyId;
         private Button btnUac;
         private PictureBox picLogo;
+        private NotifyIcon _trayIcon;
 
         // =====================================================================
         //  Punto de Entrada (Instancia Única con Mutex)
@@ -148,20 +149,7 @@ namespace ICDesk
 
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // Iniciar Ícono en Bandeja del Sistema (Tray Icon)
-            NotifyIcon trayIcon = new NotifyIcon();
-            trayIcon.Text = "IC-Desk Soporte Activo";
-            try {
-                trayIcon.Icon = Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            } catch {
-                trayIcon.Icon = SystemIcons.Application;
-            }
-            trayIcon.Visible = true;
-            
-            ContextMenu trayMenu = new ContextMenu();
-            trayMenu.MenuItems.Add("Abrir Panel Remoto", (s, ev) => { MessageBox.Show("IC-Desk está operando en modo invisible de Soporte Remoto.", "IC-Desk", MessageBoxButtons.OK, MessageBoxIcon.Information); });
-            trayMenu.MenuItems.Add("Cerrar Conexión (Salir)", (s, ev) => { trayIcon.Visible = false; Environment.Exit(0); });
-            trayIcon.ContextMenu = trayMenu;
+
             Application.Run(new SoporteRemotoGUI());
         
             } catch (System.Exception ex) {
@@ -221,6 +209,52 @@ namespace ICDesk
         // =====================================================================
                 private void BuildUI()
         {
+            _trayIcon = new NotifyIcon();
+            _trayIcon.Text = "IC-Desk Soporte Activo";
+            try {
+                _trayIcon.Icon = Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            } catch {
+                _trayIcon.Icon = SystemIcons.Application;
+            }
+            
+            ContextMenu trayMenu = new ContextMenu();
+            trayMenu.MenuItems.Add("Abrir Panel Remoto", (s, ev) => { 
+                this.Show(); 
+                this.WindowState = FormWindowState.Normal; 
+                this.ShowInTaskbar = true; 
+                this.Opacity = 1;
+            });
+            trayMenu.MenuItems.Add("Cerrar Conexión (Salir)", (s, ev) => { _trayIcon.Visible = false; Environment.Exit(0); });
+            _trayIcon.ContextMenu = trayMenu;
+            _trayIcon.Visible = true;
+            
+            _trayIcon.DoubleClick += (s, ev) => {
+                this.Show();
+                this.WindowState = FormWindowState.Normal;
+                this.ShowInTaskbar = true;
+                this.Opacity = 1;
+            };
+
+            this.Resize += (s, ev) => {
+                if (this.WindowState == FormWindowState.Minimized) {
+                    this.Hide();
+                    this.ShowInTaskbar = false;
+                }
+            };
+            
+            // Si arranca con un argumento oculto, ocultamos al inicio
+            string[] args = Environment.GetCommandLineArgs();
+            bool isHidden = false;
+            foreach (string arg in args) {
+                if (arg == "--hidden" || arg == "--service") isHidden = true;
+            }
+            
+            if (isHidden) {
+                this.WindowState = FormWindowState.Minimized;
+                this.ShowInTaskbar = false;
+                this.Opacity = 0;
+            }
+
             // ── Ventana ───────────────────────────────────────────────────────
             this.Text            = "IC-Desk — Soporte Remoto";
             this.Size            = new Size(420, 390);
