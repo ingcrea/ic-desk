@@ -45,7 +45,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.4.0"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.4.1"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -84,6 +84,8 @@ namespace ICDesk
         [STAThread]
         public static void Main(string[] args)
         {
+            try {
+
             if (args != null && args.Length > 0)
             {
                 if (args[0] == "--service")
@@ -128,11 +130,15 @@ namespace ICDesk
 
             bool isElevating = args != null && args.Length > 0 && args[0] == "--elevated";
             
-            bool createdNew;
-            _appMutex = new System.Threading.Mutex(true, "Global\\IcDesk_SingleInstance_Mutex", out createdNew);
-            if (!createdNew && !isElevating)
-            {
-                // Ya hay una instancia ejecutándose en este equipo
+            bool createdNew = false;
+            try {
+                _appMutex = new System.Threading.Mutex(true, "Global\\IcDesk_SingleInstance_Mutex", out createdNew);
+                if (!createdNew && !isElevating) {
+                    return;
+                }
+            } catch (System.UnauthorizedAccessException) {
+                // Si falla por permisos, significa que hay otra instancia corriendo como admin o system.
+                // En este caso cerramos silenciosamente.
                 return;
             }
 
@@ -144,7 +150,7 @@ namespace ICDesk
             trayIcon.Visible = true;
             try {
                 // Intentar usar un icono del sistema o cargarlo
-                trayIcon.Icon = SystemIcons.Application;
+                trayIcon.Icon = Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
             } catch {}
             
             ContextMenu trayMenu = new ContextMenu();
@@ -154,7 +160,11 @@ namespace ICDesk
 
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new SoporteRemotoGUI());
-        }
+        
+            } catch (System.Exception ex) {
+                System.IO.File.WriteAllText(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ICDesk_Crash.txt"), ex.ToString());
+            }
+}
 
         // =====================================================================
         //  Constructor
