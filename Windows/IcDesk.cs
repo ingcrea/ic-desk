@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.0"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.1"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -775,9 +775,8 @@ public static void Main(string[] args)
 
             try 
             { 
-                dxgiEngine = new DXGICaptureEngine();
-                dxgiEngine.Initialize(); 
-                useDxgi = true;
+                // Disabled DXGI because Astro Panel expects JPEG and Cloudflare drops >1MB H.264 I-Frames
+                useDxgi = false;
             }
             catch { }
 
