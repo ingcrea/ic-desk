@@ -1,0 +1,768 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Dashboard | IC-Desk">
+  <div id="header" >
+  <div class="header-brand">
+    <img class="header-logo" src="/soporte/download/logo?v=2.0.1" alt="Sercom Mx" />
+    <span class="header-badge">SaaS TI Enterprise</span>
+  </div>
+  <button class="btn-action" style="max-width: 140px;" onclick="logout()">Desconectar</button>
+</div>
+
+<!-- CONTENIDO PRINCIPAL -->
+<div id="main-content" >
+  <div class="section-title">Equipos de Clientes Monitoreados</div>
+  <div id="agents-grid">
+    <!-- Renderizado Dinámico -->
+  </div>
+</div>
+
+<!-- LIVE SESSION VIEW -->
+<div id="session-view">
+  <div id="session-sidebar">
+    <div id="session-info-header">
+      <h2 id="session-title">Consola de Control</h2>
+      <span class="agent-status" style="background: rgba(16, 185, 129, 0.15); color: var(--success); font-size: 11px; padding: 3px 8px; border-radius: 99px;">Transmisión Cifrada</span>
+    </div>
+
+    <!-- CAJA DE HERRAMIENTAS DE TI -->
+    <div class="toolbox-section">
+      <h3>🛠️ Caja de Herramientas de TI</h3>
+      <div class="grid-tools">
+        <button class="tool-card-btn" onclick="startStream()">🖥️ Ver Pantalla</button>
+        <button class="tool-card-btn" onclick="requestElevation()">🛡️ Solicitar Admin</button>
+        <button class="tool-card-btn" onclick="installService()">⚙️ Instalar Servicio</button>
+        <button class="tool-card-btn" onclick="activeWs.send(JSON.stringify({type:'get_clipboard'}))">📋 Leer Portapapeles</button>
+        <button class="tool-card-btn" onclick="sendClipboard()">📝 Pegar Portapapeles</button>
+        <button class="tool-card-btn" onclick="runDiagnosticCmd('Get-Process')">📊 Ver Procesos</button>
+        <button class="tool-card-btn" onclick="runDiagnosticCmd('Get-Service')">⚙️ Ver Servicios</button>
+        <button class="tool-card-btn" onclick="runDiagnosticCmd('Clear-RecycleBin -Force')">🧹 Limpiar Temp</button>
+        <button class="tool-card-btn" onclick="closeSession()">✕ Cerrar Sesión</button>
+      </div>
+    </div>
+
+    <!-- CONSOLA POWERSHELL -->
+    <div id="console-wrap">
+      <div id="console-output"></div>
+      <div id="console-input-bar">
+        <input type="text" id="console-input" placeholder="Escribe comando PowerShell y presiona Enter..." />
+      </div>
+    </div>
+  </div>
+
+  <div class="live-stream-area">
+    <div id="stream-status-overlay">
+      <div class="spinner" id="stream-status-spinner"></div>
+      <div id="stream-status-text">Iniciando conexión con la terminal remota...</div>
+    </div>
+    <canvas id="screen-canvas"></canvas>
+    <div id="remote-cursor"></div>
+  </div>
+</div>
+
+
+
+
+  <style>
+.dummy-dash-bust-2 { color: #abcdef; }
+
+  
+    #header {
+      background: rgba(17, 24, 39, 0.85);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(10px);
+      flex-shrink: 0;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-logo {
+      height: 48px;
+      width: auto;
+    }
+
+    .header-badge {
+      background: rgba(0, 102, 204, 0.15);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* --- MAIN CONTENT LAYOUT --- */
+    #main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 32px;
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    #agents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 24px;
+    }
+
+    /* --- HARDWARE INFO EN TARJETAS --- */
+    .agent-host { font-size: 15px; font-weight: 600; color: #e2e8f0; }
+    .hw-device-type { display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
+      font-weight: 600; padding: 2px 8px; border-radius: 20px; background: rgba(99,179,237,0.12);
+      color: #63b3ed; border: 1px solid rgba(99,179,237,0.25); margin-top: 2px; width: fit-content; }
+    .hw-make-model { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .hw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+    .hw-block { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 9px 12px; }
+    .hw-label { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-muted); margin-bottom: 4px; }
+    .hw-value { font-size: 12px; color: #e2e8f0; font-weight: 500; line-height: 1.4; word-break: break-word; }
+    .hw-value small { font-size: 10px; color: var(--text-muted); }
+    .hw-disk-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+    .hw-disk-bar-wrap { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
+    .hw-disk-bar { height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, #48bb78, #38a169); transition: width 0.5s ease; }
+    .hw-disk-bar.warn { background: linear-gradient(90deg, #ed8936, #dd6b20); }
+    .hw-disk-bar.crit { background: linear-gradient(90deg, #fc8181, #e53e3e); }
+    .hw-ram-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .hw-ram-pill { font-size: 10px; padding: 2px 6px; border-radius: 4px;
+      background: rgba(159,122,234,0.15); color: #b794f4; border: 1px solid rgba(159,122,234,0.2); }
+
+    /* --- ENTERPRISE AGENT CARD --- */
+    .agent-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: all 0.3s;
+    }
+
+    .agent-card:hover {
+      border-color: var(--border-active);
+      box-shadow: 0 10px 30px rgba(0, 102, 204, 0.1);
+    }
+
+    .agent-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .agent-id-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .pulse-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 12px var(--success);
+      animation: pulse 1.8s infinite;
+    }
+
+    .agent-host {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: -10px;
+    }
+
+    .card-divider {
+      height: 1px;
+      background: var(--border);
+    }
+
+    .system-badge-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .sys-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-action:hover {
+      background: var(--border);
+      border-color: #4b5563;
+    }
+
+    .btn-action.primary {
+      background: var(--accent);
+      border-color: transparent;
+      box-shadow: 0 4px 15px var(--accent-glow);
+    }
+
+    .btn-action.primary:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 6px 20px rgba(0, 102, 204, 0.5);
+    }
+
+    /* --- ACTIVE LIVE SESSION CONTROLLER (FULLSCREEN) --- */
+    #session-view {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #03050a;
+      z-index: 500;
+      flex-direction: row;
+    }
+
+    #session-view.active { display: flex; }
+
+    #session-sidebar {
+      width: 380px;
+      background: rgba(17, 24, 39, 0.85);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(20px);
+      z-index: 600;
+    }
+
+    #session-info-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #session-info-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .live-stream-area {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #screen-canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: fill; /* Llenar completamente la ventana sin bordes negros */
+      z-index: 10;
+    }
+
+    #stream-status-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(5, 8, 16, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 20;
+      transition: opacity 0.3s ease;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-left-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #stream-status-text {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 280px;
+      line-height: 1.5;
+    }
+
+    /* --- TI DIAGNOSTIC TOOLBOX --- */
+    .toolbox-section {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .toolbox-section h3 {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+
+    .grid-tools {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .tool-card-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      padding: 10px;
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s;
+    }
+
+    .tool-card-btn:hover {
+      background: rgba(0, 102, 204, 0.15);
+      border-color: var(--accent);
+    }
+
+    /* Terminal Console */
+    #console-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #080b12;
+      overflow: hidden;
+    }
+
+    #console-output {
+      flex: 1;
+      padding: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #a5d6ff;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    .con-log-sys { color: var(--text-muted); font-style: italic; }
+    .con-log-cmd { color: #58a6ff; font-weight: bold; }
+    .con-log-out { color: #7ee787; }
+    .con-log-err { color: var(--danger); }
+
+    #console-input-bar {
+      display: flex;
+      border-top: 1px solid var(--border);
+      background: rgba(17, 24, 39, 0.9);
+    }
+
+    #console-input-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 16px;
+      outline: none;
+    }
+  
+    @media (max-width: 640px) {
+      .login-card { width: 92% !important; padding: 24px 18px !important; border-radius: 18px !important; }
+      .login-logo { max-height: 48px !important; }
+      h2 { font-size: 22px !important; }
+      footer { position: relative !important; bottom: auto !important; margin-top: 24px !important; padding-bottom: 20px !important; }
+    }
+
+  
+  #header { display: flex !important; }
+  #main-content { display: flex !important; }
+  </style>
+  <script is:inline>
+  
+  let monitoringInterval = null;
+  let activeWs = null;
+  let currentAgentId = null;
+  const WS_RELAY_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:6001`;
+
+  let canvas = null;
+  let ctx = null;
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    canvas = document.getElementById('screen-canvas');
+    if (canvas) ctx = canvas.getContext('2d');
+    
+    try {
+      const res = await fetch('/soporte/agentes', { credentials: 'include' });
+      if (!res.ok) {
+        window.location.href = '/';
+        return;
+      }
+      startMonitoring();
+    } catch (e) {
+      window.location.href = '/';
+    }
+  });
+
+
+  async function fetchAgents() {
+    
+    try {
+      const res = await fetch('/soporte/agentes');
+      const agents = await res.json();
+      renderGrid(agents);
+    } catch {}
+  }
+
+  function renderGrid(agents) {
+    const grid = document.getElementById('agents-grid');
+    grid.innerHTML = '';
+    
+    if (Object.keys(agents).length === 0) {
+      grid.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Buscando agentes activos en la red de soporte...</div>';
+      return;
+    }
+
+    for (const [id, info] of Object.entries(agents)) {
+      if (!info.online) continue; // Solo mostrar los agentes en línea
+
+      const isAdmin = info.isAdmin ? '<span class="sys-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border-color: rgba(16, 185, 129, 0.3);">ADMIN</span>' : '';
+      let hw = info.health || {}; if (typeof hw === "string") { try { hw = JSON.parse(hw); } catch (e) { hw = {}; } }
+      
+      let hwDetails = '';
+      if (hw.cpu || hw.ramGB || hw.osCaption) {
+        const modelStr = [hw.manufacturer, hw.model].filter(Boolean).join(' ') || '';
+        const diskUsed = (hw.disks && hw.disks[0]) ? `${hw.disks[0].used}GB / ${hw.disks[0].total}GB` : '';
+        const diskPct = (hw.disks && hw.disks[0] && hw.disks[0].total) ? Math.min(100, Math.round((hw.disks[0].used / hw.disks[0].total) * 100)) : 0;
+        
+        hwDetails = `
+          <div class="hw-make-model">${modelStr}</div>
+          <div class="hw-grid">
+            <div class="hw-block">
+              <div class="hw-label">PROCESADOR / SO</div>
+              <div class="hw-value">${hw.cpu || hw.osCaption || 'Genérico'}</div>
+            </div>
+            <div class="hw-block">
+              <div class="hw-label">MEMORIA RAM</div>
+              <div class="hw-value">${hw.ramGB ? hw.ramGB + ' GB DDR' : 'N/A'} <small>(${hw.ramFreeGB ? hw.ramFreeGB + 'GB libre' : ''})</small></div>
+            </div>
+          </div>
+          ${diskUsed ? `
+          <div class="hw-block" style="margin-top: 8px;">
+            <div class="hw-label">ALMACENAMIENTO (C:)</div>
+            <div class="hw-value" style="display: flex; align-items: center; justify-content: space-between;">
+              <span>${diskUsed}</span>
+              <span>${diskPct}%</span>
+            </div>
+            <div class="hw-disk-row">
+              <div class="hw-disk-bar-wrap">
+                <div class="hw-disk-bar ${diskPct > 85 ? 'crit' : (diskPct > 70 ? 'warn' : '')}" style="width: ${diskPct}%;"></div>
+              </div>
+            </div>
+          </div>` : ''}
+        `;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'agent-card';
+      card.innerHTML = `
+        <div class="agent-card-header">
+          <div>
+            <div class="agent-id-tag">ID: ${id}</div>
+            <div class="agent-host">${info.hostname || id} ${isAdmin}</div>
+          </div>
+          <div class="pulse-indicator" title="En Línea"></div>
+        </div>
+        ${hwDetails}
+        <div class="card-divider"></div>
+        <div class="system-badge-row">
+          <span class="sys-badge">${hw.osCaption || 'En línea (60 FPS)'}</span>
+          <span class="sys-badge">Cifrado WSS</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn-action primary" onclick="takeControl('${id}')">🖥️ Control Remoto</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+  }
+
+  function takeControl(id) {
+    currentAgentId = id;
+    document.getElementById('session-title').textContent = `Consola: ${id}`;
+    document.getElementById('session-view').classList.add('active');
+    
+    // Configurar overlay en estado inicial de carga
+    const overlay = document.getElementById('stream-status-overlay');
+    const statusText = document.getElementById('stream-status-text');
+    const spinner = document.getElementById('stream-status-spinner');
+    
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    spinner.style.display = 'block';
+    statusText.innerHTML = `Estableciendo enlace de datos con terminal <b>${id}</b>...`;
+
+    const wsUrl = `${WS_RELAY_URL}?type=panel&id=${id}&panel_key=${encodeURIComponent('SrC0mS0p0rt3#S3cur1tyKey#2026')}`;
+    activeWs = new WebSocket(wsUrl);
+
+    activeWs.onopen = () => {
+      statusText.innerHTML = `Conexión establecida. Solicitando flujo de video...`;
+      startStream();
+    };
+
+    activeWs.onclose = (event) => {
+      spinner.style.display = 'none';
+      overlay.style.display = 'flex';
+      overlay.style.opacity = '1';
+      statusText.innerHTML = `🔴 <b>Conexión cerrada.</b> Código: ${event.code}. El agente cerró la transmisión o se encuentra fuera de línea.`;
+    };
+
+    activeWs.onerror = (err) => {
+      spinner.style.display = 'none';
+      overlay.style.display = 'flex';
+      overlay.style.opacity = '1';
+      statusText.innerHTML = `❌ <b>Error de comunicación:</b> Falló el enlace de transporte del WebSocket. Verifica el firewall del servidor.`;
+    };
+
+    activeWs.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.type === 'frame') {
+        // Ocultar overlay al recibir el primer frame exitoso
+        if (overlay.style.display !== 'none') {
+          overlay.style.opacity = '0';
+          setTimeout(() => { overlay.style.display = 'none'; }, 300);
+        }
+        const img = new Image();
+        img.onload = () => {
+          if (canvas.width !== msg.sw || canvas.height !== msg.sh) {
+            canvas.width = msg.sw;
+            canvas.height = msg.sh;
+          }
+          ctx.drawImage(img, msg.x, msg.y, msg.cellW, msg.cellH);
+        };
+        img.src = 'data:image/jpeg;base64,' + msg.data;
+      } else if (msg.type === 'agent_offline') {
+        spinner.style.display = 'none';
+        statusText.innerHTML = `⚠️ <b>El agente se encuentra offline en el Relay.</b> Intentando despertarlo mediante REST API...`;
+        // Si el agente está offline, enviarle la orden de iniciar transmisión
+        console.log("El agente está offline en el relay. Despertándolo...");
+        fetch('/soporte/cmd', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+          },
+          body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
+        }).catch(() => {});
+      } else if (msg.type === 'agent_disconnected') {
+        spinner.style.display = 'none';
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        statusText.innerHTML = `⚠️ <b>El agente remoto se ha desconectado.</b> En espera de que vuelva a conectarse...`;
+      }
+    };
+
+    // Enviar primer intento de despertar al agente de forma asíncrona
+    setTimeout(() => {
+      fetch('/soporte/cmd', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+        },
+        body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
+      }).catch(() => {});
+    }, 100);
+  }
+
+  function startStream() {
+    if (activeWs) {
+      if (activeWs.readyState === WebSocket.OPEN) {
+        activeWs.send(JSON.stringify({ type: 'start_stream' }));
+      } else if (activeWs.readyState === WebSocket.CONNECTING) {
+        activeWs.addEventListener('open', () => {
+          activeWs.send(JSON.stringify({ type: 'start_stream' }));
+        });
+      }
+    }
+  }
+
+  
+  function installService() {
+    if (!activeWs) return;
+    const cmd = "$exe = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName; Start-Process -FilePath $exe -ArgumentList '--install-service' -Verb RunAs";
+    activeWs.send(JSON.stringify({ type: 'shell', command: cmd }));
+    showToast('Solicitud de instalación como Servicio enviada...', 'info');
+  }
+
+  function requestElevation() {
+    const uacCmd = `Start-Process powershell -Verb runas`;
+    runDiagnosticCmd(uacCmd);
+  }
+
+  function runDiagnosticCmd(cmd) {
+    log('cmd', `PS> ${cmd}`);
+    fetch('/soporte/cmd', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+      },
+      body: JSON.stringify({ id: currentAgentId, cmd })
+    })
+    .then(r => r.json())
+    .then(data => log('out', data.output || data.error))
+    .catch(() => log('err', 'Fallo al comunicar con la terminal remota'));
+  }
+
+  function closeSession() {
+    if (activeWs) {
+      activeWs.send(JSON.stringify({ type: 'stop_stream' }));
+      activeWs.close();
+    }
+    // Enviar señal HTTP para indicarle al agente que detenga la transmisión
+    if (currentAgentId) {
+      fetch('/soporte/cmd', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+        },
+        body: JSON.stringify({ id: currentAgentId, cmd: '__RELAY_STOP__' })
+      }).catch(() => {});
+    }
+    document.getElementById('session-view').classList.remove('active');
+  }
+
+  function log(type, text) {
+    const out = document.getElementById('console-output');
+    const el = document.createElement('div');
+    el.className = `con-log-${type}`;
+    el.textContent = text;
+    out.appendChild(el);
+    out.scrollTop = out.scrollHeight;
+  }
+
+  document.getElementById('console-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const val = e.target.value;
+      if (val) {
+        runDiagnosticCmd(val);
+        e.target.value = '';
+      }
+    }
+  });
+
+  function startMonitoring() {
+    fetchAgents();
+    setInterval(fetchAgents, 5000);
+  }
+
+
+
+  async function logout() {
+    try {
+      await fetch('/soporte/logout', { method: 'POST' });
+    } catch (e) {}
+    window.location.href = '/';
+  }
+
+
+    // --- NUEVAS HERRAMIENTAS NATIVAS ---
+    let inputBlocked = false;
+    
+    function sendElevateCommand() {
+        if (!selectedAgent) return alert("Selecciona un agente primero");
+        if (confirm("Se solicitarán permisos de Administrador en la pantalla del cliente.\n\nSi el cliente acepta, el agente se reiniciará con poderes Supremos y la sesión actual se reconectará.\n\n¿Continuar?")) {
+            ws.send(JSON.stringify({
+                action: "command",
+                agentId: selectedAgent.id,
+                command: { type: "elevate" }
+            }));
+        }
+    }
+
+    function toggleBlockInput() {
+        if (!selectedAgent) return alert("Selecciona un agente primero");
+        inputBlocked = !inputBlocked;
+        const btn = document.getElementById('btn-block-input');
+        if (inputBlocked) {
+            btn.innerHTML = '<i class="fa fa-unlock"></i><span>Desbloquear Entradas</span>';
+            btn.style.color = '#ef4444';
+        } else {
+            btn.innerHTML = '<i class="fa fa-lock"></i><span>Bloquear Entradas</span>';
+            btn.style.color = 'var(--text)';
+        }
+        
+        ws.send(JSON.stringify({
+            action: "command",
+            agentId: selectedAgent.id,
+            command: { type: "block_input", block: inputBlocked }
+        }));
+    }
+</script>
+</Layout>
