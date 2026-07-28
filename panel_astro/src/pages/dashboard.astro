@@ -65,7 +65,7 @@ import Layout from '../layouts/Layout.astro';
 
 
 
-  <style>
+  <style is:global>
 .dummy-dash-bust-2 { color: #abcdef; }
 
   
@@ -471,7 +471,7 @@ import Layout from '../layouts/Layout.astro';
   async function fetchAgents() {
     
     try {
-      const res = await fetch('/soporte/agentes');
+      const res = await fetch('/soporte/agentes?t=' + Date.now());
       const agents = await res.json();
       renderGrid(agents);
     } catch {}

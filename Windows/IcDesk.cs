@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.5.0"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.1.1"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -614,7 +614,7 @@ public static void Main(string[] args)
         {
             try
             {
-                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(ServerUrl + "/soporte/poll?id=" + _supportId);
+                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(ServerUrl + "/soporte/poll?id=" + _supportId + "&_t=" + DateTime.UtcNow.Ticks);
                 req.Method  = "GET";
                 req.Timeout = 4000;
                 req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ICAgent/" + AppVersion;
@@ -764,7 +764,11 @@ public static void Main(string[] args)
 
         private async Task SendScreenFramesAsync(CancellationToken ct)
         {
-            var screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds;
+            Rectangle screen = new Rectangle(0, 0, 1920, 1080);
+            try { 
+                if (System.Windows.Forms.Screen.PrimaryScreen != null) 
+                    screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds; 
+            } catch { }
             
             bool useDxgi = false;
             DXGICaptureEngine dxgiEngine = null;
