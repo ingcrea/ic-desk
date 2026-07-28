@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.6.0"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.0"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -825,13 +825,10 @@ public static void Main(string[] args)
 
                         if (h264NalData != null && h264NalData.Length > 0)
                         {
-                            byte[] packet = new byte[18 + h264NalData.Length];
-                            packet[0] = 0x56; packet[1] = 0x49; packet[2] = 0x44; packet[3] = 0x45;
-                            packet[14] = (byte)(screen.Width >> 8);  packet[15] = (byte)(screen.Width & 0xFF);
-                            packet[16] = (byte)(screen.Height >> 8); packet[17] = (byte)(screen.Height & 0xFF);
-                            Buffer.BlockCopy(h264NalData, 0, packet, 18, h264NalData.Length);
-                            
-                            await _wsClient.SendAsync(new ArraySegment<byte>(packet), WebSocketMessageType.Binary, true, ct);
+                            string json = string.Format("{{\"type\":\"frame\",\"data\":\"{0}\",\"sw\":{1},\"sh\":{2},\"x\":0,\"y\":0,\"cellW\":{1},\"cellH\":{2}}}", 
+                                Convert.ToBase64String(h264NalData), screen.Width, screen.Height);
+                            byte[] wsData = Encoding.UTF8.GetBytes(json);
+                            await _wsClient.SendAsync(new ArraySegment<byte>(wsData), WebSocketMessageType.Text, true, ct);
                         }
 
                         long elapsedMs = (DateTime.Now.Ticks - frameStart) / TimeSpan.TicksPerMillisecond;
