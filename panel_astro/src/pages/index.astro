@@ -1,0 +1,682 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Login | IC-Desk">
+  <div id="space-background"><canvas id="starfield"></canvas></div>
+
+<!-- LOADER DE SESIÓN (visible mientras se verifica la cookie) -->
+<div id="session-loader" >
+  <div class="sl-spinner"></div>
+  <p>Verificando sesión...</p>
+</div>
+
+<!-- PANTALLA DE LOGIN -->
+<div id="login-screen">
+  
+  <div class="login-card">
+    <img class="login-logo" src="/soporte/download/logo?v=2.0.1" alt="Ingenieria Creativa Logo" />
+    <h2>IC-<span>Desk</span></h2>
+    <p>Centro de Operaciones y Soporte por IngCrea</p>
+    <div class="form-group">
+      <label>Usuario Autorizado</label>
+      <input type="text" id="login-user" class="input-focus-effect" placeholder="Ingresa tu usuario" onkeydown="if(event.key==='Enter') attemptLogin()" />
+    </div>
+    <div class="form-group">
+      <label>Contraseña de Red</label>
+      <div class="password-wrapper">
+        <input type="password" id="login-pass" class="input-focus-effect" placeholder="••••••••" onkeydown="if(event.key==='Enter') attemptLogin()" />
+        <button type="button" class="toggle-password" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar contraseña">
+          <svg id="eye-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="form-group remember-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; cursor: pointer;">
+      <input type="checkbox" id="login-remember" style="width: auto; cursor: pointer; margin: 0;" />
+      <label for="login-remember" style="margin: 0; text-transform: none; letter-spacing: normal; font-size: 13px; font-weight: normal; color: var(--text-muted); cursor: pointer;">Recordar mis datos de acceso</label>
+    </div>
+        <!-- Cloudflare Turnstile -->
+    <div style="display: flex; justify-content: center; padding: 12px 0;">
+      <div class="cf-turnstile" data-sitekey="0x4AAAAAACGkJx3Djb7AtUCr" data-theme="dark" data-callback="onTurnstileSuccess"></div>
+    </div>
+        <div class="auth-buttons-container">
+      <button class="btn-login" id="btn-login-submit" onclick="attemptLogin()">Entrar</button>
+      <button type="button" class="btn-google" onclick="alert('Google Auth en desarrollo')">
+        <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Entrar con Google
+      </button>
+    </div>
+    <div id="login-error"></div>
+    
+    <!-- FOOTER DE DESCARGAS DE AGENTES -->
+    <div class="login-footer">
+      <p>Descargar Agente de Soporte</p>
+            <div class="os-links">
+        <a href="/d/win" class="os-btn btn-recommended-download" title="Descargar Agente para Windows (.exe)">
+          <svg viewBox="0 0 88 88" width="16" height="16" fill="currentColor">
+            <path d="M0 12.402l35.687-4.86.016 34.423-35.67.147zm0 32.22l35.633.148v34.398l-35.633-4.877zm38.74-37.493l49.26-6.729v44.075l-49.26.17zm0 40.066l49.26.177-.016 43.918-49.244-6.729z"/>
+          </svg>
+          <span>Windows</span>
+        </a>
+        <a href="/d/mac" class="os-btn btn-recommended-download" title="Descargar Agente para macOS (.dmg)">
+          <svg viewBox="0 0 170 170" width="16" height="16" fill="currentColor">
+            <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.14-1.9-14.4-6.08-3.32-2.73-7.23-7.44-11.73-14.14-7.27-10.74-12.87-22.39-16.79-34.95-3.92-12.56-5.88-24.52-5.88-35.88 0-14.64 3.69-26.85 11.07-36.64 7.38-9.79 16.7-14.81 27.96-15.06 4.34 0 9.29 1.11 14.85 3.34 5.56 2.23 9.38 3.34 11.46 3.34 1.83 0 5.86-1.16 12.08-3.48 6.22-2.32 11.1-3.39 14.64-3.21 11.05.74 19.98 4.88 26.8 12.43-9.8 5.92-14.54 14.07-14.22 24.45.33 10.7 4.54 19.26 12.63 25.68 3.91 3.09 8.44 5.37 13.59 6.84-2.83 8.35-6.66 16.6-11.49 24.75zM119.22 31.85c0-6.85 2.45-13.44 7.35-19.78 4.9-6.34 11.07-10.3 18.51-11.88.22 1.09.33 2.07.33 2.94 0 6.96-2.5 13.68-7.51 20.17-5.01 6.49-11.2 10.45-18.57 11.88-.04-1.12-.11-2.23-.11-3.33z"/>
+          </svg>
+          <span>macOS</span>
+        </a>
+        <a href="/d/ios" class="os-btn btn-recommended-download" title="Descargar Agente para iOS (.ipa)">
+          <svg viewBox="0 0 170 170" width="16" height="16" fill="currentColor">
+            <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.14-1.9-14.4-6.08-3.32-2.73-7.23-7.44-11.73-14.14-7.27-10.74-12.87-22.39-16.79-34.95-3.92-12.56-5.88-24.52-5.88-35.88 0-14.64 3.69-26.85 11.07-36.64 7.38-9.79 16.7-14.81 27.96-15.06 4.34 0 9.29 1.11 14.85 3.34 5.56 2.23 9.38 3.34 11.46 3.34 1.83 0 5.86-1.16 12.08-3.48 6.22-2.32 11.1-3.39 14.64-3.21 11.05.74 19.98 4.88 26.8 12.43-9.8 5.92-14.54 14.07-14.22 24.45.33 10.7 4.54 19.26 12.63 25.68 3.91 3.09 8.44 5.37 13.59 6.84-2.83 8.35-6.66 16.6-11.49 24.75zM119.22 31.85c0-6.85 2.45-13.44 7.35-19.78 4.9-6.34 11.07-10.3 18.51-11.88.22 1.09.33 2.07.33 2.94 0 6.96-2.5 13.68-7.51 20.17-5.01 6.49-11.2 10.45-18.57 11.88-.04-1.12-.11-2.23-.11-3.33z"/>
+          </svg>
+          <span>iOS</span>
+        </a>
+        <a href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para Linux'); return false;" title="Agente para Linux (Próximamente)">
+          <span>Linux</span>
+        </a>
+        <a href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para Android'); return false;" title="Agente para Android (Próximamente)">
+          <span>Android</span>
+        </a>
+      </div>
+      <div class="ps-install-box" style="margin-top: 16px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <code style="color: #63b3ed; font-size: 12px; user-select: all; font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">irm https://desk.ingcrea.com | iex</code>
+        <button onclick="navigator.clipboard.writeText('irm https://desk.ingcrea.com | iex'); this.innerHTML='✓ Copiado'; this.style.background='#10b981'; setTimeout(()=> { this.innerHTML='Copiar'; this.style.background='var(--accent)'; }, 2000)" style="background: var(--accent); border: none; color: white; padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s; font-weight: 600;">Copiar</button>
+      </div>
+    </div>
+  </div>
+  <footer style="position: relative; margin-top: 16px; width: 100%; text-align: center; font-size: 13px; color: var(--text-muted); z-index: 30; pointer-events: auto; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+    <a href="/privacy" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🔒 Privacidad</a>
+    <a href="/terms" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">📜 Términos</a>
+    <a href="/cookies" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🍪 Cookies</a>
+  </footer>
+</div>
+
+<!-- CABECERA -->
+<style>
+.dummy-cache-bust-2 { color: #123456; }
+
+/* force-cache-bust-1 */
+
+    .auth-buttons-container {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      margin-top: 4px;
+    }
+    .auth-buttons-container > button {
+      flex: 1;
+      white-space: nowrap;
+      margin: 0 !important;
+    }
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: white;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-google:hover {
+      background: rgba(255,255,255,0.1);
+    }
+    
+    @media (max-width: 480px) {
+      .auth-buttons-container {
+        flex-direction: column;
+      }
+      .login-card {
+        padding: 12px 20px !important;
+        margin: auto 0;
+        width: 100%;
+      }
+      .form-group {
+        margin-bottom: 10px !important;
+      }
+      .login-footer p {
+        margin-bottom: 6px !important;
+      }
+      .os-links {
+        gap: 6px !important;
+      }
+      .ps-install-box {
+        margin-top: 8px !important;
+        padding: 6px 10px !important;
+      }
+      #login-screen {
+        padding: 8px;
+        overflow-y: auto;
+      }
+    }
+
+  
+    /* Loader de sesión — visible mientras se verifica la cookie */
+    #session-loader {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      flex-direction: column;
+      gap: 16px;
+    }
+    #session-loader .sl-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(99,179,237,0.2);
+      border-top-color: #63b3ed;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    #session-loader p {
+      color: rgba(255,255,255,0.4);
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      background: transparent !important;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 16px;
+      overflow-y: auto;
+      z-index: 20;
+    }
+
+    .login-card {
+      pointer-events: auto !important;
+      position: relative;
+      z-index: 30 !important;
+    }
+
+    
+    #space-background {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+    #starfield {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #starfield {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .login-card {
+      background: rgba(17, 24, 39, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px 36px;
+      width: 520px;
+      max-width: 95vw;
+      max-height: 98vh;
+      overflow: hidden;
+      margin: auto 0;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 80px rgba(0, 102, 204, 0.15);
+      text-align: center;
+      z-index: 30 !important;
+      pointer-events: auto !important;
+      animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+    }
+
+    .login-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), 0 0 110px rgba(0, 102, 204, 0.25);
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .login-logo {
+      height: 34px;
+      width: auto;
+      margin: 0 auto 6px auto;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .login-logo:hover {
+      transform: scale(1.1) rotate(-3deg);
+    }
+
+    .login-card h2 {
+      display: block !important;
+      text-align: center !important;
+      justify-content: center !important;
+      color: #ffffff !important;
+      font-size: 26px !important;
+      font-weight: 700 !important;
+      margin: 0 auto 6px auto !important;
+      width: 100% !important;
+    }
+
+    .login-card h2 span {
+      color: #ffffff !important;
+    }
+
+    .login-card p {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="password"] {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .form-group input[type="text"]:hover,
+    .form-group input[type="password"]:hover {
+      background: rgba(30, 41, 59, 0.8);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .form-group input[type="text"]:focus,
+    .form-group input[type="password"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow);
+      transform: scale(1.02);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .btn-login {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      padding: 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-login::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+      transform: skewX(-25deg);
+      animation: sweepShine 4s infinite;
+    }
+
+    @keyframes sweepShine {
+      0% { left: -100%; }
+      20% { left: 200%; }
+      100% { left: 200%; }
+    }
+
+    .btn-login:hover {
+      background: #2563eb; /* Azul más brillante */
+      box-shadow: 0 8px 28px rgba(37, 99, 235, 0.6);
+      transform: translateY(-2px) scale(1.02);
+    }
+
+    /* Estilos del Footer de Descargas */
+    .login-footer {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .login-footer p {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .os-links {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .os-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(31, 41, 55, 0.4);
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .os-btn:hover:not(.disabled) {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+    .os-btn.disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .os-btn svg {
+      transition: transform 0.2s;
+    }
+    .os-btn:hover:not(.disabled) svg {
+      transform: scale(1.05);
+    }
+
+
+
+    .btn-login:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    #login-error {
+      color: var(--danger);
+      font-size: 13px;
+      margin-top: 16px;
+      min-height: 20px;
+    }
+
+    
+  </style>
+  <script is:inline>
+// Animación Starfield interactiva en Canvas para la pantalla de Login
+  // Fondo Espacial Compuesto: Estrellas Estáticas + Viaje Estelar sutil (sin mouse) + Cometas
+    function initStarfield() {
+    const canvas = document.getElementById("starfield");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    const numStaticStars = 160;
+    const staticStars = [];
+    const starColors = ["#ffffff", "#f0f4f8", "#e2e8f0", "#63b3ed", "#90cdf4", "#b794f4", "#fbd38d"];
+
+    for (let i = 0; i < numStaticStars; i++) {
+      staticStars.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 1.6 + 0.5,
+        color: starColors[Math.floor(Math.random() * starColors.length)],
+        baseAlpha: Math.random() * 0.7 + 0.3,
+        twinkleSpeed: Math.random() * 0.02 + 0.005,
+        alphaOffset: Math.random() * Math.PI * 2
+      });
+    }
+
+    const numTravelStars = 40;
+    const travelStars = [];
+    for (let i = 0; i < numTravelStars; i++) {
+      travelStars.push({
+        x: (Math.random() - 0.5),
+        y: (Math.random() - 0.5),
+        z: Math.random() * 1000 + 1,
+        size: Math.random() * 1.5 + 0.8,
+        color: "rgba(255, 255, 255, 0.95)"
+      });
+    }
+
+    const comets = [];
+    function spawnComet() {
+      if (comets.length >= 6) return;
+      const angle = (Math.random() * 15 + 25) * (Math.PI / 180);
+      const speed = Math.random() * 8 + 6;
+      comets.push({
+        x: Math.random() * (canvas.width * 0.7),
+        y: Math.random() * (canvas.height * 0.4) - 50,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        length: Math.random() * 200 + 120,
+        alpha: 1,
+        decay: Math.random() * 0.008 + 0.004,
+        width: Math.random() * 2.5 + 1.5
+      });
+    }
+
+    setInterval(spawnComet, 1600);
+    let time = 0;
+
+    function animate() {
+      time += 0.05;
+      const width = canvas.width;
+      const height = canvas.height;
+
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < staticStars.length; i++) {
+        const star = staticStars[i];
+        const alpha = Math.max(0.1, Math.min(1, star.baseAlpha + Math.sin(time * star.twinkleSpeed * 10 + star.alphaOffset) * 0.25));
+        ctx.fillStyle = star.color;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(star.x * width, star.y * height, star.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
+
+      for (let i = 0; i < travelStars.length; i++) {
+        const ts = travelStars[i];
+        ts.z -= 2.0;
+        if (ts.z <= 0) {
+          ts.z = 1000;
+          ts.x = (Math.random() - 0.5);
+          ts.y = (Math.random() - 0.5);
+        }
+
+        const k = 500 / ts.z;
+        const px = ts.x * k * width + width / 2;
+        const py = ts.y * k * height + height / 2;
+        const size = Math.min(ts.size * k * 0.8, 3.5);
+
+        if (px >= 0 && px <= width && py >= 0 && py <= height) {
+          ctx.fillStyle = ts.color;
+          ctx.beginPath();
+          ctx.arc(px, py, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      for (let i = comets.length - 1; i >= 0; i--) {
+        const c = comets[i];
+        c.x += c.vx;
+        c.y += c.vy;
+        c.alpha -= c.decay;
+
+        if (c.alpha <= 0 || c.x > width + 100 || c.y > height + 100) {
+          comets.splice(i, 1);
+          continue;
+        }
+
+        const headX = c.x;
+        const headY = c.y;
+        const tailX = c.x - (c.vx / Math.hypot(c.vx, c.vy)) * c.length;
+        const tailY = c.y - (c.vy / Math.hypot(c.vx, c.vy)) * c.length;
+
+        const grad = ctx.createLinearGradient(headX, headY, tailX, tailY);
+        grad.addColorStop(0, "rgba(255, 255, 255, " + c.alpha + ")");
+        grad.addColorStop(0.2, "rgba(147, 197, 253, " + (c.alpha * 0.7) + ")");
+        grad.addColorStop(1, "rgba(147, 197, 253, 0)");
+
+        ctx.beginPath();
+        ctx.moveTo(headX, headY);
+        ctx.lineTo(tailX, tailY);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = c.width;
+        ctx.lineCap = "round";
+        ctx.stroke();
+      }
+
+      requestAnimationFrame(animate);
+    }
+    animate();
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') { initStarfield(); } else { window.addEventListener('DOMContentLoaded', initStarfield); }
+
+  
+  let authenticated = false;
+  let turnstileToken = "direct_auth_token";
+  window.onTurnstileSuccess = function(token) { turnstileToken = token; };
+  
+  window.addEventListener('DOMContentLoaded', async () => {
+    const loader = document.getElementById('session-loader');
+    if (loader) loader.style.display = 'flex';
+    try {
+      const res = await fetch('/soporte/agentes', { credentials: 'include' });
+      if (res.ok) {
+        window.location.href = '/dashboard';
+        return;
+      }
+    } catch (e) {}
+    if (loader) loader.style.display = 'none';
+    
+    const savedUser = localStorage.getItem('remembered_user');
+    const savedPass = localStorage.getItem('remembered_pass');
+    if (savedUser && savedPass) {
+      const uEl = document.getElementById('login-user');
+      const pEl = document.getElementById('login-pass');
+      const rEl = document.getElementById('login-remember');
+      if (uEl) uEl.value = savedUser;
+      if (pEl) pEl.value = savedPass;
+      if (rEl) rEl.checked = true;
+    }
+  });
+
+  function togglePasswordVisibility() {
+    const pInput = document.getElementById('login-pass');
+    const icon = document.getElementById('eye-icon');
+    if (!pInput || !icon) return;
+    if (pInput.type === 'password') {
+      pInput.type = 'text';
+      icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+    } else {
+      pInput.type = 'password';
+      icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+    }
+  }
+
+  function attemptLogin() {
+    const u = document.getElementById('login-user').value;
+    const p = document.getElementById('login-pass').value;
+    const errEl = document.getElementById('login-error');
+    if (errEl) errEl.textContent = '';
+    const btnSubmit = document.getElementById('btn-login-submit');
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<span style="display:inline-flex; align-items:center; gap:8px;"><svg class="animate-spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="12"></circle></svg> Autenticando...</span>';
+    }
+    
+    fetch('/soporte/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: u, pass: p, turnstileToken })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = 'Autenticar Credenciales';
+      }
+      if (data.success) {
+        const rememberEl = document.getElementById('login-remember');
+        if (rememberEl && rememberEl.checked) {
+          localStorage.setItem('remembered_user', u);
+          localStorage.setItem('remembered_pass', p);
+        } else {
+          localStorage.removeItem('remembered_user');
+          localStorage.removeItem('remembered_pass');
+        }
+        window.location.href = '/dashboard';
+      } else {
+        if (errEl) errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>' + (data.error || 'Credenciales incorrectas') + '</span></div>';
+      }
+    })
+    .catch(() => {
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = 'Autenticar Credenciales';
+      }
+      if (errEl) errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>Error de conexión con el servidor.</span></div>';
+    });
+  }
+
+  </script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer data-cfasync="false"></script>
+</Layout>
