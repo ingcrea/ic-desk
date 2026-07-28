@@ -100,7 +100,7 @@ import Layout from '../layouts/Layout.astro';
 
 <!-- CABECERA -->
 <style>
-.dummy-cache-bust-2 { color: #123456; }
+.dummy-cache-bust-3 { color: #123456; }
 
 /* force-cache-bust-1 */
 
@@ -450,7 +450,27 @@ import Layout from '../layouts/Layout.astro';
     }
 
     
-  </style>
+  
+    @media (max-height: 800px) {
+      .login-card {
+        transform: scale(0.85) !important;
+        transform-origin: center center;
+        margin: auto !important;
+      }
+      .login-card:hover {
+        transform: scale(0.85) translateY(-4px) !important;
+      }
+    }
+    @media (max-height: 650px) {
+      .login-card {
+        transform: scale(0.75) !important;
+      }
+      .login-card:hover {
+        transform: scale(0.75) translateY(-4px) !important;
+      }
+    }
+
+</style>
   <script is:inline>
 // Animación Starfield interactiva en Canvas para la pantalla de Login
   // Fondo Espacial Compuesto: Estrellas Estáticas + Viaje Estelar sutil (sin mouse) + Cometas
