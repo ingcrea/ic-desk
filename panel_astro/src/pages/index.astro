@@ -100,7 +100,7 @@ import Layout from '../layouts/Layout.astro';
 
 <!-- CABECERA -->
 <style>
-.dummy-cache-bust-3 { color: #123456; }
+.dummy-cache-bust-4 { color: #123456; }
 
 /* force-cache-bust-1 */
 
@@ -467,6 +467,64 @@ import Layout from '../layouts/Layout.astro';
       }
       .login-card:hover {
         transform: scale(0.75) translateY(-4px) !important;
+      }
+    }
+
+
+    @media (max-height: 800px) {
+      .login-card {
+        padding: 12px 24px !important;
+      }
+      .login-logo {
+        height: 28px !important;
+        margin-bottom: 2px !important;
+      }
+      .login-card h2 {
+        font-size: 22px !important;
+        margin-bottom: 2px !important;
+      }
+      .login-card p {
+        margin-bottom: 8px !important;
+      }
+      .form-group {
+        margin-bottom: 8px !important;
+      }
+      .remember-group {
+        margin-bottom: 8px !important;
+      }
+      .cf-turnstile {
+        transform: scale(0.85);
+        transform-origin: center center;
+      }
+      .login-footer p {
+        margin-bottom: 4px !important;
+        font-size: 11px !important;
+      }
+      .os-links {
+        gap: 4px !important;
+      }
+      .os-btn {
+        padding: 4px 8px !important;
+        font-size: 10px !important;
+      }
+      .ps-install-box {
+        margin-top: 8px !important;
+        padding: 6px 10px !important;
+      }
+      .auth-buttons-container {
+        margin-top: 2px !important;
+      }
+      button.btn-login, button.btn-google {
+        padding: 8px !important;
+        font-size: 13px !important;
+      }
+    }
+    @media (max-height: 650px) {
+      .login-card {
+        transform: scale(0.9) !important;
+      }
+      .login-footer {
+        display: none !important; /* Hide footer entirely on extremely small screens */
       }
     }
 
