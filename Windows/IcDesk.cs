@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.2"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.3"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -92,7 +92,7 @@ namespace ICDesk
             {
                 lock (_logLock)
                 {
-                    string logFile = @"C:\ProgramData\IC-Desk-Log.txt";
+                    string logFile = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "IC-Desk-Log.txt");
                     string time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                     System.IO.File.AppendAllText(logFile, $"[{time}] [{module}] {message}\r\n");
                 }
