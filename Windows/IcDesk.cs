@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.1"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.2"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -84,13 +84,29 @@ namespace ICDesk
         // =====================================================================
         //  Punto de Entrada (Instancia Única con Mutex)
         // =====================================================================
+
+        private static object _logLock = new object();
+        public static void LogCheckpoint(string module, string message)
+        {
+            try
+            {
+                lock (_logLock)
+                {
+                    string logFile = @"C:\ProgramData\IC-Desk-Log.txt";
+                    string time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                    System.IO.File.AppendAllText(logFile, $"[{time}] [{module}] {message}\r\n");
+                }
+            }
+            catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
+        }
+
         [STAThread]
                 public static bool IsAdministrator()
         {
             try {
                 return (new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()))
                        .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-            } catch { return false; }
+            } catch (Exception ex) { LogCheckpoint("POLL_ERROR", "Error de red/polling HTTP: " + ex.Message); return false; }
         }
 public static void Main(string[] args)
         {
@@ -132,9 +148,7 @@ public static void Main(string[] args)
 
             AppDomain.CurrentDomain.UnhandledException += (s, e) => {
                 try {
-                    System.IO.File.WriteAllText(
-                        System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ICDesk_Crash.txt"), 
-                        "CRASH GLOBAL:\r\n" + e.ExceptionObject.ToString());
+                    LogCheckpoint("CRASH", "FATAL UNHANDLED EXCEPTION:\r\n" + e.ExceptionObject.ToString());
                 } catch {}
             };
 
@@ -172,7 +186,7 @@ public static void Main(string[] args)
         public SoporteRemotoGUI()
         {
             // Forzar TLS 1.2 para conexiones HTTPS seguras en .NET 4.0
-            try { System.Net.ServicePointManager.SecurityProtocol = (System.Net.SecurityProtocolType)3072; } catch { }
+            try { System.Net.ServicePointManager.SecurityProtocol = (System.Net.SecurityProtocolType)3072; } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
 
             _supportId = GeneratePersistentId();
             _hostname  = Environment.MachineName.ToUpper().Replace(" ", "").Replace(".", "");
@@ -188,7 +202,7 @@ public static void Main(string[] args)
                     using (MemoryStream ms = new MemoryStream(logoBytes))
                         picLogo.Image = Image.FromStream(ms);
                 }
-                catch { }
+                catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
             }
 
             if (!string.IsNullOrEmpty(IconBase64))
@@ -199,7 +213,7 @@ public static void Main(string[] args)
                     using (MemoryStream ms = new MemoryStream(iconBytes))
                         this.Icon = new Icon(ms);
                 }
-                catch { }
+                catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
             }
 
             // Arrancar el hilo de soporte en segundo plano
@@ -272,7 +286,7 @@ public static void Main(string[] args)
             this.StartPosition   = FormStartPosition.CenterScreen;
             this.BackColor       = Color.FromArgb(15, 15, 25);
             this.ForeColor       = Color.White;
-            this.FormClosing    += (s, e) => { _running = false; try { if (_wsCts != null) _wsCts.Cancel(); } catch { } };
+            this.FormClosing    += (s, e) => { _running = false; try { if (_wsCts != null) _wsCts.Cancel(); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); } };
 
             // ── Logo ──────────────────────────────────────────────────────────
             picLogo = new PictureBox
@@ -340,7 +354,7 @@ public static void Main(string[] args)
                     t.Tick += (ts, te) => { btnCopyId.Text = "📋 Copiar"; t.Stop(); t.Dispose(); };
                     t.Start();
                 }
-                catch { }
+                catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
             };
             this.Controls.Add(btnCopyId);
 
@@ -452,7 +466,7 @@ public static void Main(string[] args)
                     return key != null && key.GetValue("IcDesk") != null;
                 }
             }
-            catch { return false; }
+            catch (Exception ex) { LogCheckpoint("POLL_ERROR", "Error de red/polling HTTP: " + ex.Message); return false; }
         }
 
         private void SetAutoStart(bool enable)
@@ -664,7 +678,7 @@ public static void Main(string[] args)
                 }
                 return true;
             }
-            catch { return false; }
+            catch (Exception ex) { LogCheckpoint("POLL_ERROR", "Error de red/polling HTTP: " + ex.Message); return false; }
         }
 
         // =====================================================================
@@ -693,7 +707,7 @@ public static void Main(string[] args)
                 using (Stream s = req.GetRequestStream()) s.Write(data, 0, data.Length);
                 using (req.GetResponse()) { }
             }
-            catch { }
+            catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
         }
 
         // =====================================================================
@@ -701,6 +715,7 @@ public static void Main(string[] args)
         // =====================================================================
         private async Task StartStreamingAsync()
         {
+            LogCheckpoint("WEBSOCKET", "[CHECKPOINT 1] Intentando iniciar streaming WS a: " + string.Format("{0}?type=agent&id={1}", RelayWsUrl, _supportId));
             if (_streaming) return;
             _streaming = true;
             _wsCts     = new CancellationTokenSource();
@@ -710,7 +725,9 @@ public static void Main(string[] args)
             try
             {
                 string wsUri = string.Format("{0}?type=agent&id={1}", RelayWsUrl, _supportId);
+                LogCheckpoint("WEBSOCKET", "[CHECKPOINT 2] Conectando a " + wsUri + "...");
                 await _wsClient.ConnectAsync(new Uri(wsUri), _wsCts.Token);
+                LogCheckpoint("WEBSOCKET", "[CHECKPOINT 3] Conectado exitosamente.");
 
                 Task send    = SendScreenFramesAsync(_wsCts.Token);
                 Task receive = ReceiveInputCommandsAsync(_wsCts.Token);
@@ -725,7 +742,7 @@ public static void Main(string[] args)
             finally
             {
                 _streaming = false;
-                try { if (_wsClient != null) _wsClient.Dispose(); } catch { }
+                try { if (_wsClient != null) _wsClient.Dispose(); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
                 SetStatus("✅ En espera del técnico...", Color.FromArgb(16, 185, 129));
             }
         }
@@ -734,7 +751,7 @@ public static void Main(string[] args)
         {
             if (_wsCts != null) _wsCts.Cancel();
             if (_wsClient != null && _wsClient.State == WebSocketState.Open)
-                try { await _wsClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None); } catch { }
+                try { await _wsClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
             _streaming = false;
         }
 
@@ -768,7 +785,7 @@ public static void Main(string[] args)
             try { 
                 if (System.Windows.Forms.Screen.PrimaryScreen != null) 
                     screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds; 
-            } catch { }
+            } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
             
             bool useDxgi = false;
             DXGICaptureEngine dxgiEngine = null;
@@ -778,7 +795,7 @@ public static void Main(string[] args)
                 // Disabled DXGI because Astro Panel expects JPEG and Cloudflare drops >1MB H.264 I-Frames
                 useDxgi = false;
             }
-            catch { }
+            catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
 
             try
             {
@@ -840,7 +857,7 @@ public static void Main(string[] args)
             }
             finally
             {
-                if (dxgiEngine != null) { try { dxgiEngine.Dispose(); } catch { } }
+                if (dxgiEngine != null) { try { dxgiEngine.Dispose(); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); } }
             }
         }
 
@@ -909,7 +926,7 @@ public static void Main(string[] args)
                         break;
                 }
             }
-            catch { }
+            catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
         }
 
         
@@ -972,7 +989,7 @@ public static void Main(string[] args)
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
             });
         }
 
@@ -1215,7 +1232,7 @@ public static void Main(string[] args)
 
         private void HandleMouseScroll(string json)
         {
-            int delta = 0; try { delta = int.Parse(ExtractJsonValue(json, "delta") ?? "0"); } catch { }
+            int delta = 0; try { delta = int.Parse(ExtractJsonValue(json, "delta") ?? "0"); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
             var inputs = new INPUT[1];
             inputs[0].type = Win32.INPUT_MOUSE;
             inputs[0].U.mi.dwFlags = Win32.MOUSEEVENTF_WHEEL;
@@ -1248,7 +1265,7 @@ public static void Main(string[] args)
         {
             string text = ExtractJsonValue(json, "text");
             if (!string.IsNullOrEmpty(text))
-                this.Invoke(new MethodInvoker(() => { try { Clipboard.SetText(text); } catch { } }));
+                this.Invoke(new MethodInvoker(() => { try { Clipboard.SetText(text); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); } }));
         }
 
         private void HandleGetClipboard()
@@ -1257,11 +1274,11 @@ public static void Main(string[] args)
             try
             {
                 if (this.InvokeRequired)
-                    this.Invoke(new MethodInvoker(() => { try { text = Clipboard.GetText(); } catch { } }));
+                    this.Invoke(new MethodInvoker(() => { try { text = Clipboard.GetText(); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); } }));
                 else
                     text = Clipboard.GetText();
             }
-            catch { }
+            catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
 
             string msg = string.Format("{{\"type\":\"clipboard\",\"text\":\"{0}\"}}",
                 text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n"));
@@ -1273,7 +1290,7 @@ public static void Main(string[] args)
                     if (_wsClient != null && _wsClient.State == WebSocketState.Open)
                         await _wsClient.SendAsync(new ArraySegment<byte>(data), WebSocketMessageType.Text, true, CancellationToken.None);
                 }
-                catch { }
+                catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
             });
         }
 
@@ -1450,7 +1467,7 @@ public static void Main(string[] args)
                 using (Stream s = req.GetRequestStream()) s.Write(data, 0, data.Length);
                 using (req.GetResponse()) { }
             }
-            catch { }
+            catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
         }
 
         private string GetHealthScript()
@@ -1713,7 +1730,7 @@ try {
                     return string.Format("{0}-{1}", 1000 + (hash % 9000), 1000 + ((hash / 9000 + 1) % 9000));
                 }
             }
-            catch { }
+            catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
 
             int fallback = 0;
             foreach (char c in Environment.MachineName.ToUpper()) fallback = fallback * 31 + (int)c;
@@ -2668,7 +2685,7 @@ try {
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
 
                 _context.Unmap(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 0);
                 Marshal.ReleaseComObject(stagingTex);

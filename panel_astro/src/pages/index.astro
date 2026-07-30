@@ -7,26 +7,26 @@ import Layout from '../layouts/Layout.astro';
 
 <!-- LOADER DE SESIÓN (visible mientras se verifica la cookie) -->
 <div id="session-loader" >
-  <div class="sl-spinner"></div>
-  <p>Verificando sesión...</p>
+  <div id="ic-element-1" class="sl-spinner"></div>
+  <p id="ic-element-2">Verificando sesión...</p>
 </div>
 
 <!-- PANTALLA DE LOGIN -->
 <div id="login-screen">
   
-  <div class="login-card">
-    <img class="login-logo" src="/soporte/download/logo?v=2.0.1" alt="Ingenieria Creativa Logo" />
-    <h2>IC-<span>Desk</span></h2>
-    <p>Centro de Operaciones y Soporte por IngCrea</p>
-    <div class="form-group">
-      <label>Usuario Autorizado</label>
+  <div id="ic-element-3" class="login-card">
+    <img id="ic-element-4" class="login-logo" src="/soporte/download/logo?v=2.0.1" alt="Ingenieria Creativa Logo" />
+    <h2 id="ic-element-5">IC-<span id="ic-element-6">Desk</span></h2>
+    <p id="ic-element-7">Centro de Operaciones y Soporte por IngCrea</p>
+    <div id="ic-element-8" class="form-group">
+      <label id="ic-element-9">Usuario Autorizado</label>
       <input type="text" id="login-user" class="input-focus-effect" placeholder="Ingresa tu usuario" onkeydown="if(event.key==='Enter') attemptLogin()" />
     </div>
-    <div class="form-group">
-      <label>Contraseña de Red</label>
-      <div class="password-wrapper">
+    <div id="ic-element-10" class="form-group">
+      <label id="ic-element-11">Contraseña de Red</label>
+      <div id="ic-element-12" class="password-wrapper">
         <input type="password" id="login-pass" class="input-focus-effect" placeholder="••••••••" onkeydown="if(event.key==='Enter') attemptLogin()" />
-        <button type="button" class="toggle-password" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar contraseña">
+        <button id="ic-element-13" type="button" class="toggle-password" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar contraseña">
           <svg id="eye-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
             <circle cx="12" cy="12" r="3"></circle>
@@ -34,17 +34,17 @@ import Layout from '../layouts/Layout.astro';
         </button>
       </div>
     </div>
-    <div class="form-group remember-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; cursor: pointer;">
+    <div id="ic-element-14" class="form-group remember-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; cursor: pointer;">
       <input type="checkbox" id="login-remember" style="width: auto; cursor: pointer; margin: 0;" />
-      <label for="login-remember" style="margin: 0; text-transform: none; letter-spacing: normal; font-size: 13px; font-weight: normal; color: var(--text-muted); cursor: pointer;">Recordar mis datos de acceso</label>
+      <label id="ic-element-15" for="login-remember" style="margin: 0; text-transform: none; letter-spacing: normal; font-size: 13px; font-weight: normal; color: var(--text-muted); cursor: pointer;">Recordar mis datos de acceso</label>
     </div>
         <!-- Cloudflare Turnstile -->
-    <div style="display: flex; justify-content: center; padding: 12px 0;">
-      <div class="cf-turnstile" data-sitekey="0x4AAAAAACGkJx3Djb7AtUCr" data-theme="dark" data-callback="onTurnstileSuccess"></div>
+    <div id="ic-element-16" style="display: flex; justify-content: center; padding: 12px 0;">
+      <div id="ic-element-17" class="cf-turnstile" data-sitekey="0x4AAAAAACGkJx3Djb7AtUCr" data-theme="dark" data-callback="onTurnstileSuccess"></div>
     </div>
-        <div class="auth-buttons-container">
+        <div id="ic-element-18" class="auth-buttons-container">
       <button class="btn-login" id="btn-login-submit" onclick="attemptLogin()">Entrar</button>
-      <button type="button" class="btn-google" onclick="alert('Google Auth en desarrollo')">
+      <button id="ic-element-19" type="button" class="btn-google" onclick="alert('Google Auth en desarrollo')">
         <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -57,44 +57,44 @@ import Layout from '../layouts/Layout.astro';
     <div id="login-error"></div>
     
     <!-- FOOTER DE DESCARGAS DE AGENTES -->
-    <div class="login-footer">
-      <p>Descargar Agente de Soporte</p>
-            <div class="os-links">
-        <a href="/d/win" class="os-btn btn-recommended-download" title="Descargar Agente para Windows (.exe)">
+    <div id="ic-element-20" class="login-footer">
+      <p id="ic-element-21">Descargar Agente de Soporte</p>
+            <div id="ic-element-22" class="os-links">
+        <a id="ic-element-23" href="/d/win" class="os-btn btn-recommended-download" title="Descargar Agente para Windows (.exe)">
           <svg viewBox="0 0 88 88" width="16" height="16" fill="currentColor">
             <path d="M0 12.402l35.687-4.86.016 34.423-35.67.147zm0 32.22l35.633.148v34.398l-35.633-4.877zm38.74-37.493l49.26-6.729v44.075l-49.26.17zm0 40.066l49.26.177-.016 43.918-49.244-6.729z"/>
           </svg>
-          <span>Windows</span>
+          <span id="ic-element-24">Windows</span>
         </a>
-        <a href="/d/mac" class="os-btn btn-recommended-download" title="Descargar Agente para macOS (.dmg)">
+        <a id="ic-element-25" href="/d/mac" class="os-btn btn-recommended-download" title="Descargar Agente para macOS (.dmg)">
           <svg viewBox="0 0 170 170" width="16" height="16" fill="currentColor">
             <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.14-1.9-14.4-6.08-3.32-2.73-7.23-7.44-11.73-14.14-7.27-10.74-12.87-22.39-16.79-34.95-3.92-12.56-5.88-24.52-5.88-35.88 0-14.64 3.69-26.85 11.07-36.64 7.38-9.79 16.7-14.81 27.96-15.06 4.34 0 9.29 1.11 14.85 3.34 5.56 2.23 9.38 3.34 11.46 3.34 1.83 0 5.86-1.16 12.08-3.48 6.22-2.32 11.1-3.39 14.64-3.21 11.05.74 19.98 4.88 26.8 12.43-9.8 5.92-14.54 14.07-14.22 24.45.33 10.7 4.54 19.26 12.63 25.68 3.91 3.09 8.44 5.37 13.59 6.84-2.83 8.35-6.66 16.6-11.49 24.75zM119.22 31.85c0-6.85 2.45-13.44 7.35-19.78 4.9-6.34 11.07-10.3 18.51-11.88.22 1.09.33 2.07.33 2.94 0 6.96-2.5 13.68-7.51 20.17-5.01 6.49-11.2 10.45-18.57 11.88-.04-1.12-.11-2.23-.11-3.33z"/>
           </svg>
-          <span>macOS</span>
+          <span id="ic-element-26">macOS</span>
         </a>
-        <a href="/d/ios" class="os-btn btn-recommended-download" title="Descargar Agente para iOS (.ipa)">
+        <a id="ic-element-27" href="/d/ios" class="os-btn btn-recommended-download" title="Descargar Agente para iOS (.ipa)">
           <svg viewBox="0 0 170 170" width="16" height="16" fill="currentColor">
             <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.14-1.9-14.4-6.08-3.32-2.73-7.23-7.44-11.73-14.14-7.27-10.74-12.87-22.39-16.79-34.95-3.92-12.56-5.88-24.52-5.88-35.88 0-14.64 3.69-26.85 11.07-36.64 7.38-9.79 16.7-14.81 27.96-15.06 4.34 0 9.29 1.11 14.85 3.34 5.56 2.23 9.38 3.34 11.46 3.34 1.83 0 5.86-1.16 12.08-3.48 6.22-2.32 11.1-3.39 14.64-3.21 11.05.74 19.98 4.88 26.8 12.43-9.8 5.92-14.54 14.07-14.22 24.45.33 10.7 4.54 19.26 12.63 25.68 3.91 3.09 8.44 5.37 13.59 6.84-2.83 8.35-6.66 16.6-11.49 24.75zM119.22 31.85c0-6.85 2.45-13.44 7.35-19.78 4.9-6.34 11.07-10.3 18.51-11.88.22 1.09.33 2.07.33 2.94 0 6.96-2.5 13.68-7.51 20.17-5.01 6.49-11.2 10.45-18.57 11.88-.04-1.12-.11-2.23-.11-3.33z"/>
           </svg>
-          <span>iOS</span>
+          <span id="ic-element-28">iOS</span>
         </a>
-        <a href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para Linux'); return false;" title="Agente para Linux (Próximamente)">
-          <span>Linux</span>
+        <a id="ic-element-29" href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para Linux'); return false;" title="Agente para Linux (Próximamente)">
+          <span id="ic-element-30">Linux</span>
         </a>
-        <a href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para Android'); return false;" title="Agente para Android (Próximamente)">
-          <span>Android</span>
+        <a id="ic-element-31" href="#" class="os-btn disabled" onclick="alert('Próximamente disponible para Android'); return false;" title="Agente para Android (Próximamente)">
+          <span id="ic-element-32">Android</span>
         </a>
       </div>
-      <div class="ps-install-box" style="margin-top: 16px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-        <code style="color: #63b3ed; font-size: 12px; user-select: all; font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">irm https://desk.ingcrea.com | iex</code>
-        <button onclick="navigator.clipboard.writeText('irm https://desk.ingcrea.com | iex'); this.innerHTML='✓ Copiado'; this.style.background='#10b981'; setTimeout(()=> { this.innerHTML='Copiar'; this.style.background='var(--accent)'; }, 2000)" style="background: var(--accent); border: none; color: white; padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s; font-weight: 600;">Copiar</button>
+      <div id="ic-element-33" class="ps-install-box" style="margin-top: 16px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <code id="ic-element-34" style="color: #63b3ed; font-size: 12px; user-select: all; font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">irm https://desk.ingcrea.com | iex</code>
+        <button id="ic-element-35" onclick="navigator.clipboard.writeText('irm https://desk.ingcrea.com | iex'); this.innerHTML='✓ Copiado'; this.style.background='#10b981'; setTimeout(()=> { this.innerHTML='Copiar'; this.style.background='var(--accent)'; }, 2000)" style="background: var(--accent); border: none; color: white; padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s; font-weight: 600;">Copiar</button>
       </div>
     </div>
   </div>
-  <footer style="position: relative; margin-top: 16px; width: 100%; text-align: center; font-size: 13px; color: var(--text-muted); z-index: 30; pointer-events: auto; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
-    <a href="/privacy" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🔒 Privacidad</a>
-    <a href="/terms" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">📜 Términos</a>
-    <a href="/cookies" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🍪 Cookies</a>
+  <footer id="ic-element-36" style="position: relative; margin-top: 16px; width: 100%; text-align: center; font-size: 13px; color: var(--text-muted); z-index: 30; pointer-events: auto; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+    <a id="ic-element-37" href="/privacy" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🔒 Privacidad</a>
+    <a id="ic-element-38" href="/terms" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">📜 Términos</a>
+    <a id="ic-element-39" href="/cookies" style="color: #60a5fa; text-decoration: none; font-weight: 600; padding: 6px 14px; background: rgba(96, 165, 250, 0.12); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 20px; transition: all 0.2s; box-shadow: 0 0 12px rgba(96, 165, 250, 0.2); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(96, 165, 250, 0.3)'; this.style.borderColor='#60a5fa';" onmouseout="this.style.color='#60a5fa'; this.style.background='rgba(96, 165, 250, 0.12)'; this.style.borderColor='rgba(96, 165, 250, 0.3)';">🍪 Cookies</a>
   </footer>
 </div>
 
@@ -452,82 +452,27 @@ import Layout from '../layouts/Layout.astro';
     
   
     @media (max-height: 800px) {
-      .login-card {
-        transform: scale(0.85) !important;
-        transform-origin: center center;
-        margin: auto !important;
+      #login-screen {
+        zoom: 0.8;
       }
-      .login-card:hover {
-        transform: scale(0.85) translateY(-4px) !important;
+      .login-card {
+        padding-top: 40px !important;
+        padding-bottom: 40px !important;
+        min-height: 120%;
+      }
+      @-moz-document url-prefix() {
+        #login-screen {
+          transform: scale(0.8);
+          transform-origin: top center;
+          height: 125vh;
+        }
       }
     }
     @media (max-height: 650px) {
-      .login-card {
-        transform: scale(0.75) !important;
-      }
-      .login-card:hover {
-        transform: scale(0.75) translateY(-4px) !important;
-      }
-    }
-
-
-    @media (max-height: 800px) {
-      .login-card {
-        padding: 12px 24px !important;
-      }
-      .login-logo {
-        height: 28px !important;
-        margin-bottom: 2px !important;
-      }
-      .login-card h2 {
-        font-size: 22px !important;
-        margin-bottom: 2px !important;
-      }
-      .login-card p {
-        margin-bottom: 8px !important;
-      }
-      .form-group {
-        margin-bottom: 8px !important;
-      }
-      .remember-group {
-        margin-bottom: 8px !important;
-      }
-      .cf-turnstile {
-        transform: scale(0.85);
-        transform-origin: center center;
-      }
-      .login-footer p {
-        margin-bottom: 4px !important;
-        font-size: 11px !important;
-      }
-      .os-links {
-        gap: 4px !important;
-      }
-      .os-btn {
-        padding: 4px 8px !important;
-        font-size: 10px !important;
-      }
-      .ps-install-box {
-        margin-top: 8px !important;
-        padding: 6px 10px !important;
-      }
-      .auth-buttons-container {
-        margin-top: 2px !important;
-      }
-      button.btn-login, button.btn-google {
-        padding: 8px !important;
-        font-size: 13px !important;
-      }
-    }
-    @media (max-height: 650px) {
-      .login-card {
-        transform: scale(0.9) !important;
-      }
       .login-footer {
-        display: none !important; /* Hide footer entirely on extremely small screens */
+        display: none !important;
       }
     }
-
 </style>
   <script is:inline>
 // Animación Starfield interactiva en Canvas para la pantalla de Login
@@ -743,7 +688,7 @@ import Layout from '../layouts/Layout.astro';
         }
         window.location.href = '/dashboard';
       } else {
-        if (errEl) errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>' + (data.error || 'Credenciales incorrectas') + '</span></div>';
+        if (errEl) errEl.innerHTML = '<div id="ic-element-40" class="alert-glass-error"><span id="ic-element-41">⚠️</span><span id="ic-element-42">' + (data.error || 'Credenciales incorrectas') + '</span></div>';
       }
     })
     .catch(() => {
@@ -751,7 +696,7 @@ import Layout from '../layouts/Layout.astro';
         btnSubmit.disabled = false;
         btnSubmit.innerHTML = 'Autenticar Credenciales';
       }
-      if (errEl) errEl.innerHTML = '<div class="alert-glass-error"><span>⚠️</span><span>Error de conexión con el servidor.</span></div>';
+      if (errEl) errEl.innerHTML = '<div id="ic-element-43" class="alert-glass-error"><span id="ic-element-44">⚠️</span><span id="ic-element-45">Error de conexión con el servidor.</span></div>';
     });
   }
 

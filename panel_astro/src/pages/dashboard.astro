@@ -569,11 +569,13 @@ import Layout from '../layouts/Layout.astro';
     activeWs = new WebSocket(wsUrl);
 
     activeWs.onopen = () => {
+      console.log(`[CHECKPOINT 1] WebSocket Panel ONOPEN disparado. WSS URL: ${wsUrl}`);
       statusText.innerHTML = `Conexión establecida. Solicitando flujo de video...`;
       startStream();
     };
 
     activeWs.onclose = (event) => {
+      console.log(`[CHECKPOINT 2] WebSocket Panel ONCLOSE disparado. Code: ${event.code}, Reason: ${event.reason}`);
       spinner.style.display = 'none';
       overlay.style.display = 'flex';
       overlay.style.opacity = '1';
@@ -581,6 +583,7 @@ import Layout from '../layouts/Layout.astro';
     };
 
     activeWs.onerror = (err) => {
+      console.error(`[CHECKPOINT 3] WebSocket Panel ONERROR disparado. Error:`, err);
       spinner.style.display = 'none';
       overlay.style.display = 'flex';
       overlay.style.opacity = '1';
@@ -589,10 +592,18 @@ import Layout from '../layouts/Layout.astro';
 
     activeWs.onmessage = (e) => {
       let msg;
-      try { msg = JSON.parse(e.data); } catch { return; }
+      try { 
+        msg = JSON.parse(e.data); 
+        console.log(`[CHECKPOINT 4] Mensaje WS recibido. Tipo: ${msg.type}`);
+      } catch (err) { 
+        console.error(`[CHECKPOINT ERROR] Error parseando JSON del WS:`, err);
+        return; 
+      }
+      
       if (msg.type === 'frame') {
         // Ocultar overlay al recibir el primer frame exitoso
         if (overlay.style.display !== 'none') {
+          console.log(`[CHECKPOINT 5] Primer frame de video recibido exitosamente. Ocultando overlay...`);
           overlay.style.opacity = '0';
           setTimeout(() => { overlay.style.display = 'none'; }, 300);
         }
@@ -614,7 +625,7 @@ import Layout from '../layouts/Layout.astro';
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+            'X-IC-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
           },
           body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
         }).catch(() => {});
@@ -632,7 +643,7 @@ import Layout from '../layouts/Layout.astro';
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+          'X-IC-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
         },
         body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
       }).catch(() => {});
@@ -670,7 +681,7 @@ import Layout from '../layouts/Layout.astro';
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+        'X-IC-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
       },
       body: JSON.stringify({ id: currentAgentId, cmd })
     })
@@ -690,7 +701,7 @@ import Layout from '../layouts/Layout.astro';
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Sercom-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+          'X-IC-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
         },
         body: JSON.stringify({ id: currentAgentId, cmd: '__RELAY_STOP__' })
       }).catch(() => {});
