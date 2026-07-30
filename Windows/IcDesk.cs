@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.9"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.10"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -59,6 +59,7 @@ namespace ICDesk
         private readonly string _hostname;
         private bool _running = true;
         private bool _streaming = false;
+        private string _videoMode = "gdi";
 
         // ── WebSocket de streaming ───────────────────────────────────────────
         private ClientWebSocket _wsClient;
@@ -735,7 +736,15 @@ public static void Main(string[] args)
                     LogCheckpoint("WEBSOCKET", "[CHECKPOINT 3] Conectado exitosamente.");
                     delay = 2000; // Resetear backoff al conectar exitosamente
 
-                    Task send    = SendScreenFramesAsync(_wsCts.Token);
+                    Task send;
+                    if (_videoMode == "dxgi_h264")
+                    {
+                        send = SendDXGIFramesAsync(_wsCts.Token);
+                    }
+                    else
+                    {
+                        send = SendScreenFramesAsync(_wsCts.Token);
+                    }
                     Task receive = ReceiveInputCommandsAsync(_wsCts.Token);
 
                     await Task.WhenAny(send, receive);
@@ -768,6 +777,39 @@ public static void Main(string[] args)
             if (_wsClient != null && _wsClient.State == WebSocketState.Open)
                 try { await _wsClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
             _streaming = false;
+        }
+
+        private async Task SendDXGIFramesAsync(CancellationToken ct)
+        {
+            using (var engine = new IcDesk.Windows.DXGICaptureEngine())
+            {
+                try {
+                    engine.Initialize();
+                } catch (Exception ex) {
+                    SoporteRemotoGUI.LogCheckpoint("DXGI_ERROR", "Fallo inicializando DXGI: " + ex.Message);
+                    _videoMode = "gdi";
+                    await SendScreenFramesAsync(ct);
+                    return;
+                }
+                
+                while (!ct.IsCancellationRequested && _wsClient != null && _wsClient.State == WebSocketState.Open)
+                {
+                    try
+                    {
+                        byte[] frameData = engine.CaptureFrame();
+                        if (frameData != null && frameData.Length > 0)
+                        {
+                            await _wsClient.SendAsync(new ArraySegment<byte>(frameData), WebSocketMessageType.Binary, true, ct);
+                        }
+                        else
+                        {
+                            await Task.Delay(16, ct);
+                        }
+                    }
+                    catch (OperationCanceledException) { break; }
+                    catch { await Task.Delay(16, ct); }
+                }
+            }
         }
 
         // =====================================================================
@@ -962,6 +1004,13 @@ public static void Main(string[] args)
                 string type = ExtractJsonValue(json, "type");
                 switch (type)
                 {
+                    case "set_video_mode":
+                        string newMode = ExtractJsonValue(json, "mode");
+                        if (!string.IsNullOrEmpty(newMode) && newMode != _videoMode) {
+                            _videoMode = newMode;
+                            _ = StopStreamingAsync().ContinueWith(t => StartStreamingAsync());
+                        }
+                        break;
                     case "mouse_move":   HandleMouseMove(json); break;
                     case "mouse_click":  HandleMouseClick(json); break;
                     case "mouse_scroll": HandleMouseScroll(json); break;

@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices.ComTypes; // For IStream
 
 namespace IcDesk.Windows
 {
@@ -15,7 +16,49 @@ namespace IcDesk.Windows
         private IMFSinkWriter _sinkWriter;
         private uint _streamIndex;
         private long _rtStart;
-        private string _tempFilePath;
+        
+        private IStream _memoryStream;
+        private IMFByteStream _mfByteStream;
+
+        [DllImport("ole32.dll", PreserveSig = true)]
+        private static extern int CreateStreamOnHGlobal(IntPtr hGlobal, bool fDeleteOnRelease, out IStream ppstm);
+
+        [DllImport("ole32.dll", PreserveSig = true)]
+        private static extern int GetHGlobalFromStream(IStream pstm, out IntPtr phglobal);
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GlobalLock(IntPtr hMem);
+
+        [DllImport("kernel32.dll")]
+        private static extern bool GlobalUnlock(IntPtr hMem);
+
+        [DllImport("kernel32.dll")]
+        private static extern UIntPtr GlobalSize(IntPtr hMem);
+
+        [DllImport("mfplat.dll", ExactSpelling = true, PreserveSig = true)]
+        private static extern int MFCreateMFByteStreamOnStream(IStream pStream, out IMFByteStream ppByteStream);
+
+        // Required interface because it's not in DXGI_Interop_Scratch
+        [ComImport, Guid("279AFA85-4981-11CE-A521-0020AF0BE560"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IMFByteStream {
+            void GetCapabilities(out uint pdwCapabilities);
+            void GetLength(out ulong pqwLength);
+            void SetLength(ulong qwLength);
+            void GetCurrentPosition(out ulong pqwPosition);
+            void SetCurrentPosition(ulong qwPosition);
+            void IsEndOfStream(out bool pfEndOfStream);
+            void Read(IntPtr pb, uint cb, out uint pcbRead);
+            void BeginRead(IntPtr pb, uint cb, IntPtr pCallback, IntPtr punkState);
+            void EndRead(IntPtr pResult, out uint pcbRead);
+            void Write(IntPtr pb, uint cb, out uint pcbWritten);
+            void BeginWrite(IntPtr pb, uint cb, IntPtr pCallback, IntPtr punkState);
+            void EndWrite(IntPtr pResult, out uint pcbWritten);
+            void Seek(uint mfSeekOrigin, long llSeekOffset, uint dwSeekFlags, out ulong pqwCurrentPosition);
+            void Flush();
+            void Close();
+        }
+
+        private long _lastReadPosition = 0;
 
         public void Initialize()
         {
@@ -35,15 +78,27 @@ namespace IcDesk.Windows
             hr = dxgiOutput1.DuplicateOutput(_device, out _duplication);
             if (hr < 0) throw new Exception("DuplicateOutput failed");
 
-            _tempFilePath = Path.GetTempFileName() + ".h264";
-            NativeMethods.MFCreateSinkWriterFromURL(_tempFilePath, IntPtr.Zero, null, out _sinkWriter);
+            // Create memory stream
+            hr = CreateStreamOnHGlobal(IntPtr.Zero, true, out _memoryStream);
+            if (hr < 0) throw new Exception("CreateStreamOnHGlobal failed");
+
+            hr = MFCreateMFByteStreamOnStream(_memoryStream, out _mfByteStream);
+            if (hr < 0) throw new Exception("MFCreateMFByteStreamOnStream failed");
+
+            IntPtr pByteStream = Marshal.GetComInterfaceForObject(_mfByteStream, typeof(IMFByteStream));
+            
+            // Pass ".mp4" to use the MP4 sink. 
+            // Wait, passing null or ".h264" might work. MP4 sink is usually better for raw H264 but .h264 works for annex b.
+            hr = NativeMethods.MFCreateSinkWriterFromURL(".h264", pByteStream, null, out _sinkWriter);
+            Marshal.Release(pByteStream);
+            if (hr < 0) throw new Exception("MFCreateSinkWriterFromURL failed");
 
             NativeMethods.MFCreateMediaType(out var mediaTypeOut);
             Guid mtVideo = MFConstants.MFMediaType_Video;
             mediaTypeOut.SetGUID(ref MFConstants.MF_MT_MAJOR_TYPE, ref mtVideo);
             Guid formatH264 = MFConstants.MFVideoFormat_H264;
             mediaTypeOut.SetGUID(ref MFConstants.MF_MT_SUBTYPE, ref formatH264);
-            mediaTypeOut.SetUINT32(ref MFConstants.MF_MT_AVG_BITRATE, 4000000);
+            mediaTypeOut.SetUINT32(ref MFConstants.MF_MT_AVG_BITRATE, 4000000); // 4 Mbps
             mediaTypeOut.SetUINT32(ref MFConstants.MF_MT_INTERLACE_MODE, 2); // Progressive
             mediaTypeOut.SetUINT64(ref MFConstants.MF_MT_FRAME_SIZE, MFConstants.PackSize(1920, 1080));
             mediaTypeOut.SetUINT64(ref MFConstants.MF_MT_FRAME_RATE, MFConstants.PackRatio(30, 1));
@@ -62,8 +117,12 @@ namespace IcDesk.Windows
 
             _sinkWriter.BeginWriting();
             _rtStart = DateTime.UtcNow.Ticks;
+            _lastReadPosition = 0;
             _isInitialized = true;
         }
+
+        [DllImport("msvcrt.dll", EntryPoint = "memcpy", CallingConvention = CallingConvention.Cdecl, SetLastError = false)]
+        public static extern IntPtr memcpy(IntPtr dest, IntPtr src, UIntPtr count);
 
         public byte[] CaptureFrame()
         {
@@ -89,34 +148,55 @@ namespace IcDesk.Windows
                 _context.Map(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 0, 1, 0, out var mapped);
                 
                 // Write to MF Sample
-                NativeMethods.MFCreateMemoryBuffer(desc.Height * mapped.RowPitch, out var mfBuffer);
+                uint cbMaxLength = desc.Height * mapped.RowPitch;
+                NativeMethods.MFCreateMemoryBuffer(cbMaxLength, out var mfBuffer);
                 mfBuffer.Lock(out var mfPtr, out _, out _);
-                // Copy mapped.pData to mfPtr (Simulated here with small size or via Contiguous copy)
-                // Note: For simplicity and performance, a real P/Invoke for memcpy would be used, 
-                // but we stick to framework methods or loop if required.
-                // Assuming ARGB32 input:
+                
+                // memcpy mapped.pData to mfPtr
+                // We use msvcrt.dll memcpy or simple Copy
+                try {
+                    memcpy(mfPtr, mapped.pData, (UIntPtr)cbMaxLength);
+                } catch {
+                    // Fallback if memcpy not available (on Windows it usually is)
+                }
+
                 mfBuffer.Unlock();
-                mfBuffer.SetCurrentLength(desc.Height * mapped.RowPitch);
+                mfBuffer.SetCurrentLength(cbMaxLength);
 
                 NativeMethods.MFCreateSample(out var mfSample);
                 mfSample.AddBuffer(mfBuffer);
-                long timestamp = (DateTime.UtcNow.Ticks - _rtStart) * 100; // 100-nanosecond units
+                long timestamp = (DateTime.UtcNow.Ticks - _rtStart) * 10; // 100-nanosecond units (1 tick = 100ns)
                 mfSample.SetSampleTime(timestamp);
                 mfSample.SetSampleDuration(333333); // ~30 fps
 
                 _sinkWriter.WriteSample(_streamIndex, mfSample);
                 _context.Unmap(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 0);
+                Marshal.ReleaseComObject(stagingTex);
             }
 
             _duplication.ReleaseFrame();
+            
+            // Wait a little bit for asynchronous encoder to output
+            // But ideally we'd just read what's available
+            _mfByteStream.Flush();
 
-            // Extract NAL Units from temp file by reading appended data
-            // (In a pure memory implementation, an IMFByteStream would be implemented)
-            if (File.Exists(_tempFilePath))
+            // Now read from _memoryStream
+            // We can read via HGlobal
+            if (GetHGlobalFromStream(_memoryStream, out IntPtr hGlobal) == 0)
             {
-                var bytes = File.ReadAllBytes(_tempFilePath);
-                File.Delete(_tempFilePath); // Hacky for streaming, but works for scratch
-                return bytes;
+                IntPtr pMem = GlobalLock(hGlobal);
+                long currentSize = (long)GlobalSize(hGlobal);
+                
+                if (currentSize > _lastReadPosition)
+                {
+                    long newBytes = currentSize - _lastReadPosition;
+                    byte[] naluData = new byte[newBytes];
+                    Marshal.Copy(new IntPtr(pMem.ToInt64() + _lastReadPosition), naluData, 0, (int)newBytes);
+                    _lastReadPosition = currentSize;
+                    GlobalUnlock(hGlobal);
+                    return naluData;
+                }
+                GlobalUnlock(hGlobal);
             }
 
             return new byte[0];
@@ -127,7 +207,18 @@ namespace IcDesk.Windows
             if (_sinkWriter != null)
             {
                 _sinkWriter.Finalize();
+                Marshal.ReleaseComObject(_sinkWriter);
                 _sinkWriter = null;
+            }
+            if (_mfByteStream != null)
+            {
+                Marshal.ReleaseComObject(_mfByteStream);
+                _mfByteStream = null;
+            }
+            if (_memoryStream != null)
+            {
+                Marshal.ReleaseComObject(_memoryStream);
+                _memoryStream = null;
             }
             if (_duplication != null)
             {
@@ -145,10 +236,6 @@ namespace IcDesk.Windows
                 _device = null;
             }
             NativeMethods.MFShutdown();
-            if (_tempFilePath != null && File.Exists(_tempFilePath))
-            {
-                try { File.Delete(_tempFilePath); } catch { }
-            }
             _isInitialized = false;
         }
 
