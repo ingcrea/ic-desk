@@ -595,20 +595,60 @@ import Layout from '../layouts/Layout.astro';
       statusText.innerHTML = `❌ <b>Error de comunicación:</b> Falló el enlace de transporte del WebSocket. Verifica el firewall del servidor.`;
     };
 
+    activeWs.binaryType = 'arraybuffer';
+
     activeWs.onmessage = (e) => {
+      // 1. Recepción de fotogramas (Dirty Rectangles) en formato Binario
+      if (e.data instanceof ArrayBuffer) {
+        // Ocultar overlay al recibir el primer frame exitoso
+        if (overlay.style.display !== 'none') {
+          console.log(`[CHECKPOINT 5] Primer frame de video recibido exitosamente. Ocultando overlay...`);
+          overlay.style.opacity = '0';
+          overlay.classList.remove('visible');
+          setTimeout(() => { overlay.style.display = 'none'; }, 300);
+        }
+
+        const dataView = new DataView(e.data);
+        if (dataView.getUint8(0) === 0x49 && dataView.getUint8(1) === 0x43) { // Magic "IC"
+          const w = dataView.getUint16(6);
+          const h = dataView.getUint16(8);
+          const x = dataView.getUint16(10);
+          const y = dataView.getUint16(12);
+          const sw = dataView.getUint16(14);
+          const sh = dataView.getUint16(16);
+          
+          if (canvas.width !== sw || canvas.height !== sh) {
+            canvas.width = sw;
+            canvas.height = sh;
+          }
+
+          // Extraer la porción JPEG (a partir del byte 18)
+          const jpegData = new Uint8Array(e.data, 18);
+          const blob = new Blob([jpegData], { type: 'image/jpeg' });
+          const url = URL.createObjectURL(blob);
+
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, x, y, w, h);
+            URL.revokeObjectURL(url); // Liberar memoria
+          };
+          img.src = url;
+        }
+        return;
+      }
+
+      // 2. Fallback para recepción de comandos JSON (Portapapeles, Diagnósticos, etc)
       let msg;
       try { 
         msg = JSON.parse(e.data); 
-        console.log(`[CHECKPOINT 4] Mensaje WS recibido. Tipo: ${msg.type}`);
       } catch (err) { 
         console.error(`[CHECKPOINT ERROR] Error parseando JSON del WS:`, err);
         return; 
       }
       
       if (msg.type === 'frame') {
-        // Ocultar overlay al recibir el primer frame exitoso
+        // Soporte heredado para JSON Base64 (fallback)
         if (overlay.style.display !== 'none') {
-          console.log(`[CHECKPOINT 5] Primer frame de video recibido exitosamente. Ocultando overlay...`);
           overlay.style.opacity = '0';
           overlay.classList.remove('visible');
           setTimeout(() => { overlay.style.display = 'none'; }, 300);

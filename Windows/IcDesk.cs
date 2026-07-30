@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.8"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.9"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -801,16 +801,18 @@ public static void Main(string[] args)
                 if (System.Windows.Forms.Screen.PrimaryScreen != null) 
                     screen = System.Windows.Forms.Screen.PrimaryScreen.Bounds; 
             } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
-            
-            bool useDxgi = false;
-            DXGICaptureEngine dxgiEngine = null;
 
-            try 
-            { 
-                // Disabled DXGI because Astro Panel expects JPEG and Cloudflare drops >1MB H.264 I-Frames
-                useDxgi = false;
-            }
-            catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
+            int gridCols = 8;
+            int gridRows = 8;
+            int cellW = screen.Width / gridCols;
+            int cellH = screen.Height / gridRows;
+            
+            Bitmap prevScreen = new Bitmap(screen.Width, screen.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            bool isFirstFrame = true;
+            long quality = 90L; 
+
+            // Keyframe forzado cada 60 frames (2 segundos a 30fps)
+            int frameCounter = 0;
 
             try
             {
@@ -819,47 +821,71 @@ public static void Main(string[] args)
                     try
                     {
                         long frameStart = DateTime.Now.Ticks;
-                        byte[] h264NalData = null;
-
-                        if (useDxgi && dxgiEngine != null)
+                        
+                        using (Bitmap current = new Bitmap(screen.Width, screen.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
                         {
-                            try { h264NalData = dxgiEngine.CaptureFrame(); }
-                            catch { useDxgi = false; }
-                        }
-
-                        if (!useDxgi || h264NalData == null || h264NalData.Length == 0)
-                        {
-                            using (var bmp = new Bitmap(screen.Width, screen.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                            using (Graphics g = Graphics.FromImage(current))
                             {
-                                using (var g = Graphics.FromImage(bmp))
+                                g.CopyFromScreen(screen.X, screen.Y, 0, 0, screen.Size, CopyPixelOperation.SourceCopy);
+                                CURSORINFO pci;
+                                pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
+                                if (GetCursorInfo(out pci) && pci.flags == 1)
                                 {
-                                    g.CopyFromScreen(screen.X, screen.Y, 0, 0, screen.Size, CopyPixelOperation.SourceCopy);
-                                    CURSORINFO pci;
-                                    pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
-                                    if (GetCursorInfo(out pci) && pci.flags == 1)
-                                    {
-                                        DrawIcon(g.GetHdc(), pci.ptScreenPos.x - screen.X, pci.ptScreenPos.y - screen.Y, pci.hCursor);
-                                        g.ReleaseHdc();
-                                    }
-                                }
-
-                                using (var ms = new MemoryStream())
-                                {
-                                    var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
-                                    var encoderParameters = new EncoderParameters(1);
-                                    encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 85L);
-                                    bmp.Save(ms, jpegEncoder, encoderParameters);
-                                    h264NalData = ms.ToArray();
+                                    DrawIcon(g.GetHdc(), pci.ptScreenPos.x - screen.X, pci.ptScreenPos.y - screen.Y, pci.hCursor);
+                                    g.ReleaseHdc();
                                 }
                             }
-                        }
 
-                        if (h264NalData != null && h264NalData.Length > 0)
-                        {
-                            string json = string.Format("{{\"type\":\"frame\",\"data\":\"{0}\",\"sw\":{1},\"sh\":{2},\"x\":0,\"y\":0,\"cellW\":{1},\"cellH\":{2}}}", 
-                                Convert.ToBase64String(h264NalData), screen.Width, screen.Height);
-                            byte[] wsData = Encoding.UTF8.GetBytes(json);
-                            await _wsClient.SendAsync(new ArraySegment<byte>(wsData), WebSocketMessageType.Text, true, ct);
+                            bool forceKeyframe = (frameCounter % 60 == 0);
+                            
+                            for (int col = 0; col < gridCols; col++)
+                            {
+                                for (int row = 0; row < gridRows; row++)
+                                {
+                                    int x = col * cellW;
+                                    int y = row * cellH;
+                                    int w = (col == gridCols - 1) ? screen.Width - x : cellW;
+                                    int h = (row == gridRows - 1) ? screen.Height - y : cellH;
+
+                                    if (!isFirstFrame && !forceKeyframe && !IsCellDirty(current, prevScreen, x, y, w, h)) 
+                                        continue;
+
+                                    using (Bitmap cell = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                                    using (Graphics gc = Graphics.FromImage(cell))
+                                    using (MemoryStream ms = new MemoryStream())
+                                    {
+                                        gc.DrawImage(current, 0, 0, new Rectangle(x, y, w, h), GraphicsUnit.Pixel);
+
+                                        var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
+                                        var encoderParams = new EncoderParameters(1);
+                                        encoderParams.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+                                        cell.Save(ms, jpegEncoder, encoderParams);
+
+                                        byte[] jpegBytes = ms.ToArray();
+                                        byte[] packet = new byte[18 + jpegBytes.Length];
+                                        
+                                        // Header: Magic "IC", cellW, cellH, x, y, sw, sh (18 bytes)
+                                        packet[0] = 0x49; packet[1] = 0x43;
+                                        packet[6]  = (byte)(w >> 8);  packet[7]  = (byte)(w & 0xFF);
+                                        packet[8]  = (byte)(h >> 8);  packet[9]  = (byte)(h & 0xFF);
+                                        packet[10] = (byte)(x >> 8);  packet[11] = (byte)(x & 0xFF);
+                                        packet[12] = (byte)(y >> 8);  packet[13] = (byte)(y & 0xFF);
+                                        packet[14] = (byte)(screen.Width >> 8);  packet[15] = (byte)(screen.Width & 0xFF);
+                                        packet[16] = (byte)(screen.Height >> 8); packet[17] = (byte)(screen.Height & 0xFF);
+
+                                        Buffer.BlockCopy(jpegBytes, 0, packet, 18, jpegBytes.Length);
+
+                                        await _wsClient.SendAsync(new ArraySegment<byte>(packet), WebSocketMessageType.Binary, true, ct);
+                                    }
+                                }
+                            }
+
+                            using (Graphics gPrev = Graphics.FromImage(prevScreen))
+                            {
+                                gPrev.DrawImage(current, 0, 0);
+                            }
+                            isFirstFrame = false;
+                            frameCounter++;
                         }
 
                         long elapsedMs = (DateTime.Now.Ticks - frameStart) / TimeSpan.TicksPerMillisecond;
@@ -872,8 +898,21 @@ public static void Main(string[] args)
             }
             finally
             {
-                if (dxgiEngine != null) { try { dxgiEngine.Dispose(); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); } }
+                if (prevScreen != null) prevScreen.Dispose();
             }
+        }
+
+        private bool IsCellDirty(Bitmap current, Bitmap prev, int x, int y, int w, int h)
+        {
+            int step = Math.Max(1, (w * h) / 32); // Salto ultra optimizado
+            for (int i = 0; i < w * h; i += step)
+            {
+                int px = x + (i % w), py = y + (i / w);
+                if (px >= current.Width || py >= current.Height) continue;
+                Color c1 = current.GetPixel(px, py), c2 = prev.GetPixel(px, py);
+                if (Math.Abs(c1.R - c2.R) + Math.Abs(c1.G - c2.G) + Math.Abs(c1.B - c2.B) > 15) return true;
+            }
+            return false;
         }
 
         private ImageCodecInfo GetEncoder(ImageFormat format)
