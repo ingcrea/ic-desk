@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.7"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.8"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -847,7 +847,7 @@ public static void Main(string[] args)
                                 {
                                     var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
                                     var encoderParameters = new EncoderParameters(1);
-                                    encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 90L);
+                                    encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 85L);
                                     bmp.Save(ms, jpegEncoder, encoderParameters);
                                     h264NalData = ms.ToArray();
                                 }
@@ -863,11 +863,11 @@ public static void Main(string[] args)
                         }
 
                         long elapsedMs = (DateTime.Now.Ticks - frameStart) / TimeSpan.TicksPerMillisecond;
-                        int nextDelay = Math.Max(16, (int)(16 - elapsedMs));
+                        int nextDelay = Math.Max(33, (int)(33 - elapsedMs));
                         await Task.Delay(nextDelay, ct);
                     }
                     catch (OperationCanceledException) { break; }
-                    catch { Thread.Sleep(16); }
+                    catch { Thread.Sleep(33); }
                 }
             }
             finally
