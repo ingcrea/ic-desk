@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.10"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.11"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -879,18 +879,39 @@ public static void Main(string[] args)
                             }
 
                             bool forceKeyframe = (frameCounter % 60 == 0);
+                            bool[] dirtyCells = new bool[gridCols * gridRows];
                             
-                            for (int col = 0; col < gridCols; col++)
-                            {
-                                for (int row = 0; row < gridRows; row++)
-                                {
+                            if (isFirstFrame || forceKeyframe) {
+                                for(int i = 0; i < dirtyCells.Length; i++) dirtyCells[i] = true;
+                            } else {
+                                BitmapData currData = current.LockBits(new Rectangle(0, 0, current.Width, current.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                                BitmapData prevData = prevScreen.LockBits(new Rectangle(0, 0, prevScreen.Width, prevScreen.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                                
+                                Parallel.For(0, gridCols * gridRows, i => {
+                                    int col = i % gridCols;
+                                    int row = i / gridCols;
                                     int x = col * cellW;
                                     int y = row * cellH;
                                     int w = (col == gridCols - 1) ? screen.Width - x : cellW;
                                     int h = (row == gridRows - 1) ? screen.Height - y : cellH;
+                                    dirtyCells[i] = IsCellDirtyFast(currData, prevData, x, y, w, h);
+                                });
+                                
+                                current.UnlockBits(currData);
+                                prevScreen.UnlockBits(prevData);
+                            }
+                            
+                            for (int i = 0; i < gridCols * gridRows; i++)
+                            {
+                                if (!dirtyCells[i]) continue;
+                                
+                                int col = i % gridCols;
+                                int row = i / gridCols;
+                                int x = col * cellW;
+                                int y = row * cellH;
+                                int w = (col == gridCols - 1) ? screen.Width - x : cellW;
+                                int h = (row == gridRows - 1) ? screen.Height - y : cellH;
 
-                                    if (!isFirstFrame && !forceKeyframe && !IsCellDirty(current, prevScreen, x, y, w, h)) 
-                                        continue;
 
                                     using (Bitmap cell = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
                                     using (Graphics gc = Graphics.FromImage(cell))
@@ -920,7 +941,6 @@ public static void Main(string[] args)
                                         await _wsClient.SendAsync(new ArraySegment<byte>(packet), WebSocketMessageType.Binary, true, ct);
                                     }
                                 }
-                            }
 
                             using (Graphics gPrev = Graphics.FromImage(prevScreen))
                             {
@@ -944,15 +964,26 @@ public static void Main(string[] args)
             }
         }
 
-        private bool IsCellDirty(Bitmap current, Bitmap prev, int x, int y, int w, int h)
+        private bool IsCellDirtyFast(BitmapData currData, BitmapData prevData, int x, int y, int w, int h)
         {
-            int step = Math.Max(1, (w * h) / 32); // Salto ultra optimizado
-            for (int i = 0; i < w * h; i += step)
+            int currStride = currData.Stride;
+            int prevStride = prevData.Stride;
+            IntPtr currScan0 = currData.Scan0;
+            IntPtr prevScan0 = prevData.Scan0;
+            
+            // Revisamos 1 píxel por cada bloque de 2x2 para altísima precisión sin castigar el CPU
+            for (int r = y; r < y + h; r += 2)
             {
-                int px = x + (i % w), py = y + (i / w);
-                if (px >= current.Width || py >= current.Height) continue;
-                Color c1 = current.GetPixel(px, py), c2 = prev.GetPixel(px, py);
-                if (Math.Abs(c1.R - c2.R) + Math.Abs(c1.G - c2.G) + Math.Abs(c1.B - c2.B) > 15) return true;
+                int currRowOffset = r * currStride;
+                int prevRowOffset = r * prevStride;
+                
+                for (int c = x; c < x + w; c += 2)
+                {
+                    int pxOffset = c * 4;
+                    int currColor = Marshal.ReadInt32(currScan0, currRowOffset + pxOffset);
+                    int prevColor = Marshal.ReadInt32(prevScan0, prevRowOffset + pxOffset);
+                    if (currColor != prevColor) return true;
+                }
             }
             return false;
         }
