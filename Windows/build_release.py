@@ -140,11 +140,14 @@ def main():
         print(f"⚠️ Asset upload note: {e.reason}")
 
 
+
     # 6. Sincronizar código fuente a SV1 para el script irm (gui-src)
-    print("🚀 Sincronizando IcDesk.cs fuente hacia servidor SV1 (irm)...")
+    print("🚀 Sincronizando IcDesk.cs y IC-Desk.exe hacia servidor SV1 (irm)...")
     subprocess.run("scp -i /home/ingcrea/.ssh/sv1.sercommx.com -P 7365 -o StrictHostKeyChecking=no /home/ingcrea/github/ic-desk/Windows/IcDesk.cs ubuntu@129.159.72.206:/tmp/IcDesk.cs", shell=True)
-    subprocess.run("ssh -i /home/ingcrea/.ssh/sv1.sercommx.com -p 7365 -o StrictHostKeyChecking=no ubuntu@129.159.72.206 'sudo mv /tmp/IcDesk.cs /home/alex/alex_omega/whatsapp_sovereign/IcDesk.cs && sudo chown alex:alex /home/alex/alex_omega/whatsapp_sovereign/IcDesk.cs'", shell=True)
+    subprocess.run("scp -i /home/ingcrea/.ssh/sv1.sercommx.com -P 7365 -o StrictHostKeyChecking=no /home/ingcrea/github/ic-desk/Windows/IC-Desk.exe ubuntu@129.159.72.206:/tmp/IC-Desk.exe", shell=True)
+    subprocess.run("ssh -i /home/ingcrea/.ssh/sv1.sercommx.com -p 7365 -o StrictHostKeyChecking=no ubuntu@129.159.72.206 'sudo mv /tmp/IcDesk.cs /home/alex/alex_omega/whatsapp_sovereign/IcDesk.cs && sudo chown alex:alex /home/alex/alex_omega/whatsapp_sovereign/IcDesk.cs && sudo mv /tmp/IC-Desk.exe /home/alex/alex_omega/whatsapp_sovereign/IC-Desk.exe && sudo chown alex:alex /home/alex/alex_omega/whatsapp_sovereign/IC-Desk.exe'", shell=True)
     print("✅ Despliegue en SV1 completado para irm.")
+
 
     print(f"\n🎉 PROCESO COMPLETADO: Release {version} publicado y sincronizado al 100%.")
 
