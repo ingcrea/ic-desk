@@ -325,6 +325,10 @@ import Layout from '../layouts/Layout.astro';
       gap: 16px;
       z-index: 20;
       transition: opacity 0.3s ease;
+      pointer-events: none; /* No bloquear eventos del canvas cuando está oculto */
+    }
+    #stream-status-overlay.visible {
+      pointer-events: auto; /* Bloquear interacción solo cuando es visible */
     }
 
     .spinner {
@@ -471,7 +475,7 @@ import Layout from '../layouts/Layout.astro';
   async function fetchAgents() {
     
     try {
-      const res = await fetch('/soporte/agentes?t=' + Date.now());
+      const res = await fetch('/soporte/agentes?t=' + Date.now(), { credentials: 'include' });
       const agents = await res.json();
       renderGrid(agents);
     } catch {}
@@ -562,6 +566,7 @@ import Layout from '../layouts/Layout.astro';
     
     overlay.style.display = 'flex';
     overlay.style.opacity = '1';
+    overlay.classList.add('visible');
     spinner.style.display = 'block';
     statusText.innerHTML = `Estableciendo enlace de datos con terminal <b>${id}</b>...`;
 
@@ -605,6 +610,7 @@ import Layout from '../layouts/Layout.astro';
         if (overlay.style.display !== 'none') {
           console.log(`[CHECKPOINT 5] Primer frame de video recibido exitosamente. Ocultando overlay...`);
           overlay.style.opacity = '0';
+          overlay.classList.remove('visible');
           setTimeout(() => { overlay.style.display = 'none'; }, 300);
         }
         const img = new Image();
@@ -775,5 +781,61 @@ import Layout from '../layouts/Layout.astro';
             command: { type: "block_input", block: inputBlocked }
         }));
     }
+
+  // =====================================================================
+  // CONTROL DE RATÓN (Inyectado)
+  // =====================================================================
+  let lastMouseTime = 0;
+  canvas.addEventListener('mousemove', (e) => {
+    if (!activeWs || activeWs.readyState !== WebSocket.OPEN) return;
+    const now = performance.now();
+    if (now - lastMouseTime < 33) return; // Throttling a ~30fps
+    lastMouseTime = now;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    
+    activeWs.send(JSON.stringify({ type: 'mouse_move', x: x, y: y }));
+  });
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (!activeWs || activeWs.readyState !== WebSocket.OPEN) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    
+    let btn = 'left';
+    if (e.button === 1) btn = 'middle';
+    if (e.button === 2) btn = 'right';
+    
+    activeWs.send(JSON.stringify({ type: 'mouse_click', x: x, y: y, button: btn, action: 'down' }));
+  });
+
+  canvas.addEventListener('mouseup', (e) => {
+    if (!activeWs || activeWs.readyState !== WebSocket.OPEN) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    
+    let btn = 'left';
+    if (e.button === 1) btn = 'middle';
+    if (e.button === 2) btn = 'right';
+    
+    activeWs.send(JSON.stringify({ type: 'mouse_click', x: x, y: y, button: btn, action: 'up' }));
+  });
+
+  // Evitar menú contextual en clic derecho sobre el canvas
+  canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+
+  // Control de scroll
+  canvas.addEventListener('wheel', (e) => {
+    if (!activeWs || activeWs.readyState !== WebSocket.OPEN) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -120 : 120; // -120 = abajo, 120 = arriba
+    activeWs.send(JSON.stringify({ type: 'mouse_scroll', delta: delta }));
+  }, { passive: false });
+
 </script>
+
 </Layout>

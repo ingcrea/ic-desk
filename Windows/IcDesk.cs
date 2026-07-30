@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.5"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.6"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -719,32 +719,47 @@ public static void Main(string[] args)
             if (_streaming) return;
             _streaming = true;
             _wsCts     = new CancellationTokenSource();
-            _wsClient  = new ClientWebSocket();
-            _wsClient.Options.SetRequestHeader("x-ic-agent-token", AgentToken);
+            int delay  = 2000; // Backoff exponencial: 2s -> 4s -> 8s -> max 30s
 
-            try
+            // Loop de reconexion automatica: el agente permanece conectado al relay
+            // incluso si el panel tecnico se desconecta temporalmente.
+            while (!_wsCts.IsCancellationRequested)
             {
-                string wsUri = string.Format("{0}?type=agent&id={1}", RelayWsUrl, _supportId);
-                LogCheckpoint("WEBSOCKET", "[CHECKPOINT 2] Conectando a " + wsUri + "...");
-                await _wsClient.ConnectAsync(new Uri(wsUri), _wsCts.Token);
-                LogCheckpoint("WEBSOCKET", "[CHECKPOINT 3] Conectado exitosamente.");
+                _wsClient = new ClientWebSocket();
+                _wsClient.Options.SetRequestHeader("x-ic-agent-token", AgentToken);
+                try
+                {
+                    string wsUri = string.Format("{0}?type=agent&id={1}", RelayWsUrl, _supportId);
+                    LogCheckpoint("WEBSOCKET", "[CHECKPOINT 2] Conectando a " + wsUri + "...");
+                    await _wsClient.ConnectAsync(new Uri(wsUri), _wsCts.Token);
+                    LogCheckpoint("WEBSOCKET", "[CHECKPOINT 3] Conectado exitosamente.");
+                    delay = 2000; // Resetear backoff al conectar exitosamente
 
-                Task send    = SendScreenFramesAsync(_wsCts.Token);
-                Task receive = ReceiveInputCommandsAsync(_wsCts.Token);
+                    Task send    = SendScreenFramesAsync(_wsCts.Token);
+                    Task receive = ReceiveInputCommandsAsync(_wsCts.Token);
 
-                await Task.WhenAny(send, receive);
+                    await Task.WhenAny(send, receive);
+                }
+                catch (OperationCanceledException) { break; }
+                catch (Exception ex)
+                {
+                    LogCheckpoint("WEBSOCKET_ERROR", "[RECONNECT] Error: " + ex.Message + " - reintentando en " + (delay/1000) + "s...");
+                    SetStatus("Reconectando en " + (delay/1000) + "s...", Color.FromArgb(245, 158, 11));
+                }
+                finally
+                {
+                    try { if (_wsClient != null) _wsClient.Dispose(); } catch { }
+                }
+
+                if (!_wsCts.IsCancellationRequested)
+                {
+                    try { await Task.Delay(delay, _wsCts.Token); } catch (OperationCanceledException) { break; }
+                    delay = Math.Min(delay * 2, 30000);
+                }
             }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                SetStatus("❌ Error streaming: " + ex.Message, Color.FromArgb(239, 68, 68));
-            }
-            finally
-            {
-                _streaming = false;
-                try { if (_wsClient != null) _wsClient.Dispose(); } catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
-                SetStatus("✅ En espera del técnico...", Color.FromArgb(16, 185, 129));
-            }
+
+            _streaming = false;
+            SetStatus("En espera del tecnico...", Color.FromArgb(16, 185, 129));
         }
 
         private async Task StopStreamingAsync()
