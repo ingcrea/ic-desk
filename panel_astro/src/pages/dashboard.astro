@@ -57,7 +57,7 @@ import Layout from '../layouts/Layout.astro';
       <div class="spinner" id="stream-status-spinner"></div>
       <div id="stream-status-text">Iniciando conexión con la terminal remota...</div>
     </div>
-    <canvas id="screen-canvas"></canvas>
+    <canvas id="screen-canvas" tabindex="0"></canvas>
     <div id="remote-cursor"></div>
   </div>
 </div>
@@ -835,6 +835,30 @@ import Layout from '../layouts/Layout.astro';
     const delta = e.deltaY > 0 ? -120 : 120; // -120 = abajo, 120 = arriba
     activeWs.send(JSON.stringify({ type: 'mouse_scroll', delta: delta }));
   }, { passive: false });
+
+  // =====================================================================
+  // CONTROL DE TECLADO
+  // =====================================================================
+  function sendKey(e, action) {
+    // Si el usuario está escribiendo en la consola, no interceptar
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+    if (document.activeElement !== canvas) return;
+    
+    e.preventDefault();
+    if (!activeWs || activeWs.readyState !== WebSocket.OPEN) return;
+    
+    activeWs.send(JSON.stringify({
+      type: 'key',
+      action: action,
+      keyCode: e.keyCode.toString(),
+      ctrl: e.ctrlKey,
+      alt: e.altKey,
+      shift: e.shiftKey
+    }));
+  }
+
+  canvas.addEventListener('keydown', (e) => sendKey(e, 'down'));
+  canvas.addEventListener('keyup', (e) => sendKey(e, 'up'));
 
 </script>
 
