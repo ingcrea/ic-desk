@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.4"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.5"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -832,7 +832,7 @@ public static void Main(string[] args)
                                 {
                                     var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
                                     var encoderParameters = new EncoderParameters(1);
-                                    encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 40L);
+                                    encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 80L);
                                     bmp.Save(ms, jpegEncoder, encoderParameters);
                                     h264NalData = ms.ToArray();
                                 }
