@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.11"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.12"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
 
         // ── Recursos gráficos inyectados en caliente por Express ─────────────
@@ -101,15 +101,16 @@ namespace ICDesk
             catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
         }
 
-        [STAThread]
-                public static bool IsAdministrator()
+        public static bool IsAdministrator()
         {
             try {
                 return (new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()))
                        .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
             } catch (Exception ex) { LogCheckpoint("POLL_ERROR", "Error de red/polling HTTP: " + ex.Message); return false; }
         }
-public static void Main(string[] args)
+
+        [STAThread]
+        public static void Main(string[] args)
         {
             try {
 

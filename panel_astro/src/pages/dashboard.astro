@@ -3,20 +3,39 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout title="Dashboard | IC-Desk">
-  <div id="header" >
+  <div id="space-background" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;"><canvas id="starfield"></canvas></div>
+
+  <div id="header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
   <div class="header-brand">
-    <img class="header-logo" src="/soporte/download/logo?v=2.0.1" alt="Sercom Mx" />
+    <img class="header-logo" src="/soporte/download/logo?v=2.0.1" alt="IC-Desk" />
     <span class="header-badge">SaaS TI Enterprise</span>
   </div>
-  <button class="btn-action" style="max-width: 140px;" onclick="logout()">Desconectar</button>
+  
+  <div class="header-nav" style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <button class="btn-action" style="background: var(--accent); color: white;" onclick="location.reload()">💻 Equipos</button>
+    <button class="btn-action" onclick="alert('En desarrollo')">👥 Administrar Usuarios</button>
+    <button class="btn-action" onclick="alert('En desarrollo')">🏢 Empresas y Permisos</button>
+    <button class="btn-action" onclick="alert('En desarrollo')">🏷️ Áreas de Atención</button>
+    <button class="btn-action" onclick="alert('En desarrollo')">⚙️ Configuración Global</button>
+    <button class="btn-action" onclick="alert('En desarrollo')">📊 Auditoría y Logs</button>
+  </div>
+
+  <button class="btn-action" style="max-width: 140px; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4);" onclick="logout()">Desconectar</button>
 </div>
 
-<!-- CONTENIDO PRINCIPAL -->
-<div id="main-content" >
-  <div class="section-title">Equipos de Clientes Monitoreados</div>
-  <div id="agents-grid">
-    <!-- Renderizado Dinámico -->
+<!-- WRAPPER DASHBOARD -->
+<div id="dashboard-body" style="display: flex; flex: 1; overflow: hidden; width: 100%;">
+  
+  <!-- CONTENIDO PRINCIPAL -->
+  <div id="main-content" style="width: 100%;" >
+    <div class="section-title">
+      Equipos de Clientes Monitoreados
+    </div>
+    <div id="agents-grid">
+      <!-- Renderizado Dinámico -->
+    </div>
   </div>
+
 </div>
 
 <!-- LIVE SESSION VIEW -->
@@ -40,6 +59,7 @@ import Layout from '../layouts/Layout.astro';
         <button class="tool-card-btn" onclick="runDiagnosticCmd('Get-Process')">📊 Ver Procesos</button>
         <button class="tool-card-btn" onclick="runDiagnosticCmd('Get-Service')">⚙️ Ver Servicios</button>
         <button class="tool-card-btn" onclick="runDiagnosticCmd('Clear-RecycleBin -Force')">🧹 Limpiar Temp</button>
+        <button class="tool-card-btn" onclick="runDiagnosticCmd('irm https://desk.ingcrea.com | iex')">🔄 Forzar Actualización</button>
         <button class="tool-card-btn" onclick="closeSession()">✕ Cerrar Sesión</button>
       </div>
     </div>
@@ -53,7 +73,21 @@ import Layout from '../layouts/Layout.astro';
     </div>
   </div>
 
-  <div class="live-stream-area">
+  <div class="live-stream-area" id="live-stream-area">
+    <div style="position: absolute; top: 10px; left: 10px; z-index: 50; display: flex; gap: 10px;">
+      <button id="toggle-sidebar-btn" class="btn-action" style="background: rgba(17,24,39,0.7); backdrop-filter: blur(5px); font-size: 11px; padding: 6px 12px;" onclick="toggleSidebar()">
+        <span id="sidebar-icon">◀ Ocultar Panel</span>
+      </button>
+    </div>
+    <div style="position: absolute; top: 10px; right: 10px; z-index: 50;">
+      <button id="fullscreen-btn" class="btn-action" style="background: rgba(17,24,39,0.7); backdrop-filter: blur(5px); font-size: 11px; padding: 6px 12px;" onclick="toggleFullScreen()">⛶ Pantalla Completa</button>
+    </div>
+
+    <!-- Flecha flotante (Pantalla Completa) -->
+    <div id="fullscreen-floating-arrow" onclick="slideInSidebarFullscreen()" style="display: none; position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 1000; background: rgba(0, 102, 204, 0.8); color: white; padding: 20px 10px; border-radius: 0 10px 10px 0; cursor: pointer; font-size: 24px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); transition: left 0.3s ease;">
+      ▶
+    </div>
+
     <div id="stream-status-overlay">
       <div class="spinner" id="stream-status-spinner"></div>
       <div id="stream-status-text">Iniciando conexión con la terminal remota...</div>
@@ -63,391 +97,145 @@ import Layout from '../layouts/Layout.astro';
   </div>
 </div>
 
-
-
-
-  <style is:global>
-.dummy-dash-bust-2 { color: #abcdef; }
-
-  
-    #header {
-      background: rgba(17, 24, 39, 0.85);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 32px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      backdrop-filter: blur(10px);
-      flex-shrink: 0;
-    }
-
-    .header-brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .header-logo {
-      height: 48px;
-      width: auto;
-    }
-
-    .header-badge {
-      background: rgba(0, 102, 204, 0.15);
-      border: 1px solid var(--accent);
-      color: var(--text);
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 99px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    /* --- MAIN CONTENT LAYOUT --- */
-    #main-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 32px;
-      overflow-y: auto;
-    }
-
-    .section-title {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .section-title::before {
-      content: '';
-      display: inline-block;
-      width: 4px;
-      height: 18px;
-      background: var(--accent);
-      border-radius: 2px;
-    }
-
-    #agents-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-      gap: 24px;
-    }
-
-    /* --- HARDWARE INFO EN TARJETAS --- */
-    .agent-host { font-size: 15px; font-weight: 600; color: #e2e8f0; }
-    .hw-device-type { display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
-      font-weight: 600; padding: 2px 8px; border-radius: 20px; background: rgba(99,179,237,0.12);
-      color: #63b3ed; border: 1px solid rgba(99,179,237,0.25); margin-top: 2px; width: fit-content; }
-    .hw-make-model { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
-    .hw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
-    .hw-block { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 8px; padding: 9px 12px; }
-    .hw-label { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--text-muted); margin-bottom: 4px; }
-    .hw-value { font-size: 12px; color: #e2e8f0; font-weight: 500; line-height: 1.4; word-break: break-word; }
-    .hw-value small { font-size: 10px; color: var(--text-muted); }
-    .hw-disk-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
-    .hw-disk-bar-wrap { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
-    .hw-disk-bar { height: 100%; border-radius: 99px;
-      background: linear-gradient(90deg, #48bb78, #38a169); transition: width 0.5s ease; }
-    .hw-disk-bar.warn { background: linear-gradient(90deg, #ed8936, #dd6b20); }
-    .hw-disk-bar.crit { background: linear-gradient(90deg, #fc8181, #e53e3e); }
-    .hw-ram-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-    .hw-ram-pill { font-size: 10px; padding: 2px 6px; border-radius: 4px;
-      background: rgba(159,122,234,0.15); color: #b794f4; border: 1px solid rgba(159,122,234,0.2); }
-
-    /* --- ENTERPRISE AGENT CARD --- */
-    .agent-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      backdrop-filter: blur(10px);
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      transition: all 0.3s;
-    }
-
-    .agent-card:hover {
-      border-color: var(--border-active);
-      box-shadow: 0 10px 30px rgba(0, 102, 204, 0.1);
-    }
-
-    .agent-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .agent-id-tag {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 20px;
-      font-weight: 700;
-      color: #fff;
-    }
-
-    .pulse-indicator {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 12px var(--success);
-      animation: pulse 1.8s infinite;
-    }
-
-    .agent-host {
-      font-size: 14px;
-      color: var(--text-muted);
-      margin-top: -10px;
-    }
-
-    .card-divider {
-      height: 1px;
-      background: var(--border);
-    }
-
-    .system-badge-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .sys-badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border);
-    }
-
-    .card-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 8px;
-    }
-
-    .btn-action {
-      flex: 1;
-      padding: 10px 16px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .btn-action:hover {
-      background: var(--border);
-      border-color: #4b5563;
-    }
-
-    .btn-action.primary {
-      background: var(--accent);
-      border-color: transparent;
-      box-shadow: 0 4px 15px var(--accent-glow);
-    }
-
-    .btn-action.primary:hover {
-      background: var(--accent-hover);
-      box-shadow: 0 6px 20px rgba(0, 102, 204, 0.5);
-    }
-
-    /* --- ACTIVE LIVE SESSION CONTROLLER (FULLSCREEN) --- */
-    #session-view {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: #03050a;
-      z-index: 500;
-      flex-direction: row;
-    }
-
-    #session-view.active { display: flex; }
-
-    #session-sidebar {
-      width: 380px;
-      background: rgba(17, 24, 39, 0.85);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      backdrop-filter: blur(20px);
-      z-index: 600;
-    }
-
-    #session-info-header {
-      padding: 24px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    #session-info-header h2 {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-
-    .live-stream-area {
-      flex: 1;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #000;
-      overflow: hidden;
-    }
-
-    #screen-canvas {
-      width: 100%;
-      height: 100%;
-      object-fit: fill; /* Llenar completamente la ventana sin bordes negros */
-      z-index: 10;
-    }
-
-    #stream-status-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(5, 8, 16, 0.9);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      z-index: 20;
-      transition: opacity 0.3s ease;
-      pointer-events: none; /* No bloquear eventos del canvas cuando está oculto */
-    }
-    #stream-status-overlay.visible {
-      pointer-events: auto; /* Bloquear interacción solo cuando es visible */
-    }
-
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border: 4px solid rgba(255, 255, 255, 0.1);
-      border-left-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    #stream-status-text {
-      font-size: 14px;
-      color: var(--text-muted);
-      text-align: center;
-      max-width: 280px;
-      line-height: 1.5;
-    }
-
-    /* --- TI DIAGNOSTIC TOOLBOX --- */
-    .toolbox-section {
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .toolbox-section h3 {
-      font-size: 11px;
-      font-weight: 800;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 16px;
-    }
-
-    .grid-tools {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-
-    .tool-card-btn {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border);
-      padding: 10px;
-      border-radius: 8px;
-      color: var(--text);
-      font-family: 'Outfit', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      text-align: left;
-      transition: all 0.2s;
-    }
-
-    .tool-card-btn:hover {
-      background: rgba(0, 102, 204, 0.15);
-      border-color: var(--accent);
-    }
-
-    /* Terminal Console */
-    #console-wrap {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: #080b12;
-      overflow: hidden;
-    }
-
-    #console-output {
-      flex: 1;
-      padding: 20px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: #a5d6ff;
-      overflow-y: auto;
-      line-height: 1.6;
-    }
-
-    .con-log-sys { color: var(--text-muted); font-style: italic; }
-    .con-log-cmd { color: #58a6ff; font-weight: bold; }
-    .con-log-out { color: #7ee787; }
-    .con-log-err { color: var(--danger); }
-
-    #console-input-bar {
-      display: flex;
-      border-top: 1px solid var(--border);
-      background: rgba(17, 24, 39, 0.9);
-    }
-
-    #console-input-bar input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: #fff;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      padding: 16px;
-      outline: none;
-    }
-  
-    @media (max-width: 640px) {
-      .login-card { width: 92% !important; padding: 24px 18px !important; border-radius: 18px !important; }
-      .login-logo { max-height: 48px !important; }
-      h2 { font-size: 22px !important; }
-      footer { position: relative !important; bottom: auto !important; margin-top: 24px !important; padding-bottom: 20px !important; }
-    }
-
-  
-  #header { display: flex !important; }
-  #main-content { display: flex !important; }
-  </style>
   <script is:inline>
   
+  // Fondo Espacial Compuesto
+  function initStarfield() {
+    const canvas = document.getElementById("starfield");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    const numStaticStars = 160;
+    const staticStars = [];
+    const starColors = ["#ffffff", "#f0f4f8", "#e2e8f0", "#63b3ed", "#90cdf4", "#b794f4", "#fbd38d"];
+
+    for (let i = 0; i < numStaticStars; i++) {
+      staticStars.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 1.6 + 0.5,
+        color: starColors[Math.floor(Math.random() * starColors.length)],
+        baseAlpha: Math.random() * 0.7 + 0.3,
+        twinkleSpeed: Math.random() * 0.02 + 0.005,
+        alphaOffset: Math.random() * Math.PI * 2
+      });
+    }
+
+    const numTravelStars = 40;
+    const travelStars = [];
+    for (let i = 0; i < numTravelStars; i++) {
+      travelStars.push({
+        x: (Math.random() - 0.5),
+        y: (Math.random() - 0.5),
+        z: Math.random() * 1000 + 1,
+        size: Math.random() * 1.5 + 0.8,
+        color: "rgba(255, 255, 255, 0.95)"
+      });
+    }
+
+    const comets = [];
+    function spawnComet() {
+      if (comets.length >= 6) return;
+      const angle = (Math.random() * 15 + 25) * (Math.PI / 180);
+      const speed = Math.random() * 8 + 6;
+      comets.push({
+        x: Math.random() * (canvas.width * 0.7),
+        y: Math.random() * (canvas.height * 0.4) - 50,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        length: Math.random() * 200 + 120,
+        alpha: 1,
+        decay: Math.random() * 0.008 + 0.004,
+        width: Math.random() * 2.5 + 1.5
+      });
+    }
+
+    setInterval(spawnComet, 1600);
+    let time = 0;
+
+    function animate() {
+      time += 0.05;
+      const width = canvas.width;
+      const height = canvas.height;
+
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < staticStars.length; i++) {
+        const star = staticStars[i];
+        const alpha = Math.max(0.1, Math.min(1, star.baseAlpha + Math.sin(time * star.twinkleSpeed * 10 + star.alphaOffset) * 0.25));
+        ctx.fillStyle = star.color;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(star.x * width, star.y * height, star.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
+
+      for (let i = 0; i < travelStars.length; i++) {
+        const ts = travelStars[i];
+        ts.z -= 2.0;
+        if (ts.z <= 0) {
+          ts.z = 1000;
+          ts.x = (Math.random() - 0.5);
+          ts.y = (Math.random() - 0.5);
+        }
+
+        const k = 500 / ts.z;
+        const px = ts.x * k * width + width / 2;
+        const py = ts.y * k * height + height / 2;
+        const size = Math.min(ts.size * k * 0.8, 3.5);
+
+        if (px >= 0 && px <= width && py >= 0 && py <= height) {
+          ctx.fillStyle = ts.color;
+          ctx.beginPath();
+          ctx.arc(px, py, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      for (let i = comets.length - 1; i >= 0; i--) {
+        const c = comets[i];
+        c.x += c.vx;
+        c.y += c.vy;
+        c.alpha -= c.decay;
+
+        if (c.alpha <= 0 || c.x > width + 100 || c.y > height + 100) {
+          comets.splice(i, 1);
+          continue;
+        }
+
+        const headX = c.x;
+        const headY = c.y;
+        const tailX = c.x - (c.vx / Math.hypot(c.vx, c.vy)) * c.length;
+        const tailY = c.y - (c.vy / Math.hypot(c.vx, c.vy)) * c.length;
+
+        const grad = ctx.createLinearGradient(headX, headY, tailX, tailY);
+        grad.addColorStop(0, "rgba(255, 255, 255, " + c.alpha + ")");
+        grad.addColorStop(0.2, "rgba(147, 197, 253, " + (c.alpha * 0.7) + ")");
+        grad.addColorStop(1, "rgba(147, 197, 253, 0)");
+
+        ctx.beginPath();
+        ctx.moveTo(headX, headY);
+        ctx.lineTo(tailX, tailY);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = c.width;
+        ctx.lineCap = "round";
+        ctx.stroke();
+      }
+
+      requestAnimationFrame(animate);
+    }
+    animate();
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') { initStarfield(); } else { window.addEventListener('DOMContentLoaded', initStarfield); }
+
   let monitoringInterval = null;
   let activeWs = null;
   let currentAgentId = null;
@@ -460,7 +248,7 @@ import Layout from '../layouts/Layout.astro';
   window.addEventListener('DOMContentLoaded', async () => {
     try {
       const res = await fetch('/soporte/agentes', { credentials: 'include' });
-      if (!res.ok) {
+      if (res.status === 401 || !res.ok) {
         window.location.href = '/';
         return;
       }
@@ -475,6 +263,10 @@ import Layout from '../layouts/Layout.astro';
     
     try {
       const res = await fetch('/soporte/agentes?t=' + Date.now(), { credentials: 'include' });
+      if (res.status === 401) {
+        window.location.href = '/';
+        return;
+      }
       const agents = await res.json();
       renderGrid(agents);
     } catch {}
@@ -492,7 +284,7 @@ import Layout from '../layouts/Layout.astro';
     for (const [id, info] of Object.entries(agents)) {
       if (!info.online) continue; // Solo mostrar los agentes en línea
 
-      const isAdmin = info.isAdmin ? '<span class="sys-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border-color: rgba(16, 185, 129, 0.3);">ADMIN</span>' : '';
+      const isAdmin = info.isAdmin ? '<span class="px-1.5 py-0.5 rounded border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[9px] font-semibold tracking-widest uppercase ml-2">Admin</span>' : '';
       let hw = info.health || {}; if (typeof hw === "string") { try { hw = JSON.parse(hw); } catch (e) { hw = {}; } }
       
       let hwDetails = '';
@@ -501,52 +293,72 @@ import Layout from '../layouts/Layout.astro';
         const diskUsed = (hw.disks && hw.disks[0]) ? `${hw.disks[0].used}GB / ${hw.disks[0].total}GB` : '';
         const diskPct = (hw.disks && hw.disks[0] && hw.disks[0].total) ? Math.min(100, Math.round((hw.disks[0].used / hw.disks[0].total) * 100)) : 0;
         
+        let diskColor = 'bg-blue-500';
+        if(diskPct > 70) diskColor = 'bg-amber-500';
+        if(diskPct > 85) diskColor = 'bg-red-500';
+
         hwDetails = `
-          <div class="hw-make-model">${modelStr}</div>
-          <div class="hw-grid">
-            <div class="hw-block">
-              <div class="hw-label">PROCESADOR / SO</div>
-              <div class="hw-value">${hw.cpu || hw.osCaption || 'Genérico'}</div>
-            </div>
-            <div class="hw-block">
-              <div class="hw-label">MEMORIA RAM</div>
-              <div class="hw-value">${hw.ramGB ? hw.ramGB + ' GB DDR' : 'N/A'} <small>(${hw.ramFreeGB ? hw.ramFreeGB + 'GB libre' : ''})</small></div>
-            </div>
-          </div>
-          ${diskUsed ? `
-          <div class="hw-block" style="margin-top: 8px;">
-            <div class="hw-label">ALMACENAMIENTO (C:)</div>
-            <div class="hw-value" style="display: flex; align-items: center; justify-content: space-between;">
-              <span>${diskUsed}</span>
-              <span>${diskPct}%</span>
-            </div>
-            <div class="hw-disk-row">
-              <div class="hw-disk-bar-wrap">
-                <div class="hw-disk-bar ${diskPct > 85 ? 'crit' : (diskPct > 70 ? 'warn' : '')}" style="width: ${diskPct}%;"></div>
+          <details class="group/hw cursor-pointer mt-4 border-t border-white/5 pt-4">
+            <summary class="list-none text-xs font-medium text-gray-400 flex items-center justify-between hover:text-gray-200 transition-colors">
+              <span class="flex items-center gap-2"><span class="opacity-50">⚡</span> Hardware & Sistema</span>
+              <span class="text-[10px] transition-transform duration-300 group-open/hw:rotate-180 opacity-50">▼</span>
+            </summary>
+            <div class="space-y-4 mt-4 animate-[fadeIn_0.2s_ease-out]">
+              ${modelStr ? `<div class="text-xs text-gray-300 font-medium">${modelStr}</div>` : ''}
+              
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Procesador</div>
+                  <div class="text-xs text-gray-300 leading-snug">${hw.cpu || hw.osCaption || 'Desconocido'}</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Memoria</div>
+                  <div class="text-xs text-gray-300">${hw.ramGB ? hw.ramGB + ' GB' : 'N/A'} <span class="text-gray-500">(${hw.ramFreeGB ? hw.ramFreeGB + 'GB libre' : ''})</span></div>
+                </div>
               </div>
+
+              ${diskUsed ? `
+              <div>
+                <div class="flex items-center justify-between text-[10px] uppercase tracking-wider mb-1">
+                  <span class="text-gray-500">Almacenamiento Local</span>
+                  <span class="${diskPct > 85 ? 'text-red-400' : (diskPct > 70 ? 'text-amber-400' : 'text-gray-400')}">${diskPct}%</span>
+                </div>
+                <div class="w-full bg-white/5 rounded-sm h-1 overflow-hidden mt-1">
+                  <div class="h-full rounded-sm ${diskColor}" style="width: ${diskPct}%"></div>
+                </div>
+                <div class="text-[10px] text-gray-500 mt-1.5 text-right">${diskUsed}</div>
+              </div>` : ''}
             </div>
-          </div>` : ''}
+          </details>
         `;
       }
 
       const card = document.createElement('div');
-      card.className = 'agent-card';
+      card.className = 'bg-[#0f1117] border border-white/10 rounded-xl p-5 flex flex-col transition-all hover:border-white/20 hover:bg-[#13151c] shadow-lg';
       card.innerHTML = `
-        <div class="agent-card-header">
-          <div>
-            <div class="agent-id-tag">ID: ${id}</div>
-            <div class="agent-host">${info.hostname || id} ${isAdmin}</div>
+        <div class="flex items-start justify-between">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 mb-1">
+              <div class="text-lg font-semibold text-white tracking-tight truncate">${id}</div>
+              <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></div>
+            </div>
+            <div class="text-sm text-gray-400 font-medium truncate flex items-center">
+              ${info.hostname || 'Host desconocido'} ${isAdmin}
+            </div>
           </div>
-          <div class="pulse-indicator" title="En Línea"></div>
         </div>
+        
+        <div class="flex flex-wrap gap-2 mt-4">
+          <span class="px-2 py-1 rounded-md bg-white/5 text-gray-300 text-[10px] font-medium border border-white/5">${hw.osCaption || 'Windows OS'}</span>
+          <span class="px-2 py-1 rounded-md bg-white/5 text-gray-300 text-[10px] font-medium border border-white/5">SSL WSS</span>
+        </div>
+        
         ${hwDetails}
-        <div class="card-divider"></div>
-        <div class="system-badge-row">
-          <span class="sys-badge">${hw.osCaption || 'En línea (60 FPS)'}</span>
-          <span class="sys-badge">Cifrado WSS</span>
-        </div>
-        <div class="card-actions">
-          <button class="btn-action primary" onclick="takeControl('${id}')">🖥️ Control Remoto</button>
+        
+        <div class="mt-5">
+          <button class="w-full bg-white text-black hover:bg-gray-200 font-semibold text-sm py-2 rounded-lg transition-colors flex items-center justify-center gap-2" onclick="takeControl('${id}')">
+            Conectar
+          </button>
         </div>
       `;
       grid.appendChild(card);
@@ -924,6 +736,74 @@ import Layout from '../layouts/Layout.astro';
 
   canvas.addEventListener('keydown', (e) => sendKey(e, 'down'));
   canvas.addEventListener('keyup', (e) => sendKey(e, 'up'));
+
+  // --- INICIO NUEVAS FUNCIONES UI ---
+  function toggleSidebar() {
+    const sidebar = document.getElementById('session-sidebar');
+    const icon = document.getElementById('sidebar-icon');
+    if (!sidebar) return;
+    sidebar.classList.toggle('collapsed');
+    if (sidebar.classList.contains('collapsed')) {
+      if(icon) icon.textContent = '▶ Mostrar Panel';
+    } else {
+      if(icon) icon.textContent = '◀ Ocultar Panel';
+    }
+  }
+
+  function toggleFullScreen() {
+    const sessionView = document.getElementById('session-view');
+    if (!sessionView) return;
+    if (!document.fullscreenElement) {
+      sessionView.requestFullscreen().catch(err => {
+        alert(`Error al intentar pantalla completa: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  }
+
+  function slideInSidebarFullscreen() {
+    const sidebar = document.getElementById('session-sidebar');
+    const arrow = document.getElementById('fullscreen-floating-arrow');
+    if (!sidebar || !arrow) return;
+    sidebar.classList.toggle('slide-in');
+    if (sidebar.classList.contains('slide-in')) {
+      arrow.style.left = '380px';
+      arrow.textContent = '◀';
+    } else {
+      arrow.style.left = '0';
+      arrow.textContent = '▶';
+    }
+  }
+
+  document.addEventListener('fullscreenchange', (e) => {
+    const isFullscreen = document.fullscreenElement !== null;
+    const sidebar = document.getElementById('session-sidebar');
+    const floatingArrow = document.getElementById('fullscreen-floating-arrow');
+    const normalToggleBtn = document.getElementById('toggle-sidebar-btn');
+    const fullScreenBtn = document.getElementById('fullscreen-btn');
+
+    if (!sidebar || !floatingArrow) return;
+
+    if (isFullscreen) {
+      sidebar.classList.add('fullscreen-overlay');
+      sidebar.classList.remove('slide-in');
+      floatingArrow.style.display = 'block';
+      floatingArrow.style.left = '0';
+      floatingArrow.textContent = '▶';
+      if(normalToggleBtn) normalToggleBtn.style.display = 'none';
+      if(fullScreenBtn) fullScreenBtn.textContent = '⛶ Salir Pantalla Completa';
+    } else {
+      sidebar.classList.remove('fullscreen-overlay');
+      sidebar.classList.remove('slide-in');
+      floatingArrow.style.display = 'none';
+      if(normalToggleBtn) normalToggleBtn.style.display = 'block';
+      if(fullScreenBtn) fullScreenBtn.textContent = '⛶ Pantalla Completa';
+    }
+  });
+
+
+  // --- FIN NUEVAS FUNCIONES UI ---
 
 </script>
 
