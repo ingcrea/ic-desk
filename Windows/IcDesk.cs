@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.14"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.15"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
         private static System.Timers.Timer _telemetryTimer;
         private static System.Diagnostics.PerformanceCounter _cpuCounter;
@@ -1887,6 +1887,13 @@ try {
           $licStatus = $Matches[1].Trim();
           if ($licStatus -like ""*LICENSED*"") { $officeActivation = ""Activado""; }
           else { $officeActivation = ""No Activado / Notificación""; }
+        } elseif ($dstatus -match 'No installed product keys' -or $dstatus -match 'No se detectaron claves') {
+          if ($officeVersion -like ""*365*"") {
+            $officeActivation = ""Suscripción (Cuenta)"";
+            $officeLicenseType = ""vNext / Usuario"";
+          } else {
+            $officeActivation = ""No Activado (Sin claves)"";
+          }
         }
         
         # Verificar si es temporal (Remaining Grace)
