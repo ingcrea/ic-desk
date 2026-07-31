@@ -1,0 +1,65 @@
+name: Compilar IC Desk (Windows)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Compilar Executable (.exe)
+    runs-on: windows-latest
+
+    steps:
+      - name: Descargar Código Fuente
+        uses: actions/checkout@v4
+
+      - name: Inyectar Secretos de Producción en Caliente
+        shell: pwsh
+        run: |
+          $csFile = "Windows/IcDesk.cs"
+          if (Test-Path $csFile) {
+            $content = Get-Content $csFile -Raw
+            $content = $content -replace "SERVER_URL_PLACEHOLDER", "${{ secrets.SERCOM_SERVER_URL }}"
+            $content = $content -replace "RELAY_WS_PLACEHOLDER", "${{ secrets.SERCOM_RELAY_WS_URL }}"
+            $content = $content -replace "AGENT_TOKEN_PLACEHOLDER", "${{ secrets.SERCOM_AGENT_TOKEN }}"
+            Set-Content $csFile -Value $content -NoNewline
+            Write-Output "Secretos inyectados de forma segura en $csFile."
+          }
+
+      - name: Compilar Agente IC-Desk.exe (Roslyn C# Compiler)
+        shell: pwsh
+        run: |
+          if (Test-Path "Windows/IcDesk.cs") {
+            # Buscar el compilador Roslyn de Visual Studio 2022 en la VM de GitHub
+            $roslynCsc = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\Roslyn\csc.exe"
+            if (-not (Test-Path $roslynCsc)) {
+              $roslynCsc = (Get-Command csc.exe -ErrorAction SilentlyContinue).Path
+            }
+            if (-not $roslynCsc) {
+              $roslynCsc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+            }
+            
+            Write-Output "Compilando con: $roslynCsc"
+            & $roslynCsc /target:winexe /out:Windows/IC-Desk.exe /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Net.Http.dll /r:System.Management.dll /r:System.ServiceProcess.dll /win32icon:Windows/favicon.ico Windows/*.cs
+            
+            if (Test-Path "Windows/IC-Desk.exe") {
+              Write-Output "IC-Desk.exe compilado con éxito."
+            } else {
+              Write-Error "Error en la compilación de IC-Desk.exe"
+              exit 1
+            }
+          } else {
+            Write-Error "No se encontró Windows/IcDesk.cs"
+            exit 1
+          }
+
+      - name: Subir Binario Compilado de Windows (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: IC-Desk-Windows-Exe
+          path: Windows/IC-Desk.exe
