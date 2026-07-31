@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.13"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.14"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
         private static System.Timers.Timer _telemetryTimer;
         private static System.Diagnostics.PerformanceCounter _cpuCounter;
@@ -1855,11 +1855,11 @@ try {
       ""HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"",
       ""HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*""
     );
-    $officeReg = Get-ItemProperty $regPaths | Where-Object { $_.DisplayName -like ""*Microsoft Office*"" -and $_.DisplayName -notlike ""*Standard*"" -and $_.DisplayName -notlike ""*Language*"" -and $_.DisplayName -notlike ""*Proofing*"" } | Select-Object -First 1;
+    $officeReg = Get-ItemProperty $regPaths | Where-Object { $_.DisplayName -like ""*Microsoft Office*"" -and $_.DisplayName -notlike ""*Standard*"" -and $_.DisplayName -notlike ""*Language*"" -and $_.DisplayName -notlike ""*Proofing*"" -and $_.DisplayName -notlike ""*Add-in*"" -and $_.DisplayName -notlike ""*Click-to-Run*"" -and $_.DisplayName -notlike ""*Web Components*"" } | Select-Object -First 1;
     if ($officeReg) {
       $officeVersion = $officeReg.DisplayName.Trim();
     } else {
-      $o365Reg = Get-ItemProperty $regPaths | Where-Object { $_.DisplayName -like ""*Microsoft 365*"" } | Select-Object -First 1;
+      $o365Reg = Get-ItemProperty $regPaths | Where-Object { $_.DisplayName -like ""*Microsoft 365*"" -and $_.DisplayName -notlike ""*Language*"" } | Select-Object -First 1;
       if ($o365Reg) { $officeVersion = $o365Reg.DisplayName.Trim(); }
     }
 
@@ -1871,6 +1871,10 @@ try {
         ""C:\Program Files (x86)\Microsoft Office\Office15\ospp.vbs""
       );
       $vbsPath = $vbsPaths | Where-Object { Test-Path $_ } | Select-Object -First 1;
+      if (-not $vbsPath) {
+        $foundVbs = Get-ChildItem -Path ""C:\Program Files\Microsoft Office"", ""C:\Program Files (x86)\Microsoft Office"" -Filter ""ospp.vbs"" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1;
+        if ($foundVbs) { $vbsPath = $foundVbs.FullName; }
+      }
       if ($vbsPath) {
         $dstatus = cscript.exe //NoLogo ""$vbsPath"" /dstatus | Out-String;
         if ($dstatus -match 'LICENSE NAME:\s*(.*)') {
