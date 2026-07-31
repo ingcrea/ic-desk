@@ -45,7 +45,7 @@ jobs:
             }
             
             Write-Output "Compilando con: $roslynCsc"
-            & $roslynCsc /target:winexe /out:Windows/IC-Desk.exe /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Net.Http.dll /r:System.Management.dll /r:System.ServiceProcess.dll /win32icon:Windows/favicon.ico Windows/*.cs
+            & $roslynCsc /target:winexe /out:Windows\IC-Desk.exe /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Net.Http.dll /r:System.Management.dll /r:System.ServiceProcess.dll /win32icon:Windows\favicon.ico Windows\IcDesk.cs Windows\DXGI_Interop_Scratch.cs Windows\DXGICaptureEngine.cs
             
             if (Test-Path "Windows/IC-Desk.exe") {
               Write-Output "IC-Desk.exe compilado con éxito."
