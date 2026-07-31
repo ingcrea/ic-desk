@@ -97,7 +97,7 @@ namespace ICDesk
                 {
                     string logFile = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "IC-Desk-Log.txt");
                     string time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-                    System.IO.File.AppendAllText(logFile, $"[{time}] [{module}] {message}\r\n");
+                    System.IO.File.AppendAllText(logFile, string.Format("[{0}] [{1}] {2}\r\n", time, module, message));
                 }
             }
             catch (Exception ex) { SoporteRemotoGUI.LogCheckpoint("WEBSOCKET_ERROR", "[CHECKPOINT ERROR] " + ex.Message); }
@@ -134,7 +134,7 @@ namespace ICDesk
                         
                         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
                             FileName = "sc.exe",
-                            Arguments = $"create \"IC-Desk\" binPath= \"\\\"" + destExe + "\\\" --service\" start= auto obj= LocalSystem displayname= \"IC-Desk Soporte Remoto\"",
+                            Arguments = "create \"IC-Desk\" binPath= \"\\\"" + destExe + "\\\" --service\" start= auto obj= LocalSystem displayname= \"IC-Desk Soporte Remoto\"",
                             WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden, CreateNoWindow = true
                         }).WaitForExit();
                         
