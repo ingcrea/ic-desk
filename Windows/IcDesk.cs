@@ -47,7 +47,7 @@ namespace ICDesk
         private const string ServerUrl   = "https://desk.ingcrea.com";
         private const string RelayWsUrl  = "wss://desk.ingcrea.com";
         private const string AgentToken  = "ICAgentToken2026SecureHashKey";
-        private const string AppVersion  = "v6.7.12"; // inyectado por el servidor al descargar
+        private const string AppVersion  = "v6.7.13"; // inyectado por el servidor al descargar
         private static System.Timers.Timer _otaTimer;
         private static System.Timers.Timer _telemetryTimer;
         private static System.Diagnostics.PerformanceCounter _cpuCounter;

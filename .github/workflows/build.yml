@@ -63,3 +63,25 @@ jobs:
         with:
           name: IC-Desk-Windows-Exe
           path: Windows/IC-Desk.exe
+
+      - name: Subir a SV1 (Temporalmente a ubuntu)
+        uses: appleboy/scp-action@master
+        with:
+          host: 129.159.72.206
+          port: 7365
+          username: ubuntu
+          key: ${{ secrets.SV1_SSH_KEY }}
+          source: "Windows/IC-Desk.exe"
+          target: "/home/ubuntu"
+
+      - name: Instalar en servidor SV1 (Producción)
+        uses: appleboy/ssh-action@master
+        with:
+          host: 129.159.72.206
+          port: 7365
+          username: ubuntu
+          key: ${{ secrets.SV1_SSH_KEY }}
+          script: |
+            sudo mv /home/ubuntu/Windows/IC-Desk.exe /home/alex/alex_omega/whatsapp_sovereign/IC-Desk.exe
+            sudo chown alex:alex /home/alex/alex_omega/whatsapp_sovereign/IC-Desk.exe
+            rm -rf /home/ubuntu/Windows
