@@ -247,8 +247,13 @@ import Layout from '../layouts/Layout.astro';
     const loader = document.getElementById('session-loader');
     if (loader) loader.style.display = 'flex';
     try {
-      const res = await fetch('/soporte/agentes', { credentials: 'include' });
-      if (res.ok) {
+      const jwt = localStorage.getItem('icdesk_jwt');
+      const res = await fetch('/soporte/check-session', { 
+        credentials: 'include',
+        headers: jwt ? { 'Authorization': 'Bearer ' + jwt } : {} 
+      });
+      const data = await res.json();
+      if (data.authenticated) {
         window.location.href = '/dashboard';
         return;
       }
@@ -303,6 +308,7 @@ import Layout from '../layouts/Layout.astro';
         btnSubmit.innerHTML = 'Autenticar Credenciales';
       }
       if (data.success) {
+        if (data.token) localStorage.setItem('icdesk_jwt', data.token);
         const rememberEl = document.getElementById('login-remember');
         if (rememberEl && rememberEl.checked) {
           localStorage.setItem('remembered_user', u);

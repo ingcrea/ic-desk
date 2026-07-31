@@ -31,7 +31,7 @@ import Layout from '../layouts/Layout.astro';
     <div class="section-title">
       Equipos de Clientes Monitoreados
     </div>
-    <div id="agents-grid">
+    <div id="agents-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 p-10 overflow-y-auto w-full max-w-[98%] mx-auto custom-scrollbar content-start pb-24">
       <!-- Renderizado Dinámico -->
     </div>
   </div>
@@ -285,79 +285,151 @@ import Layout from '../layouts/Layout.astro';
       if (!info.online) continue; // Solo mostrar los agentes en línea
 
       const isAdmin = info.isAdmin ? '<span class="px-1.5 py-0.5 rounded border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[9px] font-semibold tracking-widest uppercase ml-2">Admin</span>' : '';
-      let hw = info.health || {}; if (typeof hw === "string") { try { hw = JSON.parse(hw); } catch (e) { hw = {}; } }
+      const diskTotal = (hw.disks && hw.disks[0]) ? hw.disks[0].total : 0;
+      const diskUsed = (hw.disks && hw.disks[0]) ? hw.disks[0].used : 0;
+      const diskFree = diskTotal - diskUsed;
+      const diskPct = diskTotal > 0 ? Math.min(100, Math.round((diskUsed / diskTotal) * 100)) : 0;
       
-      let hwDetails = '';
-      if (hw.cpu || hw.ramGB || hw.osCaption) {
-        const modelStr = [hw.manufacturer, hw.model].filter(Boolean).join(' ') || '';
-        const diskUsed = (hw.disks && hw.disks[0]) ? `${hw.disks[0].used}GB / ${hw.disks[0].total}GB` : '';
-        const diskPct = (hw.disks && hw.disks[0] && hw.disks[0].total) ? Math.min(100, Math.round((hw.disks[0].used / hw.disks[0].total) * 100)) : 0;
-        
-        let diskColor = 'bg-blue-500';
-        if(diskPct > 70) diskColor = 'bg-amber-500';
-        if(diskPct > 85) diskColor = 'bg-red-500';
-
-        hwDetails = `
-          <details class="group/hw cursor-pointer mt-4 border-t border-white/5 pt-4">
-            <summary class="list-none text-xs font-medium text-gray-400 flex items-center justify-between hover:text-gray-200 transition-colors">
-              <span class="flex items-center gap-2"><span class="opacity-50">⚡</span> Hardware & Sistema</span>
-              <span class="text-[10px] transition-transform duration-300 group-open/hw:rotate-180 opacity-50">▼</span>
-            </summary>
-            <div class="space-y-4 mt-4 animate-[fadeIn_0.2s_ease-out]">
-              ${modelStr ? `<div class="text-xs text-gray-300 font-medium">${modelStr}</div>` : ''}
-              
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Procesador</div>
-                  <div class="text-xs text-gray-300 leading-snug">${hw.cpu || hw.osCaption || 'Desconocido'}</div>
-                </div>
-                <div>
-                  <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Memoria</div>
-                  <div class="text-xs text-gray-300">${hw.ramGB ? hw.ramGB + ' GB' : 'N/A'} <span class="text-gray-500">(${hw.ramFreeGB ? hw.ramFreeGB + 'GB libre' : ''})</span></div>
-                </div>
-              </div>
-
-              ${diskUsed ? `
-              <div>
-                <div class="flex items-center justify-between text-[10px] uppercase tracking-wider mb-1">
-                  <span class="text-gray-500">Almacenamiento Local</span>
-                  <span class="${diskPct > 85 ? 'text-red-400' : (diskPct > 70 ? 'text-amber-400' : 'text-gray-400')}">${diskPct}%</span>
-                </div>
-                <div class="w-full bg-white/5 rounded-sm h-1 overflow-hidden mt-1">
-                  <div class="h-full rounded-sm ${diskColor}" style="width: ${diskPct}%"></div>
-                </div>
-                <div class="text-[10px] text-gray-500 mt-1.5 text-right">${diskUsed}</div>
-              </div>` : ''}
+      const ramPct = (hw.ramGB && hw.ramGB > 0 && hw.ramFreeGB) ? Math.round(((hw.ramGB - hw.ramFreeGB) / hw.ramGB) * 100) : 0;
+      
+      let winBadge = '';
+      if (hw.winActivation) {
+        let isLic = hw.winActivation.includes('Activado (Original)') || hw.winActivation.includes('Licenciado');
+        let color = isLic ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20';
+        let text = isLic ? 'Win Activado' : 'Win NO Activado';
+        winBadge = '<span class="rounded ' + color + ' text-[9px] font-black tracking-widest uppercase border border-dashed" style="padding: 3px 8px;">' + text + '</span>';
+      }
+      
+      let ipBadge = hw.ipPrivada ? '<span class="rounded bg-gray-500/10 text-gray-300 text-[9px] font-black tracking-widest border border-gray-500/20" style="padding: 3px 8px;">' + hw.ipPrivada + '</span>' : '';
+      
+      let diskHtml = '<span class="text-[13px] text-gray-500 font-medium">Sin Datos</span>';
+      if (diskTotal > 0) {
+        let dColor = diskPct > 85 ? 'bg-red-500' : (diskPct > 70 ? 'bg-amber-500' : 'bg-emerald-500');
+        let tColor = diskPct > 85 ? 'text-red-400' : (diskPct > 70 ? 'text-amber-400' : 'text-emerald-400');
+        diskHtml = `
+          <div class="flex-1 min-w-0 flex flex-col justify-center gap-1.5" style="padding-right: 0.5rem;">
+            <div class="flex justify-between items-center text-[13px] font-medium">
+              <span class="text-gray-300 truncate"><strong class="text-white">${diskTotal} GB</strong> (${diskFree.toFixed(1)} GB libres)</span>
+              <span class="font-bold ${tColor}">${diskPct}%</span>
             </div>
-          </details>
+            <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+              <div class="h-full ${dColor}" style="width: ${diskPct}%"></div>
+            </div>
+          </div>
+        `;
+      }
+      
+      let officeHtml = '';
+      if (hw.officeVersion) {
+        let isOffLic = hw.officeActivation && (hw.officeActivation.includes('Licenciado') || hw.officeActivation.includes('Activado'));
+        let oColor = isOffLic ? 'text-emerald-400' : 'text-red-400';
+        let oText = hw.officeActivation || 'Estado desconocido';
+        officeHtml = `
+          <div class="flex items-center gap-3 mt-1">
+            <div class="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0 border border-orange-500/20">
+              <svg class="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[12px] text-white font-bold leading-tight truncate">${hw.officeVersion}</div>
+              <div class="text-[11px] ${oColor} font-medium truncate">${oText}</div>
+            </div>
+          </div>
         `;
       }
 
       const card = document.createElement('div');
-      card.className = 'bg-[#0f1117] border border-white/10 rounded-xl p-5 flex flex-col transition-all hover:border-white/20 hover:bg-[#13151c] shadow-lg';
+      card.className = 'group relative bg-[#0B0D14] border border-white/10 rounded-2xl flex flex-col h-full min-h-[400px] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_60px_-15px_rgba(59,130,246,0.3)] hover:border-blue-500/30 overflow-hidden';
       card.innerHTML = `
-        <div class="flex items-start justify-between">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-3 mb-1">
-              <div class="text-lg font-semibold text-white tracking-tight truncate">${id}</div>
-              <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></div>
+        <!-- Capa de Bruma (Mist Background Light) -->
+        <div class="absolute inset-0 pointer-events-none">
+          <div class="absolute -top-32 -right-32 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] opacity-70 group-hover:opacity-100 transition-opacity duration-700"></div>
+          <div class="absolute -bottom-32 -left-32 w-80 h-80 bg-purple-500/10 rounded-full blur-[100px] opacity-70 group-hover:opacity-100 transition-opacity duration-700"></div>
+        </div>
+
+        <!-- Body de la Tarjeta -->
+        <div class="flex-1 flex flex-col relative z-10" style="padding: 1.25rem;">
+          
+          <!-- Título y Subtítulo con Badges Separados -->
+          <div style="margin-bottom: 1.25rem;">
+            <div class="flex flex-wrap items-center" style="gap: 6px; margin-bottom: 12px;">
+              <span class="rounded bg-blue-500/10 text-blue-400 text-[9px] font-black tracking-widest uppercase border border-blue-500/20" style="padding: 3px 8px;" title="${hw.osCaption || 'Windows'}">${(hw.osCaption || 'Windows').replace('Microsoft ', '')}</span>
+              <span class="rounded bg-purple-500/10 text-purple-400 text-[9px] font-black tracking-widest uppercase border border-purple-500/20" style="padding: 3px 8px;">WSS</span>
+              ${isAdmin ? '<span class="rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-black tracking-widest uppercase border border-emerald-500/20" style="padding: 3px 8px;">Admin</span>' : ''}
+              ${winBadge}
+              ${ipBadge}
             </div>
-            <div class="text-sm text-gray-400 font-medium truncate flex items-center">
-              ${info.hostname || 'Host desconocido'} ${isAdmin}
+
+            <div class="flex justify-between items-start">
+              <h3 class="text-3xl leading-none font-bold text-white tracking-tight truncate pr-4" style="padding-right: 1rem;">${id}</h3>
+              <div class="relative flex items-center justify-center flex-shrink-0" style="margin-top: 6px; margin-right: 8px;">
+                <div class="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-75"></div>
+                <div class="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,1)]"></div>
+              </div>
+            </div>
+            <div class="text-sm text-gray-400 flex items-center" style="gap: 8px; margin-top: 8px;">
+              <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              <span class="truncate font-medium">${info.hostname || 'Host desconocido'}</span>
             </div>
           </div>
+
+          <!-- Lista Limpia de Iconos -->
+          <div class="flex flex-col gap-4 mt-auto border-t border-white/5" style="padding-top: 1.25rem;">
+            <!-- CPU -->
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center flex-shrink-0 border border-indigo-500/20">
+                <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              </div>
+              <div class="flex-1 min-w-0 flex flex-col justify-center gap-1.5" style="padding-right: 0.5rem;">
+                <div class="flex justify-between items-center text-[13px] font-medium">
+                  <span class="text-gray-300 truncate" title="${hw.cpu}">${hw.cpu || 'Procesador desconocido'}</span>
+                  <span class="font-bold ${hw.cpuPct > 80 ? 'text-red-400' : (hw.cpuPct > 60 ? 'text-amber-400' : 'text-indigo-400')}">${hw.cpuPct || 0}%</span>
+                </div>
+                <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                  <div class="h-full ${hw.cpuPct > 80 ? 'bg-red-500' : (hw.cpuPct > 60 ? 'bg-amber-500' : 'bg-indigo-500')} transition-all duration-500" style="width: ${hw.cpuPct || 0}%"></div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- RAM -->
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0 border border-purple-500/20">
+                <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+              </div>
+              <div class="flex-1 min-w-0 flex flex-col justify-center gap-1.5" style="padding-right: 0.5rem;">
+                <div class="flex justify-between items-center text-[13px] font-medium">
+                  <span class="text-gray-300 truncate"><strong class="text-white">${hw.ramGB ? hw.ramGB : 0} GB</strong> ${hw.ramFreeGB ? '(' + hw.ramFreeGB.toFixed(1) + ' GB libres)' : ''}</span>
+                  <span class="font-bold text-purple-400">${ramPct}%</span>
+                </div>
+                <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                  <div class="h-full bg-purple-500" style="width: ${ramPct}%"></div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Disco -->
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0 border border-emerald-500/20">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+              </div>
+              ${diskHtml}
+            </div>
+
+            <!-- Software / Office (Opcional) -->
+            ${officeHtml}
+          </div>
         </div>
-        
-        <div class="flex flex-wrap gap-2 mt-4">
-          <span class="px-2 py-1 rounded-md bg-white/5 text-gray-300 text-[10px] font-medium border border-white/5">${hw.osCaption || 'Windows OS'}</span>
-          <span class="px-2 py-1 rounded-md bg-white/5 text-gray-300 text-[10px] font-medium border border-white/5">SSL WSS</span>
-        </div>
-        
-        ${hwDetails}
-        
-        <div class="mt-5">
-          <button class="w-full bg-white text-black hover:bg-gray-200 font-semibold text-sm py-2 rounded-lg transition-colors flex items-center justify-center gap-2" onclick="takeControl('${id}')">
-            Conectar
+
+        <!-- Footer Separado (Botón de Conectar Mejorado) -->
+        <div class="bg-white/[0.02] border-t border-white/10 relative z-10 flex items-center justify-between gap-4 mt-auto" style="padding: 1rem 1.25rem;">
+          <div class="flex flex-col">
+            <span class="text-[10px] text-gray-400 uppercase tracking-widest font-black">Estado</span>
+            <span class="text-[13px] font-bold text-emerald-400 flex items-center gap-1.5">
+              En Línea
+            </span>
+          </div>
+          <button class="relative group/btn flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 border border-blue-400/50 hover:border-blue-300 transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:shadow-[0_0_25px_rgba(37,99,235,0.6)]" onclick="takeControl('${id}')">
+            <span class="text-[13px] font-black text-white uppercase tracking-wider">Conectar</span>
+            <svg class="w-4 h-4 text-white group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
           </button>
         </div>
       `;
@@ -491,7 +563,7 @@ import Layout from '../layouts/Layout.astro';
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-IC-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+            'Authorization': 'Bearer ' + localStorage.getItem('icdesk_jwt')
           },
           body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
         }).catch(() => {});
@@ -509,7 +581,7 @@ import Layout from '../layouts/Layout.astro';
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-IC-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+          'Authorization': 'Bearer ' + localStorage.getItem('icdesk_jwt')
         },
         body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
       }).catch(() => {});
@@ -547,7 +619,7 @@ import Layout from '../layouts/Layout.astro';
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-IC-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+        'Authorization': 'Bearer ' + localStorage.getItem('icdesk_jwt')
       },
       body: JSON.stringify({ id: currentAgentId, cmd })
     })
@@ -567,7 +639,7 @@ import Layout from '../layouts/Layout.astro';
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-IC-API-Key': 'SrC0mS0p0rt3#S3cur1tyKey#2026'
+          'Authorization': 'Bearer ' + localStorage.getItem('icdesk_jwt')
         },
         body: JSON.stringify({ id: currentAgentId, cmd: '__RELAY_STOP__' })
       }).catch(() => {});
@@ -606,6 +678,7 @@ import Layout from '../layouts/Layout.astro';
 
   async function logout() {
     try {
+      localStorage.removeItem('icdesk_jwt');
       await fetch('/soporte/logout', { method: 'POST' });
     } catch (e) {}
     window.location.href = '/';
