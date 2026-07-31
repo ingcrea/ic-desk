@@ -283,6 +283,8 @@ import Layout from '../layouts/Layout.astro';
 
     for (const [id, info] of Object.entries(agents)) {
       if (!info.online) continue; // Solo mostrar los agentes en línea
+      
+      const hw = info.health || {};
 
       const isAdmin = info.isAdmin ? '<span class="px-1.5 py-0.5 rounded border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[9px] font-semibold tracking-widest uppercase ml-2">Admin</span>' : '';
       const diskTotal = (hw.disks && hw.disks[0]) ? hw.disks[0].total : 0;

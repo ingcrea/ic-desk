@@ -1900,11 +1900,13 @@ app.post('/soporte/telemetry', async (req, res) => {
 
   // Broadcast telemetry update via WebSocket to any connected viewers (if any)
   const tPayload = JSON.stringify({ type: 'telemetry', id, cpu, ramFreeGB });
-  activeViewers.forEach(client => {
-    if (client.readyState === 1 /* WebSocket.OPEN */) {
-      client.send(tPayload);
-    }
-  });
+  if (wss && wss.clients) {
+    wss.clients.forEach(client => {
+      if (client.readyState === 1 /* WebSocket.OPEN */) {
+        client.send(tPayload);
+      }
+    });
+  }
 
   res.json({ success: true });
 });
