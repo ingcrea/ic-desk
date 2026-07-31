@@ -793,19 +793,24 @@ namespace ICDesk
 
         private async Task SendDXGIFramesAsync(CancellationToken ct)
         {
-            using (var engine = new IcDesk.Windows.DXGICaptureEngine())
+            using (var engine = new DXGICaptureEngine())
             {
+                bool fallback = false;
                 try {
                     engine.Initialize();
                 } catch (Exception ex) {
                     SoporteRemotoGUI.LogCheckpoint("DXGI_ERROR", "Fallo inicializando DXGI: " + ex.Message);
                     _videoMode = "gdi";
+                    fallback = true;
+                }
+                if (fallback) {
                     await SendScreenFramesAsync(ct);
                     return;
                 }
                 
                 while (!ct.IsCancellationRequested && _wsClient != null && _wsClient.State == WebSocketState.Open)
                 {
+                    bool delay = false;
                     try
                     {
                         byte[] frameData = engine.CaptureFrame();
@@ -815,11 +820,12 @@ namespace ICDesk
                         }
                         else
                         {
-                            await Task.Delay(16, ct);
+                            delay = true;
                         }
                     }
                     catch (OperationCanceledException) { break; }
-                    catch { await Task.Delay(16, ct); }
+                    catch { delay = true; }
+                    if (delay) { await Task.Delay(16, ct); }
                 }
             }
         }
@@ -1051,7 +1057,7 @@ namespace ICDesk
                         string newMode = ExtractJsonValue(json, "mode");
                         if (!string.IsNullOrEmpty(newMode) && newMode != _videoMode) {
                             _videoMode = newMode;
-                            _ = StopStreamingAsync().ContinueWith(t => StartStreamingAsync());
+                            StopStreamingAsync().ContinueWith(t => StartStreamingAsync());
                         }
                         break;
                     case "mouse_move":   HandleMouseMove(json); break;
@@ -2812,13 +2818,16 @@ try {
             if (_isInitialized) return;
 
             var featureLevels = new[] { D3D_FEATURE_LEVEL.LEVEL_11_0 };
+            D3D_FEATURE_LEVEL outFeatureLevel;
             int hr = NativeMethods.D3D11CreateDevice(IntPtr.Zero, D3D_DRIVER_TYPE.HARDWARE, IntPtr.Zero,
-                D3D11_CREATE_DEVICE_FLAG.BGRA_SUPPORT, featureLevels, 1, 7, out _device, out _, out _context);
+                D3D11_CREATE_DEVICE_FLAG.BGRA_SUPPORT, featureLevels, 1, 7, out _device, out outFeatureLevel, out _context);
             if (hr < 0) throw new Exception("D3D11CreateDevice failed");
 
             var dxgiDevice = (IDXGIDevice)_device;
-            dxgiDevice.GetAdapter(out var dxgiAdapter);
-            dxgiAdapter.EnumOutputs(0, out var dxgiOutput);
+            IDXGIAdapter dxgiAdapter;
+            dxgiDevice.GetAdapter(out dxgiAdapter);
+            IDXGIOutput dxgiOutput;
+            dxgiAdapter.EnumOutputs(0, out dxgiOutput);
             var dxgiOutput1 = (IDXGIOutput1)dxgiOutput;
             hr = dxgiOutput1.DuplicateOutput(_device, out _duplication);
             if (hr < 0) throw new Exception("DuplicateOutput failed");
@@ -2843,7 +2852,9 @@ try {
         {
             if (!_isInitialized) return null;
 
-            int hr = _duplication.AcquireNextFrame(100, out var frameInfo, out var desktopResource);
+            DXGI_OUTDUPL_FRAME_INFO frameInfo;
+            IDXGIResource desktopResource;
+            int hr = _duplication.AcquireNextFrame(100, out frameInfo, out desktopResource);
             if (hr < 0 || desktopResource == null) return new byte[0];
 
             byte[] jpegData = new byte[0];
@@ -2856,11 +2867,13 @@ try {
                 desc.CPUAccessFlags = 0x20000; // READ
                 desc.MiscFlags = 0;
 
-                _device.CreateTexture2D(ref desc, IntPtr.Zero, out var stagingTex);
+                ID3D11Texture2D stagingTex;
+                _device.CreateTexture2D(ref desc, IntPtr.Zero, out stagingTex);
                 _context.CopyResource(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 
                                       Marshal.GetComInterfaceForObject(d3dTexture.Instance, typeof(ID3D11Texture2D)));
 
-                _context.Map(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 0, 1, 0, out var mapped);
+                D3D11_MAPPED_SUBRESOURCE mapped;
+                _context.Map(Marshal.GetComInterfaceForObject(stagingTex, typeof(ID3D11Texture2D)), 0, 1, 0, out mapped);
                 
                 try 
                 {
