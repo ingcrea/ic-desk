@@ -7,10 +7,292 @@ import Sidebar from '../components/Sidebar.astro';
     <div id="space-background" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;" transition:persist>
       <canvas id="starfield"></canvas>
     </div>
-    
+
     <Sidebar />
-    
-    
+
+    <main class="c-main" style="position: relative; z-index: 1;">
+      <header class="c-main__header">
+        <div>
+          <h1 class="c-page-header__title" style="margin: 0;">Usuarios y Permisos</h1>
+          <p class="c-page-header__desc" style="margin: 0;">Gestión de técnicos y administradores del sistema.</p>
+        </div>
+        <button class="c-btn c-btn--primary" onclick="openUserModal()">
+          <span>+ Nuevo Usuario</span>
+        </button>
+      </header>
+
+      <div class="c-main__content">
+        <!-- Stats rápidas -->
+        <div id="users-stats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;"></div>
+
+        <!-- Tabla de usuarios -->
+        <div class="c-table-container">
+          <table class="c-table">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Email / Login</th>
+                <th>Rol</th>
+                <th>Fecha de Alta</th>
+                <th style="text-align: right;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <tr><td colspan="5" style="text-align:center; color:var(--c-text-muted);">Cargando usuarios...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   </div>
 
+  <!-- Modal: Crear/Editar Usuario -->
+  <div id="user-modal" class="c-modal">
+    <div class="c-modal__content" style="width: 30rem;">
+      <h3 class="c-modal__title" id="user-modal-title">Nuevo Usuario</h3>
+      <input type="hidden" id="user-edit-id">
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem;">
+        <div>
+          <label style="color: var(--c-text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem;">Nombre Completo</label>
+          <input type="text" id="user-name" class="c-modal__input" placeholder="Ej. Juan Pérez">
+        </div>
+        <div>
+          <label style="color: var(--c-text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem;">Usuario / Email</label>
+          <input type="text" id="user-email" class="c-modal__input" placeholder="Ej. jperez o juan@empresa.com">
+        </div>
+        <div id="user-pass-group">
+          <label style="color: var(--c-text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem;">Contraseña</label>
+          <input type="password" id="user-pass" class="c-modal__input" placeholder="Mínimo 8 caracteres">
+        </div>
+        <div>
+          <label style="color: var(--c-text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem;">Rol</label>
+          <select id="user-role" class="c-modal__input" style="cursor: pointer;">
+            <option value="technician">Técnico</option>
+            <option value="admin">Administrador</option>
+            <option value="superadmin">Super Admin</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="user-modal-error" style="color: #f87171; font-size: 0.8rem; margin-bottom: 0.75rem; display: none;"></div>
+
+      <div class="c-modal__actions">
+        <button class="c-btn c-btn--outline" onclick="closeUserModal()">Cancelar</button>
+        <button class="c-btn c-btn--primary" onclick="saveUser()" id="user-save-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmación Eliminar -->
+  <div id="user-delete-modal" class="c-modal">
+    <div class="c-modal__content" style="width: 24rem;">
+      <h3 class="c-modal__title" style="color: #f87171;">⚠️ Eliminar Usuario</h3>
+      <p style="color: var(--c-text-muted); margin-bottom: 1rem;">Esta acción es irreversible. ¿Confirmas la eliminación de <strong id="delete-user-name" style="color: white;"></strong>?</p>
+      <input type="hidden" id="delete-user-id">
+      <div class="c-modal__actions">
+        <button class="c-btn c-btn--outline" onclick="closeDeleteModal()">Cancelar</button>
+        <button class="c-btn c-btn--danger" onclick="confirmDeleteUser()">Eliminar</button>
+      </div>
+    </div>
+  </div>
 </Layout>
+
+<script is:inline>
+document.addEventListener('astro:page-load', () => {
+  // ── Helpers ──────────────────────────────────────────────
+  const jwt = () => localStorage.getItem('icdesk_jwt') || '';
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + jwt()
+  });
+
+  const ROLES = {
+    superadmin: { label: 'Super Admin', color: '#c084fc' },
+    admin:      { label: 'Admin',       color: '#60a5fa' },
+    technician: { label: 'Técnico',     color: '#34d399' }
+  };
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  // ── Cargar usuarios ───────────────────────────────────────
+  async function fetchUsers() {
+    try {
+      const res = await fetch('/soporte/users', { headers: authHeaders(), credentials: 'include' });
+      if (res.status === 401) { window.location.href = '/'; return; }
+      const data = await res.json();
+      renderUsers(data.users || []);
+    } catch (e) {
+      document.getElementById('users-table-body').innerHTML =
+        '<tr><td colspan="5" style="text-align:center; color:#f87171;">Error de conexión con el servidor.</td></tr>';
+    }
+  }
+
+  function renderUsers(users) {
+    // Stats
+    const superAdmins = users.filter(u => u.role === 'superadmin').length;
+    const admins      = users.filter(u => u.role === 'admin').length;
+    const techs       = users.filter(u => u.role === 'technician').length;
+
+    document.getElementById('users-stats').innerHTML = `
+      <div class="c-card" style="text-align:center; padding: 1.25rem;">
+        <div style="font-size: 2rem; font-weight: 800; color: #c084fc;">${superAdmins}</div>
+        <div style="color: var(--c-text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem;">Super Admins</div>
+      </div>
+      <div class="c-card" style="text-align:center; padding: 1.25rem;">
+        <div style="font-size: 2rem; font-weight: 800; color: #60a5fa;">${admins}</div>
+        <div style="color: var(--c-text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem;">Administradores</div>
+      </div>
+      <div class="c-card" style="text-align:center; padding: 1.25rem;">
+        <div style="font-size: 2rem; font-weight: 800; color: #34d399;">${techs}</div>
+        <div style="color: var(--c-text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem;">Técnicos</div>
+      </div>
+    `;
+
+    // Tabla
+    if (!users.length) {
+      document.getElementById('users-table-body').innerHTML =
+        '<tr><td colspan="5" style="text-align:center; color:var(--c-text-muted);">No hay usuarios registrados.</td></tr>';
+      return;
+    }
+
+    document.getElementById('users-table-body').innerHTML = users.map(u => {
+      const role = ROLES[u.role] || { label: u.role, color: '#94a3b8' };
+      const initials = (u.name || u.email || 'U').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+      return `
+        <tr>
+          <td>
+            <div style="display:flex; align-items:center; gap: 0.75rem;">
+              <div style="width:36px; height:36px; border-radius:50%; background: linear-gradient(135deg, rgba(59,130,246,0.3), rgba(147,51,234,0.3)); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.8rem; flex-shrink:0; color: white;">
+                ${initials}
+              </div>
+              <span style="font-weight:600; color: white;">${u.name || '—'}</span>
+            </div>
+          </td>
+          <td style="color: var(--c-text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">${u.email}</td>
+          <td>
+            <span class="c-badge" style="background: ${role.color}22; color: ${role.color}; border: 1px solid ${role.color}44;">
+              ${role.label}
+            </span>
+          </td>
+          <td style="color: var(--c-text-muted);">${fmtDate(u.created_at)}</td>
+          <td style="text-align:right;">
+            <div style="display:inline-flex; gap:0.5rem;">
+              <button class="c-btn c-btn--outline" style="padding: 0.35rem 0.75rem; font-size:0.75rem;"
+                onclick='openEditUserModal(${JSON.stringify(u)})'>✏️ Editar</button>
+              <button class="c-btn c-btn--danger" style="padding: 0.35rem 0.75rem; font-size:0.75rem;"
+                onclick='openDeleteModal("${u.id}", "${(u.name || u.email).replace(/"/g, '&quot;')}")'>🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // ── Modal Crear/Editar ─────────────────────────────────────
+  window.openUserModal = function() {
+    document.getElementById('user-modal-title').textContent = 'Nuevo Usuario';
+    document.getElementById('user-edit-id').value = '';
+    document.getElementById('user-name').value = '';
+    document.getElementById('user-email').value = '';
+    document.getElementById('user-pass').value = '';
+    document.getElementById('user-role').value = 'technician';
+    document.getElementById('user-pass-group').style.display = 'block';
+    hideUserError();
+    document.getElementById('user-modal').classList.add('is-visible');
+  };
+
+  window.openEditUserModal = function(u) {
+    document.getElementById('user-modal-title').textContent = 'Editar Usuario';
+    document.getElementById('user-edit-id').value = u.id;
+    document.getElementById('user-name').value = u.name || '';
+    document.getElementById('user-email').value = u.email || '';
+    document.getElementById('user-pass').value = '';
+    document.getElementById('user-role').value = u.role || 'technician';
+    document.getElementById('user-pass-group').style.display = 'none'; // no cambiar pass al editar por seguridad
+    hideUserError();
+    document.getElementById('user-modal').classList.add('is-visible');
+  };
+
+  window.closeUserModal = function() {
+    document.getElementById('user-modal').classList.remove('is-visible');
+  };
+
+  function showUserError(msg) {
+    const el = document.getElementById('user-modal-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function hideUserError() {
+    document.getElementById('user-modal-error').style.display = 'none';
+  }
+
+  window.saveUser = async function() {
+    const id    = document.getElementById('user-edit-id').value;
+    const name  = document.getElementById('user-name').value.trim();
+    const email = document.getElementById('user-email').value.trim();
+    const pass  = document.getElementById('user-pass').value;
+    const role  = document.getElementById('user-role').value;
+    const btn   = document.getElementById('user-save-btn');
+
+    if (!name || !email) { showUserError('El nombre y el usuario/email son obligatorios.'); return; }
+    if (!id && !pass)    { showUserError('La contraseña es obligatoria para nuevos usuarios.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+    hideUserError();
+
+    try {
+      const body = { name, email, role };
+      if (!id && pass) body.password = pass;
+
+      const method = id ? 'PUT' : 'POST';
+      const url    = id ? `/soporte/users/${id}` : '/soporte/users';
+
+      const res  = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body), credentials: 'include' });
+      const data = await res.json();
+
+      if (data.success || data.user) {
+        closeUserModal();
+        fetchUsers();
+      } else {
+        showUserError(data.error || 'Error al guardar el usuario.');
+      }
+    } catch (e) {
+      showUserError('Error de conexión.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Guardar';
+    }
+  };
+
+  // ── Modal Eliminar ────────────────────────────────────────
+  window.openDeleteModal = function(id, name) {
+    document.getElementById('delete-user-id').value = id;
+    document.getElementById('delete-user-name').textContent = name;
+    document.getElementById('user-delete-modal').classList.add('is-visible');
+  };
+
+  window.closeDeleteModal = function() {
+    document.getElementById('user-delete-modal').classList.remove('is-visible');
+  };
+
+  window.confirmDeleteUser = async function() {
+    const id = document.getElementById('delete-user-id').value;
+    try {
+      const res = await fetch(`/soporte/users/${id}`, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        closeDeleteModal();
+        fetchUsers();
+      }
+    } catch (e) { closeDeleteModal(); }
+  };
+
+  // ── Init ──────────────────────────────────────────────────
+  fetchUsers();
+});
+</script>

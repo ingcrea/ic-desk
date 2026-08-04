@@ -60,3 +60,58 @@ body {
 /* Existing Animations */
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+/* Modal nativo SCSS */
+.c-modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+
+  &.is-visible {
+    display: flex;
+  }
+
+  &__content {
+    background-color: #0B0D14;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    width: 24rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  &__title {
+    color: white;
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    margin-top: 0;
+  }
+
+  &__input {
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    padding: 0.625rem;
+    color: white;
+    outline: none;
+    margin-bottom: 1rem;
+    box-sizing: border-box;
+
+    &:focus {
+      border-color: #3b82f6;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+}

@@ -2,15 +2,273 @@
 import Layout from '../layouts/Layout.astro';
 import Sidebar from '../components/Sidebar.astro';
 ---
-<Layout title="Configuracion | IC-Desk Enterprise">
+<Layout title="Configuración | IC-Desk Enterprise">
   <div class="c-layout">
     <div id="space-background" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;" transition:persist>
       <canvas id="starfield"></canvas>
     </div>
-    
-    <Sidebar />
-    
-    <main class="c-main" style="position: relative; z-index: 1;"><header class="c-main__header"><div><h1 class="c-page-header__title" style="margin: 0;">Configuración Global</h1><p class="c-page-header__desc" style="margin: 0;">Ajustes del servidor, retención de logs y parámetros generales.</p></div><button class="c-btn c-btn--primary" onclick="saveConfig()"><span>Guardar Cambios</span></button></header><div class="c-main__content"><div class="c-card" style="max-width: 800px; margin: 0 auto;"><div class="c-card__header"><h2 class="c-card__title">Parámetros del Sistema</h2></div><div class="c-card__body"><div id="config-form"><div style="color:var(--c-text-muted); font-size:13px; text-align:center;">Cargando configuración...</div></div></div></div></div></main>
-  </div>
 
+    <Sidebar />
+
+    <main class="c-main" style="position: relative; z-index: 1;">
+      <header class="c-main__header">
+        <div>
+          <h1 class="c-page-header__title" style="margin: 0;">Configuración Global</h1>
+          <p class="c-page-header__desc" style="margin: 0;">Parámetros del sistema IC-Desk Enterprise.</p>
+        </div>
+        <button class="c-btn c-btn--primary" id="save-all-btn" onclick="saveAllSettings()">
+          <span>💾 Guardar Cambios</span>
+        </button>
+      </header>
+
+      <div class="c-main__content">
+        <div id="settings-loader" style="text-align:center; padding:3rem; color:var(--c-text-muted);">Cargando configuración...</div>
+
+        <div id="settings-sections" style="display:none;">
+
+          <!-- Sección: Plataforma -->
+          <div class="c-card" style="margin-bottom: 1.5rem;">
+            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); display:flex; align-items:center; gap:0.5rem;">
+              <span>🏢</span>
+              <h3 style="margin:0; font-size:0.95rem; font-weight:700; color:white;">Plataforma</h3>
+            </div>
+            <div style="padding: 1.25rem; display:flex; flex-direction:column; gap:1rem;">
+              <div class="c-setting-row">
+                <div>
+                  <div style="color:white; font-weight:600; font-size:0.9rem;">Nombre de la Plataforma</div>
+                  <div style="color:var(--c-text-muted); font-size:0.8rem;">Nombre que se muestra en la interfaz.</div>
+                </div>
+                <input type="text" class="c-modal__input" id="setting-platform_name" style="width:200px; margin:0;" placeholder="IC Desk">
+              </div>
+              <div class="c-setting-row">
+                <div>
+                  <div style="color:white; font-weight:600; font-size:0.9rem;">Email de Soporte</div>
+                  <div style="color:var(--c-text-muted); font-size:0.8rem;">Dirección de contacto principal del equipo técnico.</div>
+                </div>
+                <input type="email" class="c-modal__input" id="setting-support_email" style="width:220px; margin:0;" placeholder="soporte@empresa.com">
+              </div>
+            </div>
+          </div>
+
+          <!-- Sección: Sesiones -->
+          <div class="c-card" style="margin-bottom: 1.5rem;">
+            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); display:flex; align-items:center; gap:0.5rem;">
+              <span>🔗</span>
+              <h3 style="margin:0; font-size:0.95rem; font-weight:700; color:white;">Sesiones de Soporte</h3>
+            </div>
+            <div style="padding: 1.25rem; display:flex; flex-direction:column; gap:1rem;">
+              <div class="c-setting-row">
+                <div>
+                  <div style="color:white; font-weight:600; font-size:0.9rem;">Tiempo de Sesión (minutos)</div>
+                  <div style="color:var(--c-text-muted); font-size:0.8rem;">Minutos de inactividad antes de cerrar la sesión automáticamente.</div>
+                </div>
+                <input type="number" class="c-modal__input" id="setting-session_timeout" style="width:100px; margin:0;" min="5" max="480" placeholder="60">
+              </div>
+              <div class="c-setting-row">
+                <div>
+                  <div style="color:white; font-weight:600; font-size:0.9rem;">Sesiones Simultáneas Máximas</div>
+                  <div style="color:var(--c-text-muted); font-size:0.8rem;">Límite de técnicos conectados al mismo tiempo.</div>
+                </div>
+                <input type="number" class="c-modal__input" id="setting-max_concurrent_sessions" style="width:100px; margin:0;" min="1" max="100" placeholder="10">
+              </div>
+              <div class="c-setting-row">
+                <div>
+                  <div style="color:white; font-weight:600; font-size:0.9rem;">Intervalo de Poll del Agente (segundos)</div>
+                  <div style="color:var(--c-text-muted); font-size:0.8rem;">Frecuencia de sincronización del estado de los agentes.</div>
+                </div>
+                <input type="number" class="c-modal__input" id="setting-agent_poll_interval" style="width:100px; margin:0;" min="2" max="60" placeholder="5">
+              </div>
+            </div>
+          </div>
+
+          <!-- Sección: Seguridad -->
+          <div class="c-card" style="margin-bottom: 1.5rem;">
+            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); display:flex; align-items:center; gap:0.5rem;">
+              <span>🔒</span>
+              <h3 style="margin:0; font-size:0.95rem; font-weight:700; color:white;">Seguridad y Auditoría</h3>
+            </div>
+            <div style="padding: 1.25rem; display:flex; flex-direction:column; gap:1rem;">
+              <div class="c-setting-row">
+                <div>
+                  <div style="color:white; font-weight:600; font-size:0.9rem;">Habilitar Registro de Auditoría</div>
+                  <div style="color:var(--c-text-muted); font-size:0.8rem;">Registrar todas las sesiones de soporte en el log de auditoría.</div>
+                </div>
+                <label class="c-toggle">
+                  <input type="checkbox" id="setting-enable_audit_log">
+                  <span class="c-toggle__slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sección: Info del Sistema -->
+          <div class="c-card">
+            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); display:flex; align-items:center; gap:0.5rem;">
+              <span>ℹ️</span>
+              <h3 style="margin:0; font-size:0.95rem; font-weight:700; color:white;">Información del Sistema</h3>
+            </div>
+            <div style="padding: 1.25rem; display:flex; flex-direction:column; gap:0.75rem;">
+              <div class="c-setting-row">
+                <span style="color:var(--c-text-muted);">Versión del Servidor</span>
+                <span id="sys-version" style="color:white; font-family:'JetBrains Mono',monospace; font-size:0.85rem;">—</span>
+              </div>
+              <div class="c-setting-row">
+                <span style="color:var(--c-text-muted);">Agentes Activos</span>
+                <span id="sys-agents" style="color:white; font-family:'JetBrains Mono',monospace; font-size:0.85rem;">—</span>
+              </div>
+              <div class="c-setting-row">
+                <span style="color:var(--c-text-muted);">Base de Datos</span>
+                <span style="color:#34d399; font-family:'JetBrains Mono',monospace; font-size:0.85rem;">✓ Conectada (icdesk_db)</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div id="settings-success" style="display:none; background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.3); border-radius:0.75rem; padding:1rem; color:#34d399; margin-top:1rem; text-align:center;">
+          ✓ Configuración guardada correctamente.
+        </div>
+      </div>
+    </main>
+  </div>
 </Layout>
+
+<style is:inline>
+.c-setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.c-toggle {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.c-toggle input { opacity: 0; width: 0; height: 0; }
+.c-toggle__slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(255,255,255,0.1);
+  border-radius: 26px;
+  transition: 0.3s;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.c-toggle__slider::before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #94a3b8;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+.c-toggle input:checked + .c-toggle__slider { background-color: rgba(59,130,246,0.4); border-color: #3b82f6; }
+.c-toggle input:checked + .c-toggle__slider::before { transform: translateX(22px); background-color: #60a5fa; }
+</style>
+
+<script is:inline>
+document.addEventListener('astro:page-load', () => {
+  const jwt = () => localStorage.getItem('icdesk_jwt') || '';
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + jwt()
+  });
+
+  async function fetchSettings() {
+    try {
+      const [settingsRes, healthRes, agentesRes] = await Promise.allSettled([
+        fetch('/soporte/settings', { headers: authHeaders(), credentials: 'include' }),
+        fetch('/soporte/health', { headers: authHeaders(), credentials: 'include' }),
+        fetch('/soporte/agentes', { headers: authHeaders(), credentials: 'include' })
+      ]);
+
+      if (settingsRes.status === 'fulfilled' && settingsRes.value.ok) {
+        const d = await settingsRes.value.json();
+        applySettings(d.settings || {});
+      }
+
+      if (agentesRes.status === 'fulfilled' && agentesRes.value.ok) {
+        const d = await agentesRes.value.json();
+        const agents = Array.isArray(d) ? d : Object.values(d);
+        const online = agents.filter(a => a.online || a.status === 'online').length;
+        const el = document.getElementById('sys-agents');
+        if (el) el.textContent = `${online} / ${agents.length} online`;
+      }
+
+      document.getElementById('settings-loader').style.display = 'none';
+      document.getElementById('settings-sections').style.display = 'block';
+
+      // Versión del servidor
+      try {
+        const vRes = await fetch('/soporte/version');
+        const vData = await vRes.json();
+        const verEl = document.getElementById('sys-version');
+        if (verEl && vData.agentVersion) verEl.textContent = vData.agentVersion;
+      } catch(e) {}
+
+    } catch (e) {
+      document.getElementById('settings-loader').textContent = 'Error al cargar la configuración.';
+      document.getElementById('settings-loader').style.color = '#f87171';
+    }
+  }
+
+  function applySettings(s) {
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = val === 'true';
+      else el.value = val || '';
+    };
+
+    setVal('setting-platform_name', s.platform_name);
+    setVal('setting-support_email', s.support_email);
+    setVal('setting-session_timeout', s.session_timeout);
+    setVal('setting-max_concurrent_sessions', s.max_concurrent_sessions);
+    setVal('setting-agent_poll_interval', s.agent_poll_interval);
+    setVal('setting-enable_audit_log', s.enable_audit_log);
+  }
+
+  window.saveAllSettings = async function() {
+    const btn = document.getElementById('save-all-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span>Guardando...</span>';
+
+    const settings = [
+      { key: 'platform_name',           value: document.getElementById('setting-platform_name')?.value },
+      { key: 'support_email',           value: document.getElementById('setting-support_email')?.value },
+      { key: 'session_timeout',         value: document.getElementById('setting-session_timeout')?.value },
+      { key: 'max_concurrent_sessions', value: document.getElementById('setting-max_concurrent_sessions')?.value },
+      { key: 'agent_poll_interval',     value: document.getElementById('setting-agent_poll_interval')?.value },
+      { key: 'enable_audit_log',        value: String(document.getElementById('setting-enable_audit_log')?.checked) }
+    ];
+
+    try {
+      await Promise.all(settings.map(s =>
+        fetch('/soporte/settings', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(s),
+          credentials: 'include'
+        })
+      ));
+
+      const ok = document.getElementById('settings-success');
+      ok.style.display = 'block';
+      setTimeout(() => { ok.style.display = 'none'; }, 3000);
+    } catch (e) {
+      alert('Error al guardar la configuración.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>💾 Guardar Cambios</span>';
+    }
+  };
+
+  fetchSettings();
+});
+</script>

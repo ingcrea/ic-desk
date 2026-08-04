@@ -83,7 +83,20 @@ import Sidebar from '../components/Sidebar.astro';
   </div>
 </div>
 
-  </main>
+  
+<!-- Modal Alias -->
+<div id="alias-modal" class="c-modal">
+  <div class="c-modal__content">
+    <h3 class="c-modal__title">Editar Alias del Equipo</h3>
+    <input type="text" id="alias-input" class="c-modal__input" placeholder="Ej. PC-Direccion" onkeydown="if(event.key==='Enter') window.saveAlias()">
+    <div class="c-modal__actions">
+      <button class="c-btn c-btn--outline" onclick="window.closeAliasModal()">Cancelar</button>
+      <button class="c-btn c-btn--primary" onclick="window.saveAlias()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+</main>
 <script is:inline>
   
   // Fondo Espacial Compuesto
@@ -232,7 +245,7 @@ import Sidebar from '../components/Sidebar.astro';
   let ctx = null;
   if (canvas) ctx = canvas.getContext('2d');
 
-  window.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
     try {
       const res = await fetch('/soporte/agentes', { credentials: 'include' });
       if (res.status === 401 || !res.ok) {
@@ -261,17 +274,29 @@ import Sidebar from '../components/Sidebar.astro';
 
   function renderGrid(agents) {
     const grid = document.getElementById('agents-grid');
-    grid.innerHTML = '';
-    
     if (Object.keys(agents).length === 0) {
       grid.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Buscando agentes activos en la red de soporte...</div>';
       return;
     }
+    if (grid.innerHTML.includes('Buscando agentes activos')) {
+      grid.innerHTML = '';
+    }
+
+    const activeIds = Object.keys(agents).filter(id => agents[id].online);
+    Array.from(grid.children).forEach(child => {
+        if (child.id && child.id.startsWith('agent-card-')) {
+            const id = child.id.replace('agent-card-', '');
+            if (!activeIds.includes(id)) {
+                grid.removeChild(child);
+            }
+        }
+    });
 
     for (const [id, info] of Object.entries(agents)) {
       if (!info.online) continue; // Solo mostrar los agentes en línea
       
       const hw = info.health || {};
+      let savedAlias = localStorage.getItem('alias_' + id) || id;
 
       const isAdmin = info.isAdmin ? '<span class="px-1.5 py-0.5 rounded border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[9px] font-semibold tracking-widest uppercase ml-2">Admin</span>' : '';
       const diskTotal = (hw.disks && hw.disks[0]) ? hw.disks[0].total : 0;
@@ -310,9 +335,11 @@ import Sidebar from '../components/Sidebar.astro';
       
       let officeHtml = '';
       if (hw.officeVersion) {
-        let isOffLic = hw.officeActivation && (hw.officeActivation.includes('Licenciado') || hw.officeActivation.includes('Activado'));
+        let isOffLic = hw.officeActivation && (hw.officeActivation.includes('Licenciado') || hw.officeActivation.includes('Activado') || hw.officeActivation.includes('Suscripci'));
         let oColor = isOffLic ? 'text-emerald-400' : 'text-red-400';
         let oText = hw.officeActivation || 'Estado desconocido';
+        oText = oText.replace(/Suscripci.n/g, 'Suscripción');
+        if (isOffLic && !oText.includes('Activado')) oText = 'Activado ' + oText;
         officeHtml = `
           <div class="flex items-center gap-3 mt-1">
             <div class="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0 border border-orange-500/20">
@@ -326,8 +353,19 @@ import Sidebar from '../components/Sidebar.astro';
         `;
       }
 
-      const card = document.createElement('div');
-      card.className = 'group relative bg-[#0B0D14] border border-white/10 rounded-2xl flex flex-col h-full min-h-[400px] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_60px_-15px_rgba(59,130,246,0.3)] hover:border-blue-500/30 overflow-hidden';
+      const dataHash = JSON.stringify(hw) + savedAlias + isAdmin;
+      let card = document.getElementById('agent-card-' + id);
+      let isNew = false;
+      if (!card) {
+        card = document.createElement('div');
+        card.id = 'agent-card-' + id;
+        card.className = 'group relative bg-[#0B0D14] border border-white/10 rounded-2xl flex flex-col h-full min-h-[400px] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_60px_-15px_rgba(59,130,246,0.3)] hover:border-blue-500/30 overflow-hidden';
+        isNew = true;
+      }
+      
+      if (!isNew && card.dataset.hash === dataHash) continue;
+      card.dataset.hash = dataHash;
+      
       card.innerHTML = `
         <!-- Capa de Bruma (Mist Background Light) -->
         <div class="absolute inset-0 pointer-events-none">
@@ -419,13 +457,13 @@ import Sidebar from '../components/Sidebar.astro';
               En Línea
             </span>
           </div>
-          <button class="relative group/btn flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 border border-blue-400/50 hover:border-blue-300 transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:shadow-[0_0_25px_rgba(37,99,235,0.6)]" onclick="takeControl('${id}')">
+          <button class="relative group/btn flex items-center justify-center gap-2 p-3 rounded-lg bg-blue-600 hover:bg-blue-500 border border-blue-400/50 hover:border-blue-300 transition-all duration-300 active:scale-95 shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:shadow-[0_0_25px_rgba(37,99,235,0.6)]" onclick="takeControl('${id}')">
             <span class="text-[13px] font-black text-white uppercase tracking-wider">Conectar</span>
             <svg class="w-4 h-4 text-white group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
           </button>
         </div>
       `;
-      grid.appendChild(card);
+      if (isNew) grid.appendChild(card);
     }
   }
 
@@ -867,6 +905,34 @@ import Sidebar from '../components/Sidebar.astro';
     }
   });
 
+
+  window.setAlias = function(id, currentAlias) {
+    const modal = document.getElementById('alias-modal');
+    const input = document.getElementById('alias-input');
+    if (modal && input) {
+        window.currentAliasId = id;
+        input.value = currentAlias;
+        modal.classList.add('is-visible');
+        input.focus();
+    }
+  };
+
+  window.closeAliasModal = function() {
+    const modal = document.getElementById('alias-modal');
+    if (modal) modal.classList.remove('is-visible');
+  };
+
+  window.saveAlias = function() {
+    const input = document.getElementById('alias-input');
+    if (input && window.currentAliasId) {
+        const newAlias = input.value.trim();
+        if (newAlias) {
+            localStorage.setItem("alias_" + window.currentAliasId, newAlias);
+            if (typeof fetchAgents === "function") fetchAgents();
+        }
+        window.closeAliasModal();
+    }
+  };
 
   // --- FIN NUEVAS FUNCIONES UI ---
 

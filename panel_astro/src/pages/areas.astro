@@ -2,15 +2,211 @@
 import Layout from '../layouts/Layout.astro';
 import Sidebar from '../components/Sidebar.astro';
 ---
-<Layout title="Areas | IC-Desk Enterprise">
+<Layout title="Áreas | IC-Desk Enterprise">
   <div class="c-layout">
     <div id="space-background" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;" transition:persist>
       <canvas id="starfield"></canvas>
     </div>
-    
+
     <Sidebar />
-    
-    <main class="c-main" style="position: relative; z-index: 1;"><header class="c-main__header"><div><h1 class="c-page-header__title" style="margin: 0;">Áreas de Atención</h1><p class="c-page-header__desc" style="margin: 0;">Clasificación de equipos por departamentos o zonas físicas.</p></div><button class="c-btn c-btn--primary" onclick="openAreaModal()"><span>+ Nueva Área</span></button></header><div class="c-main__content"><div class="c-table-container"><table class="c-table"><thead><tr><th>ID Área</th><th>Nombre del Área</th><th>Descripción / Detalles</th><th style="text-align: right;">Administración</th></tr></thead><tbody id="areas-table-body"><tr><td colspan="4" style="text-align:center; color:var(--c-text-muted);">Cargando áreas...</td></tr></tbody></table></div></div></main>
+
+    <main class="c-main" style="position: relative; z-index: 1;">
+      <header class="c-main__header">
+        <div>
+          <h1 class="c-page-header__title" style="margin: 0;">Áreas de Atención</h1>
+          <p class="c-page-header__desc" style="margin: 0;">Clasificación de equipos por departamentos o zonas físicas.</p>
+        </div>
+        <button class="c-btn c-btn--primary" onclick="openAreaModal()">
+          <span>+ Nueva Área</span>
+        </button>
+      </header>
+
+      <div class="c-main__content">
+        <div class="c-table-container">
+          <table class="c-table">
+            <thead>
+              <tr>
+                <th>ID Área</th>
+                <th>Nombre del Área</th>
+                <th>Descripción / Detalles</th>
+                <th style="text-align: right;">Administración</th>
+              </tr>
+            </thead>
+            <tbody id="areas-table-body">
+              <tr><td colspan="4" style="text-align:center; color:var(--c-text-muted);">Cargando áreas...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   </div>
 
+  <!-- Modal Área -->
+  <div id="area-modal" class="c-modal">
+    <div class="c-modal__content">
+      <h3 class="c-modal__title" id="area-modal-title">Nueva Área</h3>
+      <input type="hidden" id="area-edit-id">
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem;">
+        <div>
+          <label style="color:var(--c-text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.25rem;">Nombre del Área</label>
+          <input type="text" id="area-name" class="c-modal__input" placeholder="Ej. Contabilidad, Almacén...">
+        </div>
+        <div>
+          <label style="color:var(--c-text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.25rem;">Descripción (opcional)</label>
+          <input type="text" id="area-desc" class="c-modal__input" placeholder="Breve descripción del área">
+        </div>
+      </div>
+
+      <div id="area-modal-error" style="color:#f87171; font-size:0.8rem; margin-bottom:0.75rem; display:none;"></div>
+
+      <div class="c-modal__actions">
+        <button class="c-btn c-btn--outline" onclick="closeAreaModal()">Cancelar</button>
+        <button class="c-btn c-btn--primary" onclick="saveArea()" id="area-save-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Eliminar -->
+  <div id="area-delete-modal" class="c-modal">
+    <div class="c-modal__content" style="width:24rem;">
+      <h3 class="c-modal__title" style="color:#f87171;">⚠️ Eliminar Área</h3>
+      <p style="color:var(--c-text-muted); margin-bottom:1rem;">¿Confirmas la eliminación del área <strong id="delete-area-name" style="color:white;"></strong>?</p>
+      <input type="hidden" id="delete-area-id">
+      <div class="c-modal__actions">
+        <button class="c-btn c-btn--outline" onclick="closeAreaDeleteModal()">Cancelar</button>
+        <button class="c-btn c-btn--danger" onclick="confirmDeleteArea()">Eliminar</button>
+      </div>
+    </div>
+  </div>
 </Layout>
+
+<script is:inline>
+document.addEventListener('astro:page-load', () => {
+  const jwt = () => localStorage.getItem('icdesk_jwt') || '';
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + jwt()
+  });
+
+  // ── Cargar áreas ──────────────────────────────────────────
+  async function fetchAreas() {
+    try {
+      const res  = await fetch('/soporte/areas', { headers: authHeaders(), credentials: 'include' });
+      if (res.status === 401) { window.location.href = '/'; return; }
+      const data = await res.json();
+      renderAreas(data.areas || []);
+    } catch (e) {
+      document.getElementById('areas-table-body').innerHTML =
+        '<tr><td colspan="4" style="text-align:center;color:#f87171;">Error de conexión.</td></tr>';
+    }
+  }
+
+  function renderAreas(areas) {
+    if (!areas.length) {
+      document.getElementById('areas-table-body').innerHTML =
+        '<tr><td colspan="4" style="text-align:center;color:var(--c-text-muted);">No hay áreas registradas. Crea la primera área.</td></tr>';
+      return;
+    }
+    document.getElementById('areas-table-body').innerHTML = areas.map((a, i) => `
+      <tr>
+        <td style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--c-text-muted);">#${String(i+1).padStart(3,'0')}</td>
+        <td style="font-weight:600; color:white;">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span style="width:10px; height:10px; border-radius:50%; background: hsl(${(i * 47 + 180) % 360}, 70%, 60%); flex-shrink:0;"></span>
+            ${a.name}
+          </div>
+        </td>
+        <td style="color:var(--c-text-muted);">${a.description || '—'}</td>
+        <td style="text-align:right;">
+          <div style="display:inline-flex; gap:0.5rem;">
+            <button class="c-btn c-btn--outline" style="padding:0.35rem 0.75rem;font-size:0.75rem;"
+              onclick='openEditAreaModal(${JSON.stringify(a)})'>✏️ Editar</button>
+            <button class="c-btn c-btn--danger" style="padding:0.35rem 0.75rem;font-size:0.75rem;"
+              onclick='openAreaDeleteModal("${a.id}", "${(a.name).replace(/"/g,'&quot;')}")'>🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Modal Crear/Editar ────────────────────────────────────
+  window.openAreaModal = function() {
+    document.getElementById('area-modal-title').textContent = 'Nueva Área';
+    document.getElementById('area-edit-id').value = '';
+    document.getElementById('area-name').value = '';
+    document.getElementById('area-desc').value = '';
+    document.getElementById('area-modal-error').style.display = 'none';
+    document.getElementById('area-modal').classList.add('is-visible');
+  };
+
+  window.openEditAreaModal = function(a) {
+    document.getElementById('area-modal-title').textContent = 'Editar Área';
+    document.getElementById('area-edit-id').value = a.id;
+    document.getElementById('area-name').value = a.name || '';
+    document.getElementById('area-desc').value = a.description || '';
+    document.getElementById('area-modal-error').style.display = 'none';
+    document.getElementById('area-modal').classList.add('is-visible');
+  };
+
+  window.closeAreaModal = function() {
+    document.getElementById('area-modal').classList.remove('is-visible');
+  };
+
+  window.saveArea = async function() {
+    const id   = document.getElementById('area-edit-id').value;
+    const name = document.getElementById('area-name').value.trim();
+    const desc = document.getElementById('area-desc').value.trim();
+    const btn  = document.getElementById('area-save-btn');
+    const err  = document.getElementById('area-modal-error');
+
+    if (!name) { err.textContent = 'El nombre del área es obligatorio.'; err.style.display = 'block'; return; }
+    err.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    try {
+      const method = id ? 'PUT' : 'POST';
+      const url    = id ? `/soporte/areas/${id}` : '/soporte/areas';
+      const res    = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify({ name, description: desc }), credentials: 'include' });
+      const data   = await res.json();
+
+      if (data.success) {
+        closeAreaModal();
+        fetchAreas();
+      } else {
+        err.textContent = data.error || 'Error al guardar el área.';
+        err.style.display = 'block';
+      }
+    } catch (e) {
+      err.textContent = 'Error de conexión.';
+      err.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Guardar';
+    }
+  };
+
+  // ── Modal Eliminar ────────────────────────────────────────
+  window.openAreaDeleteModal = function(id, name) {
+    document.getElementById('delete-area-id').value = id;
+    document.getElementById('delete-area-name').textContent = name;
+    document.getElementById('area-delete-modal').classList.add('is-visible');
+  };
+
+  window.closeAreaDeleteModal = function() {
+    document.getElementById('area-delete-modal').classList.remove('is-visible');
+  };
+
+  window.confirmDeleteArea = async function() {
+    const id = document.getElementById('delete-area-id').value;
+    try {
+      const res  = await fetch(`/soporte/areas/${id}`, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+      const data = await res.json();
+      if (data.success) { closeAreaDeleteModal(); fetchAreas(); }
+    } catch (e) { closeAreaDeleteModal(); }
+  };
+
+  fetchAreas();
+});
+</script>

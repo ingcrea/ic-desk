@@ -2,15 +2,217 @@
 import Layout from '../layouts/Layout.astro';
 import Sidebar from '../components/Sidebar.astro';
 ---
-<Layout title="Auditoria | IC-Desk Enterprise">
+<Layout title="Auditoría | IC-Desk Enterprise">
   <div class="c-layout">
     <div id="space-background" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;" transition:persist>
       <canvas id="starfield"></canvas>
     </div>
-    
-    <Sidebar />
-    
-    <main class="c-main" style="position: relative; z-index: 1;"><header class="c-main__header"><div><h1 class="c-page-header__title" style="margin: 0;">Auditoría y Logs</h1><p class="c-page-header__desc" style="margin: 0;">Registro inmutable de actividad de los técnicos y agentes.</p></div><button class="c-btn c-btn--outline" onclick="fetchLogs()"><span>🔄 Refrescar</span></button></header><div class="c-main__content"><div class="c-table-container"><table class="c-table"><thead><tr><th>Fecha/Hora</th><th>Usuario</th><th>Acción</th><th>Detalle</th><th>IP</th></tr></thead><tbody id="logs-table-body"><tr><td colspan="5" style="text-align:center; color:var(--c-text-muted);">Sincronizando logs...</td></tr></tbody></table></div></div></main>
-  </div>
 
+    <Sidebar />
+
+    <main class="c-main" style="position: relative; z-index: 1;">
+      <header class="c-main__header">
+        <div>
+          <h1 class="c-page-header__title" style="margin: 0;">Auditoría y Logs</h1>
+          <p class="c-page-header__desc" style="margin: 0;">Registro de sesiones de soporte activas y recientes.</p>
+        </div>
+        <div style="display:flex; gap: 0.75rem; align-items:center;">
+          <select id="audit-filter" class="c-modal__input" style="width: auto; padding: 0.5rem 0.75rem; cursor:pointer; margin:0;" onchange="filterLogs()">
+            <option value="all">Todas</option>
+            <option value="active">Activas</option>
+            <option value="closed">Cerradas</option>
+          </select>
+          <button class="c-btn c-btn--outline" onclick="fetchLogs()">
+            <span>🔄 Refrescar</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="c-main__content">
+        <!-- Stats -->
+        <div id="audit-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;"></div>
+
+        <!-- Tabla -->
+        <div class="c-table-container">
+          <table class="c-table">
+            <thead>
+              <tr>
+                <th>Equipo / Agente</th>
+                <th>Técnico</th>
+                <th>Inicio de Sesión</th>
+                <th>Duración</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body">
+              <tr><td colspan="5" style="text-align:center; color:var(--c-text-muted);">Cargando sesiones...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Panel de sesiones activas en vivo -->
+        <div id="live-sessions-panel" style="margin-top: 1.5rem; display: none;">
+          <h3 style="color: white; margin: 0 0 1rem 0; font-size: 0.95rem; display:flex; align-items:center; gap: 0.5rem;">
+            <span style="width:8px; height:8px; background: #34d399; border-radius:50%; display:inline-block; animation: pulse 1.5s infinite;"></span>
+            Sesiones Activas en Tiempo Real
+          </h3>
+          <div id="live-sessions-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;"></div>
+        </div>
+      </div>
+    </main>
+  </div>
 </Layout>
+
+<script is:inline>
+document.addEventListener('astro:page-load', () => {
+  const jwt = () => localStorage.getItem('icdesk_jwt') || '';
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + jwt()
+  });
+
+  let allLogs = [];
+  let pollingTimer = null;
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fmtDuration(startMs, endMs) {
+    const ms = (endMs || Date.now()) - new Date(startMs).getTime();
+    if (ms < 0) return '—';
+    const m = Math.floor(ms / 60000);
+    const h = Math.floor(m / 60);
+    if (h > 0) return `${h}h ${m % 60}m`;
+    return `${m}m`;
+  }
+
+  window.fetchLogs = async function() {
+    try {
+      // Cargar sesiones de soporte activas desde /soporte/agentes (ya autenticado)
+      const [agentesRes, sessionsRes] = await Promise.allSettled([
+        fetch('/soporte/agentes', { headers: authHeaders(), credentials: 'include' }),
+        fetch('/soporte/sessions', { headers: authHeaders(), credentials: 'include' })
+      ]);
+
+      let agentes = [];
+      let sessions = [];
+
+      if (agentesRes.status === 'fulfilled' && agentesRes.value.ok) {
+        const d = await agentesRes.value.json();
+        agentes = Array.isArray(d) ? d : Object.values(d);
+      }
+
+      if (sessionsRes.status === 'fulfilled' && sessionsRes.value.ok) {
+        const d = await sessionsRes.value.json();
+        sessions = d.sessions || d || [];
+      }
+
+      renderStats(agentes, sessions);
+      renderSessions(sessions);
+      renderLiveAgents(agentes);
+    } catch (e) {
+      document.getElementById('logs-table-body').innerHTML =
+        '<tr><td colspan="5" style="text-align:center; color:#f87171;">Error de conexión con el servidor.</td></tr>';
+    }
+  };
+
+  function renderStats(agentes, sessions) {
+    const activos   = agentes.filter(a => a.online || a.status === 'online').length;
+    const sesiones  = sessions.length;
+    const enSoporte = sessions.filter(s => s.status === 'active').length;
+    const hoy       = sessions.filter(s => {
+      const d = new Date(s.started_at || s.created_at);
+      const now = new Date();
+      return d.toDateString() === now.toDateString();
+    }).length;
+
+    document.getElementById('audit-stats').innerHTML = `
+      <div class="c-card" style="text-align:center; padding:1.25rem;">
+        <div style="font-size:2rem; font-weight:800; color:#34d399;">${activos}</div>
+        <div style="color:var(--c-text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:0.25rem;">Agentes Online</div>
+      </div>
+      <div class="c-card" style="text-align:center; padding:1.25rem;">
+        <div style="font-size:2rem; font-weight:800; color:#60a5fa;">${enSoporte}</div>
+        <div style="color:var(--c-text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:0.25rem;">En Soporte Activo</div>
+      </div>
+      <div class="c-card" style="text-align:center; padding:1.25rem;">
+        <div style="font-size:2rem; font-weight:800; color:#f59e0b;">${hoy}</div>
+        <div style="color:var(--c-text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:0.25rem;">Sesiones Hoy</div>
+      </div>
+      <div class="c-card" style="text-align:center; padding:1.25rem;">
+        <div style="font-size:2rem; font-weight:800; color:#e2e8f0;">${sesiones}</div>
+        <div style="color:var(--c-text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:0.25rem;">Total Sesiones</div>
+      </div>
+    `;
+  }
+
+  function renderSessions(sessions) {
+    allLogs = sessions;
+    filterLogs();
+  }
+
+  window.filterLogs = function() {
+    const filter = document.getElementById('audit-filter').value;
+    let filtered = allLogs;
+    if (filter === 'active')  filtered = allLogs.filter(s => s.status === 'active');
+    if (filter === 'closed')  filtered = allLogs.filter(s => s.status !== 'active');
+
+    if (!filtered.length) {
+      document.getElementById('logs-table-body').innerHTML =
+        '<tr><td colspan="5" style="text-align:center; color:var(--c-text-muted);">Sin sesiones registradas.</td></tr>';
+      return;
+    }
+
+    document.getElementById('logs-table-body').innerHTML = filtered.map(s => {
+      const isActive = s.status === 'active';
+      const statusBadge = isActive
+        ? '<span class="c-badge c-badge--success" style="animation: pulse 2s infinite;">● Activa</span>'
+        : '<span class="c-badge" style="background:rgba(148,163,184,0.1); color:#94a3b8; border:1px solid rgba(148,163,184,0.2);">Cerrada</span>';
+
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:600; color:white;">${s.agent_hostname || s.agent_id || '—'}</div>
+            <div style="font-size:0.7rem; color:var(--c-text-muted); font-family:'JetBrains Mono',monospace;">${s.agent_id || ''}</div>
+          </td>
+          <td style="color:var(--c-text-muted);">${s.technician_name || s.user_email || '—'}</td>
+          <td style="color:var(--c-text-muted);">${fmtDate(s.started_at || s.created_at)}</td>
+          <td style="color:var(--c-text-muted); font-family:'JetBrains Mono',monospace; font-size:0.8rem;">
+            ${fmtDuration(s.started_at || s.created_at, s.ended_at)}
+          </td>
+          <td>${statusBadge}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderLiveAgents(agentes) {
+    const online = agentes.filter(a => a.online || a.status === 'online');
+    const panel  = document.getElementById('live-sessions-panel');
+    const grid   = document.getElementById('live-sessions-grid');
+
+    if (!online.length) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+
+    grid.innerHTML = online.map(a => `
+      <div class="c-card" style="padding: 1rem; border-left: 3px solid #34d399;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem;">
+          <span style="font-weight:700; color:white; font-size:0.9rem;">${a.alias || a.hostname || a.id}</span>
+          <span class="c-badge c-badge--success" style="font-size:0.65rem;">Online</span>
+        </div>
+        <div style="font-size:0.75rem; color:var(--c-text-muted);">
+          <div>SO: ${a.os || '—'}</div>
+          <div>IP: ${a.ip || '—'}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Auto-refresh cada 30 segundos
+  fetchLogs();
+  pollingTimer = setInterval(fetchLogs, 30000);
+  document.addEventListener('astro:before-preparation', () => clearInterval(pollingTimer));
+});
+</script>
