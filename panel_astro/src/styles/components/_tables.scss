@@ -1,0 +1,70 @@
+.c-table-container {
+  width: 100%;
+  overflow-x: auto;
+  @include glass;
+  border-radius: var(--c-radius-lg);
+}
+
+.c-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  
+  th, td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--c-border);
+  }
+  
+  th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--c-text-muted);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  
+  td {
+    font-size: 0.875rem;
+    color: var(--c-text-main);
+  }
+  
+  tbody tr {
+    transition: background 0.2s;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    
+    &:last-child td {
+      border-bottom: none;
+    }
+  }
+}
+
+.c-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  
+  &--success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--c-success);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+  
+  &--warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--c-warning);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+  
+  &--danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--c-danger);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+}

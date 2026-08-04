@@ -1,0 +1,16 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Sidebar from '../components/Sidebar.astro';
+---
+<Layout title="Empresas | IC-Desk Enterprise">
+  <div class="c-layout">
+    <div id="space-background" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;" transition:persist>
+      <canvas id="starfield"></canvas>
+    </div>
+    
+    <Sidebar />
+    
+    <main class="c-main" style="position: relative; z-index: 1;"><header class="c-main__header"><div><h1 class="c-page-header__title" style="margin: 0;">Gestión de Empresas</h1><p class="c-page-header__desc" style="margin: 0;">Administra corporativos, licencias y permisos de acceso global.</p></div><button class="c-btn c-btn--primary" onclick="openEmpresaModal()"><span>+ Nueva Empresa</span></button></header><div class="c-main__content"><div class="c-table-container"><table class="c-table"><thead><tr><th>ID Empresa</th><th>Razón Social</th><th>Estado Operativo</th><th style="text-align: right;">Administración</th></tr></thead><tbody id="empresas-table-body"><tr><td colspan="4" style="text-align:center; color:var(--c-text-muted);">Sincronizando con base de datos...</td></tr></tbody></table></div></div></main>
+  </div>
+
+</Layout>

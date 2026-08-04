@@ -1,29 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Sidebar from '../components/Sidebar.astro';
 ---
 
 <Layout title="Dashboard | IC-Desk">
+  <div class="c-layout">
   <div id="space-background" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;"><canvas id="starfield"></canvas></div>
 
-  <div id="header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-  <div class="header-brand">
-    <img class="header-logo" src="/soporte/download/logo?v=2.0.1" alt="IC-Desk" />
-    <span class="header-badge">SaaS TI Enterprise</span>
-  </div>
-  
-  <div class="header-nav" style="display: flex; gap: 8px; flex-wrap: wrap;">
-    <button class="btn-action" style="background: var(--accent); color: white;" onclick="location.reload()">💻 Equipos</button>
-    <button class="btn-action" onclick="alert('En desarrollo')">👥 Administrar Usuarios</button>
-    <button class="btn-action" onclick="alert('En desarrollo')">🏢 Empresas y Permisos</button>
-    <button class="btn-action" onclick="alert('En desarrollo')">🏷️ Áreas de Atención</button>
-    <button class="btn-action" onclick="alert('En desarrollo')">⚙️ Configuración Global</button>
-    <button class="btn-action" onclick="alert('En desarrollo')">📊 Auditoría y Logs</button>
-  </div>
-
-  <button class="btn-action" style="max-width: 140px; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4);" onclick="logout()">Desconectar</button>
-</div>
-
-<!-- WRAPPER DASHBOARD -->
+  <Sidebar />
+  <!-- WRAPPER DASHBOARD -->
+  <main class="c-main">
 <div id="dashboard-body" style="display: flex; flex: 1; overflow: hidden; width: 100%;">
   
   <!-- CONTENIDO PRINCIPAL -->
@@ -97,7 +83,8 @@ import Layout from '../layouts/Layout.astro';
   </div>
 </div>
 
-  <script is:inline>
+  </main>
+<script is:inline>
   
   // Fondo Espacial Compuesto
   function initStarfield() {
@@ -236,7 +223,7 @@ import Layout from '../layouts/Layout.astro';
   }
   if (document.readyState === 'complete' || document.readyState === 'interactive') { initStarfield(); } else { window.addEventListener('DOMContentLoaded', initStarfield); }
 
-  let monitoringInterval = null;
+  var monitoringInterval = null;
   let activeWs = null;
   let currentAgentId = null;
   const WS_RELAY_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:6001`;
@@ -362,7 +349,10 @@ import Layout from '../layouts/Layout.astro';
             </div>
 
             <div class="flex justify-between items-start">
-              <h3 class="text-3xl leading-none font-bold text-white tracking-tight truncate pr-4" style="padding-right: 1rem;">${id}</h3>
+              <h3 class="text-3xl leading-none font-bold text-white tracking-tight truncate pr-4" style="padding-right: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;">
+       <span title="${id}">${savedAlias}</span>
+       <button class="c-btn c-btn--icon" style="background:transparent; border:none; padding:0; width:auto; height:auto; font-size:12px; opacity:0.5; margin-left: 10px;" onclick="event.stopPropagation(); window.setAlias('${id}', '${savedAlias}')" title="Asignar Alias">✏️</button>
+     </h3>
               <div class="relative flex items-center justify-center flex-shrink-0" style="margin-top: 6px; margin-right: 8px;">
                 <div class="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-75"></div>
                 <div class="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,1)]"></div>
@@ -882,4 +872,5 @@ import Layout from '../layouts/Layout.astro';
 
 </script>
 
+  </div>
 </Layout>
