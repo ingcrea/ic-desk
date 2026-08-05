@@ -163,9 +163,27 @@ jobs:
               <true/>
               <key>MinimumOSVersion</key>
               <string>16.0</string>
+              <key>CFBundleIcons</key>
+              <dict>
+                  <key>CFBundlePrimaryIcon</key>
+                  <dict>
+                      <key>CFBundleIconFiles</key>
+                      <array>
+                          <string>AppIcon60x60</string>
+                      </array>
+                      <key>UIPrerenderedIcon</key>
+                      <true/>
+                  </dict>
+              </dict>
           </dict>
           </plist>
           EOF
+          
+          # Generar y copiar icono de iOS
+          if [ -f "../logo-texto-blanco.png" ]; then
+            sips -z 120 120 "../logo-texto-blanco.png" --out "Payload/ICDesk.app/AppIcon60x60@2x.png"
+            sips -z 180 180 "../logo-texto-blanco.png" --out "Payload/ICDesk.app/AppIcon60x60@3x.png"
+          fi
           
           # Agregar Provisioning Profile si existe
           if [ -f "ICDesk_USB_AdHoc.mobileprovision" ]; then
