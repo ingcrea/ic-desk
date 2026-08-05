@@ -1,4 +1,7 @@
 import Foundation
+#if os(iOS)
+import UIKit
+#endif
 
 /// `ICDeskWebSocketClient` es el responsable de mantener la comunicación bidireccional en tiempo real
 /// con el servidor central de IC Desk mediante WebSockets.
@@ -92,12 +95,20 @@ public actor ICDeskWebSocketClient {
         osName = "Unknown"
         #endif
         
+        #if os(macOS)
+        let hostDeviceName = Host.current().localizedName ?? "Unknown"
+        let hostDeviceHostname = Host.current().name ?? "Unknown"
+        #else
+        let hostDeviceName = UIDevice.current.name
+        let hostDeviceHostname = ProcessInfo.processInfo.hostName
+        #endif
+        
         let registerMessage = [
             "type": "register",
             "agentId": AgentIdentifier.getAgentID(),
-            "name": Host.current().localizedName ?? "Unknown",
+            "name": hostDeviceName,
             "os": osName,
-            "hostname": Host.current().name ?? "Unknown"
+            "hostname": hostDeviceHostname
         ]
         
         do {
