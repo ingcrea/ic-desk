@@ -172,9 +172,14 @@ jobs:
             cp ICDesk_USB_AdHoc.mobileprovision "Payload/ICDesk.app/embedded.mobileprovision"
           fi
           
-          # Firmar la app
+          # Firmar la app preservando los entitlements
           if security find-identity -v -p codesigning | grep -q "Distribution"; then
-            codesign --force --sign "Apple Distribution" "Payload/ICDesk.app"
+            codesign -d --entitlements :- "Payload/ICDesk.app" > entitlements.plist 2>/dev/null || echo "" > entitlements.plist
+            if [ -s entitlements.plist ]; then
+              codesign --force --sign "Apple Distribution" --entitlements entitlements.plist "Payload/ICDesk.app"
+            else
+              codesign --force --sign "Apple Distribution" "Payload/ICDesk.app"
+            fi
           else
             codesign --force --sign - "Payload/ICDesk.app"
           fi
