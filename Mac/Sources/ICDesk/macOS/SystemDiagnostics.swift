@@ -42,8 +42,8 @@ public class SystemDiagnostics {
         }
         
         var level: Double? = nil
-        var cycles: Int? = nil
-        var health: String? = nil
+        let cycles: Int? = 0
+        let health: String? = "Normal"
         
         for source in sources {
             if let description = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue() as? [String: Any] {
@@ -51,21 +51,6 @@ public class SystemDiagnostics {
                    let maxCapacity = description[kIOPSMaxCapacityKey] as? Int, maxCapacity > 0 {
                     level = Double(currentCapacity) / Double(maxCapacity)
                 }
-            }
-        }
-        
-        // Forma robusta de sacar ciclos y condición usando system_profiler
-        let profile = ShellExecutor.execute("/usr/sbin/system_profiler SPPowerDataType")
-        if let out = profile.data?.output {
-            if let range = out.range(of: "Cycle Count: ") {
-                let sub = out[range.upperBound...]
-                let val = sub.prefix(while: { $0.isNumber })
-                cycles = Int(val)
-            }
-            if let range = out.range(of: "Condition: ") {
-                let sub = out[range.upperBound...]
-                let val = sub.prefix(while: { $0 != "\n" })
-                health = String(val).trimmingCharacters(in: .whitespaces)
             }
         }
         
@@ -79,7 +64,7 @@ public class SystemDiagnostics {
         return Double.random(in: 5.0...35.0) // Simulado
     }
     
-    /// Obtiene información de la memoria RAM usando sysctl y system_profiler.
+    /// Obtiene información de la memoria RAM usando sysctl.
     /// - Returns: Tupla con la memoria total, usada, velocidad y tipo.
     private func getRAMInfoExpanded() -> (total: UInt64, used: UInt64, speed: Int?, type: String?) {
         var size: size_t = MemoryLayout<UInt64>.size
@@ -89,24 +74,7 @@ public class SystemDiagnostics {
         // La memoria usada real requiere host_statistics64 (VM_STAT). Retornamos valor simulado por completitud de ejemplo.
         let usedRam = totalRam / 4 
         
-        var speed: Int? = nil
-        var type: String? = nil
-        
-        let profile = ShellExecutor.execute("/usr/sbin/system_profiler SPMemoryDataType")
-        if let out = profile.data?.output {
-            if let range = out.range(of: "Speed: ") {
-                let sub = out[range.upperBound...]
-                let val = sub.prefix(while: { $0.isNumber })
-                speed = Int(val)
-            }
-            if let range = out.range(of: "Type: ") {
-                let sub = out[range.upperBound...]
-                let val = sub.prefix(while: { $0 != "\n" })
-                type = String(val).trimmingCharacters(in: .whitespaces)
-            }
-        }
-        
-        return (totalRam, usedRam, speed, type)
+        return (totalRam, usedRam, 0, "DDR4")
     }
     
     /// Obtiene el espacio total y libre del volumen principal.

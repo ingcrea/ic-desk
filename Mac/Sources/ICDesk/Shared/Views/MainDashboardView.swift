@@ -177,7 +177,7 @@ public struct MainDashboardView: View {
         }
         // Versión como overlay sobre todo, respetando safe area
         .overlay(alignment: .bottomTrailing) {
-            Text("v4.1.30")
+            Text("v4.1.31")
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.4))
                 .fixedSize()

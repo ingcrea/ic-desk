@@ -30,17 +30,25 @@ public struct AgentIdentifier {
     }
     
 #if os(macOS)
-    /// Obtiene el número de serie físico de la Mac usando IOKit.
+    /// Obtiene el número de serie físico de la Mac usando IOKit, o un UUID persistente.
     private static func getMacSerialNumber() -> String {
         let platformExpert = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice"))
-        defer { IOObjectRelease(platformExpert) }
+        defer { if platformExpert != 0 { IOObjectRelease(platformExpert) } }
         
-        guard platformExpert != 0 else { return "UNKNOWN_MAC" }
-        
-        if let serialNumberAsCFString = IORegistryEntryCreateCFProperty(platformExpert, kIOPlatformSerialNumberKey as CFString, kCFAllocatorDefault, 0)?.takeUnretainedValue() as? String {
-            return serialNumberAsCFString
+        if platformExpert != 0 {
+            if let serialNumberAsCFString = IORegistryEntryCreateCFProperty(platformExpert, kIOPlatformSerialNumberKey as CFString, kCFAllocatorDefault, 0)?.takeUnretainedValue() as? String {
+                return serialNumberAsCFString
+            }
         }
-        return "UNKNOWN_MAC"
+        
+        let defaultsKey = "ICDeskAgentID"
+        if let savedID = UserDefaults.standard.string(forKey: defaultsKey) {
+            return savedID
+        }
+        
+        let newID = UUID().uuidString
+        UserDefaults.standard.set(newID, forKey: defaultsKey)
+        return newID
     }
 #elseif os(iOS)
     /// Obtiene o genera el identificador del dispositivo iOS y lo guarda en Keychain.
