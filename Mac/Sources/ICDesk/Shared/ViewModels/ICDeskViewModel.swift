@@ -46,7 +46,7 @@ public class ICDeskViewModel: ObservableObject {
         Task {
             while true {
                 #if os(macOS)
-                self.currentMetrics = SystemDiagnostics.shared.fetchMetrics()
+                self.currentMetrics = SystemDiagnostics().fetchMetrics()
                 #elseif os(iOS)
                 self.currentMetrics = iOSDiagnostics().fetchMetrics()
                 #endif
