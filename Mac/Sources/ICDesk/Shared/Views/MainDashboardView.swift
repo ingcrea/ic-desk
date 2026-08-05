@@ -95,6 +95,18 @@ public struct MainDashboardView: View {
                 
                 Spacer()
             }
+            
+            // Etiqueta de versión en la esquina inferior derecha
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Text("v4.1.12")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.3))
+                        .padding(8)
+                }
+            }
         }
         .onAppear {
             viewModel.connect()
