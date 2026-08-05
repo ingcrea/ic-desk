@@ -132,10 +132,14 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
+              <key>CFBundleDevelopmentRegion</key>
+              <string>es</string>
               <key>CFBundleExecutable</key>
               <string>ICDesk</string>
               <key>CFBundleIdentifier</key>
               <string>com.icdesk.ingcrea</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
               <key>CFBundleName</key>
               <string>IC Desk</string>
               <key>CFBundleDisplayName</key>
@@ -143,21 +147,23 @@ jobs:
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleShortVersionString</key>
-              <string>4.0.0</string>
+              <string>4.1.8</string>
               <key>CFBundleVersion</key>
-              <string>4.0.0</string>
+              <string>1</string>
               <key>LSRequiresIPhoneOS</key>
               <true/>
               <key>MinimumOSVersion</key>
               <string>16.0</string>
-              <key>CFBundleSupportedPlatforms</key>
-              <array>
-                  <string>iPhoneOS</string>
-              </array>
               <key>UIDeviceFamily</key>
               <array>
                   <integer>1</integer>
                   <integer>2</integer>
+              </array>
+              <key>UILaunchScreen</key>
+              <dict/>
+              <key>UISupportedInterfaceOrientations</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
               </array>
               <key>UIRequiredDeviceCapabilities</key>
               <array>
@@ -239,10 +245,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.1.7
-          name: IC Desk Release v4.1.7 (macOS & iOS)
+          tag_name: v4.1.8
+          name: IC Desk Release v4.1.8 (macOS & iOS)
           body: |
-            ## IC Desk v4.1.7 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
+            ## IC Desk v4.1.8 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
             - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
             - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
