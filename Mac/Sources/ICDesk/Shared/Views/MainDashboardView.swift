@@ -104,11 +104,12 @@ public struct MainDashboardView: View {
         }
         // Versión como overlay sobre todo, respetando safe area
         .overlay(alignment: .bottomTrailing) {
-            Text("v4.1.20")
+            Text("v4.1.21")
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.4))
-                .padding(.trailing, 16)
-                .padding(.bottom, 16)
+                .fixedSize()
+                .padding(.trailing, 48)
+                .padding(.bottom, 24)
         }
         .onAppear {
             viewModel.connect()
