@@ -33,12 +33,13 @@ jobs:
           if [ -f "$CERTIFICATE_PATH" ]; then
             echo "Certificado local encontrado en el repositorio."
             
-            KEYCHAIN_PATH=$HOME/Library/Keychains/login.keychain-db
-            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-            security unlock-keychain -p "" $KEYCHAIN_PATH || security unlock-keychain -p "runner" $KEYCHAIN_PATH || true
+            KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+            security create-keychain -p "github" $KEYCHAIN_PATH
             security default-keychain -s $KEYCHAIN_PATH
+            security unlock-keychain -p "github" $KEYCHAIN_PATH
+            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
 
-            # Descargar certificado intermedio de Apple (WWDR G3 y G6) necesarios para la cadena de confianza
+            # Descargar certificados intermedios
             curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG3.cer -o AppleWWDRCAG3.cer
             security import AppleWWDRCAG3.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
             curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG6.cer -o AppleWWDRCAG6.cer
@@ -46,12 +47,13 @@ jobs:
 
             # Importar el certificado p12
             security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" $KEYCHAIN_PATH || security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "runner" $KEYCHAIN_PATH || true
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "github" $KEYCHAIN_PATH
 
             mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
             cp Mac/ICDesk_USB_AdHoc.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
             
-            echo "Certificados listos y validados en el keychain del sistema."
+            echo "Certificados listos en $KEYCHAIN_PATH"
+            security find-identity -v -p codesigning
           else
             echo "Aviso: Modo compilación estándar sin firma activa."
           fi
@@ -117,14 +119,11 @@ jobs:
           </plist>
           EOF
 
-          # 5. Firma de Código Nactiva (Ad-Hoc o Certificado Apple)
-          if security find-identity -p codesigning | grep -q "Distribution"; then
-            codesign --force --deep --options runtime --sign "Apple Distribution" "IC-Desk.app"
-            echo "Aplicación IC-Desk.app firmada con certificado de distribución."
-          else
-            codesign --force --deep --options runtime --sign - "IC-Desk.app"
-            echo "Aplicación IC-Desk.app firmada con firma Ad-Hoc de desarrollo."
-          fi
+          # 5. Firma de Código Nactiva
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security unlock-keychain -p "github" $KEYCHAIN_PATH
+          codesign --force --deep --options runtime --sign "E50547864E8CC3AD7E82571FA11F6FF43FC167E6" "IC-Desk.app"
+          echo "Aplicación IC-Desk.app firmada con certificado de distribución forzado."
 
           # 6. Crear Instalador Nativo .dmg
           mkdir -p dmg_stage
@@ -213,15 +212,12 @@ jobs:
           fi
           
           # Firmar la app con los entitlements del perfil de provisión
-          if security find-identity -p codesigning | grep -q "Distribution"; then
-            echo "Extrayendo entitlements del perfil de provisión..."
-            security cms -D -i ICDesk_USB_AdHoc.mobileprovision > profile.plist
-            /usr/libexec/PlistBuddy -x -c "Print :Entitlements" profile.plist > entitlements.plist
-            codesign --force --generate-entitlement-der --sign "Apple Distribution" --entitlements entitlements.plist "Payload/ICDesk.app"
-          else
-            echo "Firma Ad-Hoc genérica..."
-            codesign --force --generate-entitlement-der --sign - "Payload/ICDesk.app"
-          fi
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security unlock-keychain -p "github" $KEYCHAIN_PATH
+          echo "Extrayendo entitlements del perfil de provisión..."
+          security cms -D -i ICDesk_USB_AdHoc.mobileprovision > profile.plist
+          /usr/libexec/PlistBuddy -x -c "Print :Entitlements" profile.plist > entitlements.plist
+          codesign --force --generate-entitlement-der --sign "E50547864E8CC3AD7E82571FA11F6FF43FC167E6" --entitlements entitlements.plist "Payload/ICDesk.app"
           
           # Empaquetar
           zip -qr IC-Desk-iOS.ipa Payload
@@ -243,10 +239,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.0.9
-          name: IC Desk Release v4.0.9 (macOS & iOS)
+          tag_name: v4.1.0
+          name: IC Desk Release v4.1.0 (macOS & iOS)
           body: |
-            ## IC Desk v4.0.9 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
+            ## IC Desk v4.1.0 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
             - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
             - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
