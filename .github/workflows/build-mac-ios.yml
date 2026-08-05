@@ -33,7 +33,7 @@ jobs:
           if [ -f "$CERTIFICATE_PATH" ]; then
             echo "Certificado local encontrado en el repositorio."
             
-            KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+            KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
             security create-keychain -p "github" $KEYCHAIN_PATH
             security default-keychain -s $KEYCHAIN_PATH
             security unlock-keychain -p "github" $KEYCHAIN_PATH
@@ -120,7 +120,7 @@ jobs:
           EOF
 
           # 5. Firma de Código Nactiva
-          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
           security unlock-keychain -p "github" $KEYCHAIN_PATH
           codesign --force --deep --options runtime --sign "E50547864E8CC3AD7E82571FA11F6FF43FC167E6" "IC-Desk.app"
           echo "Aplicación IC-Desk.app firmada con certificado de distribución forzado."
@@ -212,7 +212,7 @@ jobs:
           fi
           
           # Firmar la app con los entitlements del perfil de provisión
-          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
           security unlock-keychain -p "github" $KEYCHAIN_PATH
           echo "Extrayendo entitlements del perfil de provisión..."
           security cms -D -i ICDesk_USB_AdHoc.mobileprovision > profile.plist
@@ -239,10 +239,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.1.0
-          name: IC Desk Release v4.1.0 (macOS & iOS)
+          tag_name: v4.1.1
+          name: IC Desk Release v4.1.1 (macOS & iOS)
           body: |
-            ## IC Desk v4.1.0 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
+            ## IC Desk v4.1.1 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
             - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
             - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
