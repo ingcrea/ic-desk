@@ -83,10 +83,17 @@ public class ICDeskViewModel: ObservableObject {
     
     private var isPolling = false
     
-    /// Inicia el proceso de conexión híbrida (Registro HTTP -> Poll -> WebSocket a demanda).
+    /// Inicia el proceso de conexión híbrida:
+    /// 1) Registro HTTP -> Poll de comandos
+    /// 2) WebSocket Relay (siempre conectado para video)
     public func connect() {
         guard !isPolling else { return }
         isPolling = true
+        
+        // Conectar siempre al relay WS para que el panel tenga video disponible
+        Task {
+            await webSocketClient.connect(withPIN: self.supportPIN)
+        }
         
         Task {
             while isPolling {
@@ -96,14 +103,14 @@ public class ICDeskViewModel: ObservableObject {
                 if registered {
                     await MainActor.run { self.sessionState = .connected }
                     
-                    // Loop de polling
+                    // Loop de polling — paridad con Windows IcDesk.cs
                     while isPolling {
                         let ok = await pollCommands()
                         if !ok { break } // Si falla gravemente, salimos para reconectar
                         try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 segundo
                     }
                 } else {
-                    // Falló registro, esperar y reintentar
+                    // Falló registro, esperar 5s y reintentar
                     try? await Task.sleep(nanoseconds: 5_000_000_000)
                 }
             }
@@ -152,35 +159,70 @@ public class ICDeskViewModel: ObservableObject {
         do {
             let (data, res) = try await URLSession.shared.data(for: req)
             if let httpRes = res as? HTTPURLResponse, httpRes.statusCode == 200 {
-                if let jsonString = String(data: data, encoding: .utf8) {
-                    if jsonString.contains("\"command\":null") || jsonString.isEmpty {
-                        return true
-                    }
-                    
-                    if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        if let cmdText = dict["text"] as? String {
-                            await handlePolledCommand(cmdText)
-                        }
+                guard let jsonString = String(data: data, encoding: .utf8),
+                      !jsonString.isEmpty,
+                      !jsonString.contains("\"command\":null") else {
+                    return true // Sin comandos pendientes, todo OK
+                }
+                
+                if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    let cmdId   = dict["id"]   as? String ?? ""
+                    let cmdText = dict["text"] as? String ?? ""
+                    if !cmdId.isEmpty && !cmdText.isEmpty {
+                        let output = await handlePolledCommand(cmdText: cmdText)
+                        // Responder al servidor para evitar el 504
+                        await sendResponse(cmdId: cmdId, output: output)
                     }
                 }
                 return true
             }
         } catch {
-            print("Error en polling: \(error)")
+            print("[IC Desk] Error en polling: \(error)")
         }
         return false
     }
     
-    private func handlePolledCommand(_ cmdText: String) async {
+    /// Envía la respuesta de un comando al servidor — equivale a SendResponse() de C#
+    private func sendResponse(cmdId: String, output: String) async {
+        guard let url = URL(string: "https://desk.ingcrea.com/soporte/response") else { return }
+        
+        let safeOutput = output
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        
+        let payload: [String: Any] = [
+            "id":    self.supportPIN,
+            "cmdId": cmdId,
+            "output": safeOutput
+        ]
+        
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("ICAgentToken2026SecureHashKey", forHTTPHeaderField: "x-ic-agent-token")
+        
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            _ = try await URLSession.shared.data(for: req)
+        } catch {
+            print("[IC Desk] Error enviando respuesta de comando: \(error)")
+        }
+    }
+    
+    /// Procesa el texto del comando y retorna la salida como String (para enviar al servidor).
+    private func handlePolledCommand(cmdText: String) async -> String {
         if cmdText.hasPrefix("__RELAY_START__") {
-            if sessionState != .screenSharing {
-                await MainActor.run { self.sessionState = .screenSharing }
-                // Iniciar WebSocket para streaming
-                await webSocketClient.connect(withPIN: self.supportPIN)
-            }
+            await MainActor.run { self.sessionState = .screenSharing }
+            // El relay WS ya está conectado desde connect(), solo confirmar
+            return "RELAY_ACTIVE"
         } else if cmdText.hasPrefix("__RELAY_STOP__") {
             await MainActor.run { self.sessionState = .connected }
-            await webSocketClient.disconnect()
+            return "RELAY_STOPPED"
+        } else if cmdText.hasPrefix("__ELEVATE__") {
+            return "ELEVATION_NOT_SUPPORTED_IOS"
+        } else {
+            // Comando de texto genérico — en iOS no se puede ejecutar shell
+            return "COMMAND_NOT_SUPPORTED_ON_THIS_PLATFORM"
         }
     }
     
