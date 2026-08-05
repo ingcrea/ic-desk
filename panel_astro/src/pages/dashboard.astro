@@ -520,6 +520,9 @@ import Sidebar from '../components/Sidebar.astro';
 
       const dataView = new DataView(buffer);
       if (dataView.getUint8(0) === 0x49 && dataView.getUint8(1) === 0x43) { // Magic "IC"
+        // Verificar si es H264 ("ICH264") o Legacy JPEG
+        const isH264 = dataView.getUint8(2) === 0x48 && dataView.getUint8(3) === 0x32 && dataView.getUint8(4) === 0x36 && dataView.getUint8(5) === 0x34;
+        
         const w = dataView.getUint16(6);
         const h = dataView.getUint16(8);
         const x = dataView.getUint16(10);
@@ -532,17 +535,56 @@ import Sidebar from '../components/Sidebar.astro';
           canvas.height = sh;
         }
 
-        // Extraer la porción JPEG (a partir del byte 18)
-        const jpegData = new Uint8Array(buffer, 18);
-        const blob = new Blob([jpegData], { type: 'image/jpeg' });
-        const url = URL.createObjectURL(blob);
+        if (isH264) {
+          // Inicializar VideoDecoder si no existe
+          if (!window.h264Decoder) {
+            window.h264Decoder = new VideoDecoder({
+              output: (frame) => {
+                ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+                frame.close();
+              },
+              error: (e) => console.error("[WebCodecs] Error en decodificador H264:", e)
+            });
+            window.h264Decoder.configure({
+              codec: 'avc1.42E01E', // Baseline profile (compatible genérico)
+              optimizeForLatency: true
+            });
+          }
+          
+          const videoData = new Uint8Array(buffer, 18);
+          // Determinar si es keyframe (SPS NALU tipo 7 o IDR NALU tipo 5)
+          // El NALU type está en los 5 bits inferiores del primer byte después del start code (00 00 00 01)
+          let isKeyframe = false;
+          if (videoData.length > 4 && videoData[0] === 0 && videoData[1] === 0 && videoData[2] === 0 && videoData[3] === 1) {
+             const naluType = videoData[4] & 0x1F;
+             if (naluType === 7 || naluType === 5) {
+                 isKeyframe = true;
+             }
+          }
+          
+          try {
+            const chunk = new EncodedVideoChunk({
+              type: isKeyframe ? 'key' : 'delta',
+              timestamp: performance.now() * 1000,
+              data: videoData
+            });
+            window.h264Decoder.decode(chunk);
+          } catch (e) {
+            console.error("[WebCodecs] Chunk H.264 inválido:", e);
+          }
+        } else {
+          // Extraer la porción JPEG legacy (a partir del byte 18)
+          const jpegData = new Uint8Array(buffer, 18);
+          const blob = new Blob([jpegData], { type: 'image/jpeg' });
+          const url = URL.createObjectURL(blob);
 
-        const img = new Image();
-        img.onload = () => {
-          ctx.drawImage(img, x, y, w, h);
-          URL.revokeObjectURL(url); // Liberar memoria
-        };
-        img.src = url;
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, x, y, w, h);
+            URL.revokeObjectURL(url); // Liberar memoria
+          };
+          img.src = url;
+        }
       }
     };
 
