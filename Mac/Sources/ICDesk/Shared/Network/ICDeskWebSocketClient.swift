@@ -11,8 +11,6 @@ public actor ICDeskWebSocketClient {
     private var webSocketTask: URLSessionWebSocketTask?
     /// Sesión HTTP utilizada para gestionar el WebSocket.
     private let urlSession: URLSession
-    /// URL del servidor de IC Desk (ej. desk.ingcrea.com:6001).
-    private let serverURL: URL
     /// Control del tiempo de espera para el backoff exponencial en reconexiones.
     private var reconnectDelay: TimeInterval = 1.0
     /// Límite máximo de espera entre intentos de reconexión (30 segundos).
@@ -32,9 +30,7 @@ public actor ICDeskWebSocketClient {
     }
     
     /// Inicializa un nuevo cliente WebSocket para IC Desk.
-    /// - Parameter urlString: La URL base del servidor.
-    public init(urlString: String = "wss://desk.ingcrea.com:6001/ws") {
-        self.serverURL = URL(string: urlString)!
+    public init() {
         let configuration = URLSessionConfiguration.default
         configuration.httpAdditionalHeaders = [
             "x-ic-agent-token": "ICAgentToken2026SecureHashKey",
@@ -45,8 +41,11 @@ public actor ICDeskWebSocketClient {
     }
     
     /// Conecta el WebSocket al servidor e inicia la escucha de mensajes.
-    public func connect() {
+    public func connect(withPIN pin: String) {
         guard webSocketTask == nil else { return }
+        
+        let urlString = "wss://soporte.sercommx.com?type=agent&id=\(pin)"
+        guard let serverURL = URL(string: urlString) else { return }
         
         onStateChange?(.connecting)
         var request = URLRequest(url: serverURL)
@@ -172,12 +171,8 @@ public actor ICDeskWebSocketClient {
         webSocketTask = nil
         onStateChange?(.error)
         
-        Task {
-            try? await Task.sleep(nanoseconds: UInt64(reconnectDelay * 1_000_000_000))
-            reconnectDelay = min(reconnectDelay * 2, maxReconnectDelay)
-            print("Intentando reconectar en \(reconnectDelay) segundos...")
-            connect()
-        }
+        // En un entorno real se reinyectaría el PIN desde el ViewModel, pero para este caso base
+        // dependerá de que el usuario pulse reconectar o el ViewModel orqueste el loop de reconexión.
     }
     
     /// Envía datos serializables como JSON.

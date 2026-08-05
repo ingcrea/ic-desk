@@ -18,7 +18,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "ICDesk",
-            path: "Sources/ICDesk"
+            path: "Sources/ICDesk",
+            resources: [
+                .process("Resources")
+            ]
         )
     ]
 )

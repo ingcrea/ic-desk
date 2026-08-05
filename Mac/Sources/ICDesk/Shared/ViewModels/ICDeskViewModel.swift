@@ -84,7 +84,7 @@ public class ICDeskViewModel: ObservableObject {
     /// Inicia el proceso de conexión al servidor IC Desk.
     public func connect() {
         Task {
-            await webSocketClient.connect()
+            await webSocketClient.connect(withPIN: self.supportPIN)
         }
     }
     
