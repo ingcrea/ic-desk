@@ -44,7 +44,7 @@ public actor ICDeskWebSocketClient {
     public func connect(withPIN pin: String) {
         guard webSocketTask == nil else { return }
         
-        let urlString = "wss://soporte.sercommx.com?type=agent&id=\(pin)"
+        let urlString = "wss://desk.ingcrea.com?type=agent&id=\(pin)"
         guard let serverURL = URL(string: urlString) else { return }
         
         onStateChange?(.connecting)
