@@ -33,8 +33,7 @@ jobs:
 
           if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
             echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-            echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
-
+            
             security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
             security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
             security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -43,8 +42,9 @@ jobs:
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
             mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-            cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
-
+            # Usar el archivo físico del repositorio para asegurar compatibilidad de dispositivos
+            cp Mac/ICDesk_USB_AdHoc.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+            
             echo "Certificados e identidades de firma de Apple listos."
           else
             echo "Aviso: Modo compilación estándar sin firma activa."
@@ -168,8 +168,8 @@ jobs:
           EOF
           
           # Agregar Provisioning Profile si existe
-          if [ -f "ICDesk_AppStore_Profile.mobileprovision" ]; then
-            cp ICDesk_AppStore_Profile.mobileprovision "Payload/ICDesk.app/embedded.mobileprovision"
+          if [ -f "ICDesk_USB_AdHoc.mobileprovision" ]; then
+            cp ICDesk_USB_AdHoc.mobileprovision "Payload/ICDesk.app/embedded.mobileprovision"
           fi
           
           # Firmar la app
