@@ -639,6 +639,17 @@ import Sidebar from '../components/Sidebar.astro';
           },
           body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
         }).catch(() => {});
+      } else if (msg.type === 'connected') {
+        console.log("El agente se conectó al relay. Solicitando transmisión de video...");
+        statusText.innerHTML = `🔄 <b>Conectando con el Agente...</b> Iniciando túnel de video...`;
+        fetch('/soporte/cmd', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('icdesk_jwt')
+          },
+          body: JSON.stringify({ id: id, cmd: '__RELAY_START__' })
+        }).catch(() => {});
       } else if (msg.type === 'agent_disconnected') {
         spinner.style.display = 'none';
         overlay.style.display = 'flex';
