@@ -3,6 +3,8 @@ import Foundation
 import ScreenCaptureKit
 import CoreGraphics
 import CoreMedia
+import CoreImage
+import CoreVideo
 
 /// `ScreenCaptureManager` administra la captura de pantalla nativa de alta eficiencia en macOS.
 /// Utiliza `ScreenCaptureKit` para lograr un flujo de video estable a 60 FPS.
@@ -41,6 +43,11 @@ public class ScreenCaptureManager: NSObject, SCStreamOutput, SCStreamDelegate {
         stream = nil
         print("Captura de pantalla detenida.")
     }
+    /// Closure que notifica cuando un fotograma comprimido está listo.
+    public var onFrameCaptured: ((Data) -> Void)?
+    
+    private let ciContext = CIContext(options: [.cacheIntermediates: false])
+    private let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
     
     /// Delegado invocado cuando se recibe un nuevo frame de video de ScreenCaptureKit.
     /// - Parameters:
@@ -49,7 +56,33 @@ public class ScreenCaptureManager: NSObject, SCStreamOutput, SCStreamDelegate {
     ///   - type: El tipo de salida (pantalla o audio).
     public func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         guard type == .screen else { return }
-        // TODO: Comprimir y transmitir el sampleBuffer a través del WebSocket (H264/HEVC)
+        
+        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        
+        let width = CVPixelBufferGetWidth(imageBuffer)
+        let height = CVPixelBufferGetHeight(imageBuffer)
+        
+        let ciImage = CIImage(cvPixelBuffer: imageBuffer)
+        guard let jpegData = ciContext.jpegRepresentation(of: ciImage, colorSpace: colorSpace, options: [.compressionQuality: 0.6]) else { return }
+        
+        let w = UInt16(width)
+        let h = UInt16(height)
+        
+        // Empaquetar en protocolo binario Dirty Rectangles (Magic IC)
+        var packet = Data(capacity: 18 + jpegData.count)
+        packet.append(contentsOf: [0x49, 0x43, 0x00, 0x00, 0x00, 0x00]) // Magic "IC" + 4 bytes padding
+        
+        // El panel de Astro lee Big Endian por defecto en DataView
+        packet.append(UInt8(w >> 8)); packet.append(UInt8(w & 0xFF)) // 6: w
+        packet.append(UInt8(h >> 8)); packet.append(UInt8(h & 0xFF)) // 8: h
+        packet.append(UInt8(0)); packet.append(UInt8(0))             // 10: x (0)
+        packet.append(UInt8(0)); packet.append(UInt8(0))             // 12: y (0)
+        packet.append(UInt8(w >> 8)); packet.append(UInt8(w & 0xFF)) // 14: sw (screen width)
+        packet.append(UInt8(h >> 8)); packet.append(UInt8(h & 0xFF)) // 16: sh (screen height)
+        
+        packet.append(jpegData)
+        
+        onFrameCaptured?(packet)
     }
 }
 #endif

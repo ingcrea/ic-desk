@@ -157,10 +157,13 @@ public actor ICDeskWebSocketClient {
     private func handleIncomingMessage(text: String) {
         guard let data = text.data(using: .utf8) else { return }
         do {
-            let command = try JSONDecoder().decode(RemoteCommand.self, from: data)
-            onCommandReceived?(command)
+            if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let typeStr = json["type"] as? String {
+                let command = RemoteCommand(typeStr: typeStr, payload: json)
+                onCommandReceived?(command)
+            }
         } catch {
-            print("Error decodificando comando remoto: \(error)")
+            print("Error parseando comando remoto: \(error)")
         }
     }
     
@@ -177,13 +180,20 @@ public actor ICDeskWebSocketClient {
         }
     }
     
-    /// Envía un mensaje JSON estructurado al servidor a través del WebSocket.
-    /// - Parameter data: Objeto codificable (ej. MetricsResponse o DeviceResponse).
+    /// Envía datos serializables como JSON.
     public func send<T: Codable>(data: T) async throws {
+        guard let webSocketTask = webSocketTask else { return }
         let jsonData = try JSONEncoder().encode(data)
-        guard let jsonString = String(data: jsonData, encoding: .utf8) else { return }
-        
-        let message = URLSessionWebSocketTask.Message.string(jsonString)
-        try await webSocketTask?.send(message)
+        if let jsonString = String(data: jsonData, encoding: .utf8) {
+            let message = URLSessionWebSocketTask.Message.string(jsonString)
+            try await webSocketTask.send(message)
+        }
+    }
+    
+    /// Envía fotogramas de video u otros buffers crudos.
+    public func sendBinary(_ data: Data) async throws {
+        guard let webSocketTask = webSocketTask else { return }
+        let message = URLSessionWebSocketTask.Message.data(data)
+        try await webSocketTask.send(message)
     }
 }

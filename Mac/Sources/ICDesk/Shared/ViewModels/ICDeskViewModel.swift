@@ -1,5 +1,8 @@
 import Foundation
 import Combine
+#if os(macOS)
+import CoreGraphics
+#endif
 
 /// `ICDeskViewModel` es el modelo de vista principal (ViewModel) de la aplicación.
 /// Mantiene el estado reactivo de la UI, orquesta las conexiones de red y
@@ -17,6 +20,11 @@ public class ICDeskViewModel: ObservableObject {
     
     /// Cliente WebSocket encapsulado en el ViewModel.
     private let webSocketClient: ICDeskWebSocketClient
+    
+    #if os(macOS)
+    private let screenManager = ScreenCaptureManager()
+    private let inputManager = InputControlManager()
+    #endif
     
     /// Inicializa el ViewModel principal de IC Desk.
     public init() {
@@ -42,6 +50,14 @@ public class ICDeskViewModel: ObservableObject {
                     self?.handleCommand(command)
                 }
             }
+            
+            #if os(macOS)
+            screenManager.onFrameCaptured = { [weak self] frameData in
+                Task {
+                    try? await self?.webSocketClient.sendBinary(frameData)
+                }
+            }
+            #endif
         }
     }
     
@@ -59,22 +75,56 @@ public class ICDeskViewModel: ObservableObject {
         }
     }
     
-    /// Procesa un `RemoteCommand` recibido del servidor remoto.
-    /// - Parameter command: El comando a ejecutar en el cliente.
     private func handleCommand(_ command: RemoteCommand) {
         print("Comando recibido: \(command.type)")
         switch command.type {
-        case .requestMetrics:
+        case "requestMetrics":
             // TODO: Recolectar métricas usando diagnósticos nativos (SystemDiagnostics/iOSDiagnostics) y enviar de vuelta
             break
-        case .startScreenShare:
+        case "start_stream":
             sessionState = .screenSharing
-            // TODO: Iniciar captura nativa (ScreenCaptureManager/ReplayKit)
-        case .stopScreenShare:
+            #if os(macOS)
+            Task {
+                do {
+                    try await screenManager.startCapture()
+                } catch {
+                    print("Error iniciando captura de pantalla: \(error)")
+                }
+            }
+            #endif
+        case "stop_stream":
             sessionState = .connected
-            // TODO: Detener captura
-        case .injectInput:
-            // TODO: Manejar eventos de teclado y ratón
+            #if os(macOS)
+            Task {
+                do {
+                    try await screenManager.stopCapture()
+                } catch {
+                    print("Error deteniendo captura de pantalla: \(error)")
+                }
+            }
+            #endif
+        case "mouse_move", "mouse_click", "mouse_scroll", "key_press":
+            #if os(macOS)
+            if let payload = command.payload {
+                let action = command.type
+                switch action {
+                case "mouse_move":
+                    if let x = payload["x"] as? Double, let y = payload["y"] as? Double {
+                        inputManager.moveMouse(to: CGPoint(x: x, y: y))
+                    }
+                case "mouse_click":
+                    if let button = payload["button"] as? String {
+                        if button == "left" { inputManager.simulateLeftClick() }
+                        else if button == "right" { inputManager.simulateRightClick() }
+                    }
+                case "key_press":
+                    if let text = payload["text"] as? String {
+                        inputManager.typeText(text)
+                    }
+                default: break
+                }
+            }
+            #endif
             break
         }
     }
