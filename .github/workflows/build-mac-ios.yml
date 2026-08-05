@@ -28,24 +28,25 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           CERTIFICATE_PATH=Mac/icdesk_certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           P12_PASSWORD="S3rC0mMx"
           
           if [ -f "$CERTIFICATE_PATH" ]; then
             echo "Certificado local encontrado en el repositorio."
             
-            security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-            security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            # Crear y desbloquear un keychain temporal predeterminado para el runner
+            security create-keychain -p "actions" build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p "actions" build.keychain
+            security set-keychain-settings -t 3600 -l ~/Library/Keychains/build.keychain
 
-            security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            # Importar el certificado a este keychain que ahora es el predeterminado
+            security import $CERTIFICATE_PATH -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "actions" build.keychain
 
             mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-            # Usar el archivo físico del repositorio para asegurar compatibilidad de dispositivos
             cp Mac/ICDesk_USB_AdHoc.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
             
-            echo "Certificados e identidades de firma de Apple listos."
+            echo "Certificados listos en el keychain por defecto."
           else
             echo "Aviso: Modo compilación estándar sin firma activa."
           fi
@@ -221,10 +222,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.0.1
-          name: IC Desk Release v4.0.1 (macOS & iOS)
+          tag_name: v4.0.2
+          name: IC Desk Release v4.0.2 (macOS & iOS)
           body: |
-            ## IC Desk v4.0.1 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
+            ## IC Desk v4.0.2 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
             - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
             - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
