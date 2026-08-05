@@ -7,10 +7,212 @@ import Sidebar from '../components/Sidebar.astro';
     <div id="space-background" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;" transition:persist>
       <canvas id="starfield"></canvas>
     </div>
-    
+
     <Sidebar />
-    
-    <main class="c-main" style="position: relative; z-index: 1;"><header class="c-main__header"><div><h1 class="c-page-header__title" style="margin: 0;">Gestión de Empresas</h1><p class="c-page-header__desc" style="margin: 0;">Administra corporativos, licencias y permisos de acceso global.</p></div><button class="c-btn c-btn--primary" onclick="openEmpresaModal()"><span>+ Nueva Empresa</span></button></header><div class="c-main__content"><div class="c-table-container"><table class="c-table"><thead><tr><th>ID Empresa</th><th>Razón Social</th><th>Estado Operativo</th><th style="text-align: right;">Administración</th></tr></thead><tbody id="empresas-table-body"><tr><td colspan="4" style="text-align:center; color:var(--c-text-muted);">Sincronizando con base de datos...</td></tr></tbody></table></div></div></main>
+
+    <main class="c-main" style="position: relative; z-index: 1;">
+      <header class="c-main__header">
+        <div>
+          <h1 class="c-page-header__title" style="margin: 0;">Gestión de Empresas</h1>
+          <p class="c-page-header__desc" style="margin: 0;">Administra corporativos, licencias y permisos de acceso global.</p>
+        </div>
+        <button class="c-btn c-btn--primary" onclick="openEmpresaModal()">
+          <span>+ Nueva Empresa</span>
+        </button>
+      </header>
+
+      <div class="c-main__content">
+        <div class="c-table-container">
+          <table class="c-table">
+            <thead>
+              <tr>
+                <th>ID Empresa</th>
+                <th>Razón Social</th>
+                <th>Estado Operativo</th>
+                <th style="text-align: right;">Administración</th>
+              </tr>
+            </thead>
+            <tbody id="empresas-table-body">
+              <tr><td colspan="4" style="text-align:center; color:var(--c-text-muted);">Cargando empresas...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   </div>
 
+  <!-- Modal Empresa -->
+  <div id="empresa-modal" class="c-modal">
+    <div class="c-modal__content">
+      <h3 class="c-modal__title" id="empresa-modal-title">Nueva Empresa</h3>
+      <input type="hidden" id="empresa-edit-id">
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem;">
+        <div>
+          <label style="color:var(--c-text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.25rem;">Razón Social / Nombre</label>
+          <input type="text" id="empresa-name" class="c-modal__input" placeholder="Ej. Corporativo Sercom">
+        </div>
+        <div>
+          <label style="color:var(--c-text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.25rem;">Estado Operativo</label>
+          <select id="empresa-status" class="c-modal__input" style="cursor: pointer;">
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="empresa-modal-error" style="color:#f87171; font-size:0.8rem; margin-bottom:0.75rem; display:none;"></div>
+
+      <div class="c-modal__actions">
+        <button class="c-btn c-btn--outline" onclick="closeEmpresaModal()">Cancelar</button>
+        <button class="c-btn c-btn--primary" onclick="saveEmpresa()" id="empresa-save-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Eliminar -->
+  <div id="empresa-delete-modal" class="c-modal">
+    <div class="c-modal__content" style="width:24rem;">
+      <h3 class="c-modal__title" style="color:#f87171;">⚠️ Eliminar Empresa</h3>
+      <p style="color:var(--c-text-muted); margin-bottom:1rem;">¿Confirmas la eliminación de la empresa <strong id="delete-empresa-name" style="color:white;"></strong>? Esto podría afectar a los usuarios asociados.</p>
+      <input type="hidden" id="delete-empresa-id">
+      <div class="c-modal__actions">
+        <button class="c-btn c-btn--outline" onclick="closeEmpresaDeleteModal()">Cancelar</button>
+        <button class="c-btn c-btn--danger" onclick="confirmDeleteEmpresa()">Eliminar</button>
+      </div>
+    </div>
+  </div>
 </Layout>
+
+<script is:inline>
+document.addEventListener('astro:page-load', () => {
+  const jwt = () => localStorage.getItem('icdesk_jwt') || '';
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + jwt()
+  });
+
+  async function fetchEmpresas() {
+    try {
+      const res = await fetch('/soporte/companies', { headers: authHeaders(), credentials: 'include' });
+      if (res.status === 401) { window.location.href = '/'; return; }
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      renderEmpresas(data.companies || []);
+    } catch (e) {
+      document.getElementById('empresas-table-body').innerHTML =
+        '<tr><td colspan="4" style="text-align:center;color:#f87171;">Error de conexión con el servidor (' + e.message + ').</td></tr>';
+    }
+  }
+
+  function renderEmpresas(empresas) {
+    if (!empresas.length) {
+      document.getElementById('empresas-table-body').innerHTML =
+        '<tr><td colspan="4" style="text-align:center;color:var(--c-text-muted);">No hay empresas registradas.</td></tr>';
+      return;
+    }
+    document.getElementById('empresas-table-body').innerHTML = empresas.map((e, i) => {
+      const isActive = e.status === 'active';
+      const statusBadge = isActive
+        ? '<span class="c-badge c-badge--success">Activo</span>'
+        : '<span class="c-badge" style="background:rgba(148,163,184,0.1); color:#94a3b8; border:1px solid rgba(148,163,184,0.2);">Inactivo</span>';
+
+      return `
+      <tr>
+        <td style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--c-text-muted);">#${String(i+1).padStart(3,'0')}</td>
+        <td style="font-weight:600; color:white;">${e.name}</td>
+        <td>${statusBadge}</td>
+        <td style="text-align:right;">
+          <div style="display:inline-flex; gap:0.5rem;">
+            <button class="c-btn c-btn--outline" style="padding:0.35rem 0.75rem;font-size:0.75rem;"
+              onclick='openEditEmpresaModal(${JSON.stringify(e)})'>✏️ Editar</button>
+            <button class="c-btn c-btn--danger" style="padding:0.35rem 0.75rem;font-size:0.75rem;"
+              onclick='openEmpresaDeleteModal("${e.id}", "${(e.name).replace(/"/g,'&quot;')}")'>🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `}).join('');
+  }
+
+  window.openEmpresaModal = function() {
+    document.getElementById('empresa-modal-title').textContent = 'Nueva Empresa';
+    document.getElementById('empresa-edit-id').value = '';
+    document.getElementById('empresa-name').value = '';
+    document.getElementById('empresa-status').value = 'active';
+    document.getElementById('empresa-modal-error').style.display = 'none';
+    document.getElementById('empresa-modal').classList.add('is-visible');
+  };
+
+  window.openEditEmpresaModal = function(e) {
+    document.getElementById('empresa-modal-title').textContent = 'Editar Empresa';
+    document.getElementById('empresa-edit-id').value = e.id;
+    document.getElementById('empresa-name').value = e.name || '';
+    document.getElementById('empresa-status').value = e.status || 'active';
+    document.getElementById('empresa-modal-error').style.display = 'none';
+    document.getElementById('empresa-modal').classList.add('is-visible');
+  };
+
+  window.closeEmpresaModal = function() {
+    document.getElementById('empresa-modal').classList.remove('is-visible');
+  };
+
+  window.saveEmpresa = async function() {
+    const id     = document.getElementById('empresa-edit-id').value;
+    const name   = document.getElementById('empresa-name').value.trim();
+    const status = document.getElementById('empresa-status').value;
+    const btn    = document.getElementById('empresa-save-btn');
+    const err    = document.getElementById('empresa-modal-error');
+
+    if (!name) { err.textContent = 'El nombre de la empresa es obligatorio.'; err.style.display = 'block'; return; }
+    err.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    try {
+      const method = id ? 'PUT' : 'POST';
+      const url    = id ? `/soporte/companies/${id}` : '/soporte/companies';
+      const res    = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify({ name, status }), credentials: 'include' });
+      const data   = await res.json();
+
+      if (data.success) {
+        closeEmpresaModal();
+        fetchEmpresas();
+      } else {
+        err.textContent = data.error || 'Error al guardar la empresa.';
+        err.style.display = 'block';
+      }
+    } catch (e) {
+      err.textContent = 'Error de conexión.';
+      err.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Guardar';
+    }
+  };
+
+  window.openEmpresaDeleteModal = function(id, name) {
+    document.getElementById('delete-empresa-id').value = id;
+    document.getElementById('delete-empresa-name').textContent = name;
+    document.getElementById('empresa-delete-modal').classList.add('is-visible');
+  };
+
+  window.closeEmpresaDeleteModal = function() {
+    document.getElementById('empresa-delete-modal').classList.remove('is-visible');
+  };
+
+  window.confirmDeleteEmpresa = async function() {
+    const id = document.getElementById('delete-empresa-id').value;
+    try {
+      const res  = await fetch(`/soporte/companies/${id}`, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+      const data = await res.json();
+      if (data.success) { closeEmpresaDeleteModal(); fetchEmpresas(); }
+    } catch (e) { closeEmpresaDeleteModal(); }
+  };
+
+  fetchEmpresas();
+});
+</script>
