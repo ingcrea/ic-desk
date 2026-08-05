@@ -26,17 +26,9 @@ public struct MainDashboardView: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(height: 32)
                     #else
-                    // En iOS, cargar el logo desde Bundle.module de forma segura
-                    if let uiImg = UIImage(named: "logo", in: Bundle.module, with: nil) {
-                        Image(uiImage: uiImg)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(height: 32)
-                    } else {
-                        Image(systemName: "desktopcomputer")
-                            .font(.system(size: 28))
-                            .foregroundColor(.white)
-                    }
+                    // En iOS, Bundle.module NO funciona en executableTarget SPM.
+                    // Intentamos cargar el logo del bundle principal de la app.
+                    LogoView()
                     #endif
                     Text("IC ")
                         .foregroundColor(.white) +
@@ -170,3 +162,30 @@ struct MainDashboardView_Previews: PreviewProvider {
         MainDashboardView()
     }
 }
+
+#if os(iOS)
+/// Vista del logo para iOS — NO usa Bundle.module para evitar crash en executableTarget SPM.
+/// Carga el PNG del bundle principal de la app de forma segura.
+struct LogoView: View {
+    var body: some View {
+        if let uiImg = UIImage(named: "logo") ?? loadLogoFromMainBundle() {
+            Image(uiImage: uiImg)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: 32)
+        } else {
+            Image(systemName: "desktopcomputer")
+                .font(.system(size: 28))
+                .foregroundColor(.white)
+        }
+    }
+    
+    /// Intenta cargar el PNG directamente desde el directorio raíz del bundle
+    private func loadLogoFromMainBundle() -> UIImage? {
+        if let path = Bundle.main.path(forResource: "logo", ofType: "png") {
+            return UIImage(contentsOfFile: path)
+        }
+        return nil
+    }
+}
+#endif
