@@ -111,7 +111,7 @@ public actor ICDeskWebSocketClient {
         let hostDeviceHostname = ProcessInfo.processInfo.hostName
         #endif
         
-        let registerMessage: [String: Any] = [
+        let registerMessage = [
             "type": "agent_register",
             "agentId": AgentIdentifier.getAgentID(),
             "name": hostDeviceName,
