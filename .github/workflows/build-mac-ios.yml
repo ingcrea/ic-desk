@@ -130,13 +130,13 @@ jobs:
       - name: Generar Paquete Instalable de iOS (.ipa)
         run: |
           cd Mac
-          echo "Compilando binario ARM64 para iOS..."
-          xcrun swift build -c release -Xswiftc "-sdk" -Xswiftc "$(xcrun --sdk iphoneos --show-sdk-path)" -Xswiftc "-target" -Xswiftc "arm64-apple-ios16.0"
+          echo "Compilando binario ARM64 para iOS usando xcodebuild..."
+          xcodebuild -scheme ICDesk -destination "generic/platform=iOS" -configuration Release SYMROOT="$(pwd)/.build/ios_build"
           
           mkdir -p "Payload/ICDesk.app"
           
           # Copiar ejecutable compilado
-          cp .build/arm64-apple-ios16.0/release/ICDesk "Payload/ICDesk.app/ICDesk" || cp .build/release/ICDesk "Payload/ICDesk.app/ICDesk"
+          cp .build/ios_build/Release-iphoneos/ICDesk "Payload/ICDesk.app/ICDesk"
           chmod +x "Payload/ICDesk.app/ICDesk"
           
           # Generar Info.plist requerido para iOS
