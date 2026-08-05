@@ -133,10 +133,51 @@ jobs:
           echo "Compilando binario ARM64 para iOS usando xcodebuild..."
           xcodebuild -scheme ICDesk -destination "generic/platform=iOS" -configuration Release SYMROOT="$(pwd)/.build/ios_build"
           
-          mkdir -p Payload
+          mkdir -p "Payload/ICDesk.app"
           
-          echo "Copiando aplicación completa de Xcode..."
-          cp -R .build/ios_build/Release-iphoneos/ICDesk.app Payload/
+          echo "Empaquetando ejecutable..."
+          cp .build/ios_build/Release-iphoneos/ICDesk "Payload/ICDesk.app/ICDesk"
+          chmod +x "Payload/ICDesk.app/ICDesk"
+          
+          # Generar Info.plist requerido para iOS
+          cat << 'EOF' > "Payload/ICDesk.app/Info.plist"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>ICDesk</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.icdesk.ingcrea</string>
+              <key>CFBundleName</key>
+              <string>IC Desk</string>
+              <key>CFBundleDisplayName</key>
+              <string>IC Desk</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>4.0.0</string>
+              <key>CFBundleVersion</key>
+              <string>4.0.0</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>MinimumOSVersion</key>
+              <string>16.0</string>
+              <key>CFBundleIcons</key>
+              <dict>
+                  <key>CFBundlePrimaryIcon</key>
+                  <dict>
+                      <key>CFBundleIconFiles</key>
+                      <array>
+                          <string>AppIcon60x60</string>
+                      </array>
+                      <key>UIPrerenderedIcon</key>
+                      <true/>
+                  </dict>
+              </dict>
+          </dict>
+          </plist>
+          EOF
           
           # Generar y copiar icono de iOS
           if [ -f "../logo-texto-blanco.png" ]; then
