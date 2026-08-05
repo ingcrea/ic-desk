@@ -10,16 +10,23 @@ import Security
 /// y determinista del agente (dispositivo) donde se ejecuta IC Desk.
 public struct AgentIdentifier {
     
-    /// Obtiene el identificador determinista del agente.
+    /// Obtiene el identificador determinista del agente (Truncado a 10 caracteres como en Windows).
     /// - Returns: Una cadena con el identificador único.
     public static func getAgentID() -> String {
+        let rawID: String
         #if os(macOS)
-        return getMacSerialNumber()
+        rawID = getMacSerialNumber()
         #elseif os(iOS)
-        return getIOSIdentifier()
+        rawID = getIOSIdentifier()
         #else
-        return UUID().uuidString
+        rawID = UUID().uuidString
         #endif
+        
+        let cleaned = rawID.replacingOccurrences(of: "-", with: "").lowercased()
+        if cleaned.count > 10 {
+            return String(cleaned.prefix(10))
+        }
+        return cleaned
     }
     
 #if os(macOS)

@@ -26,13 +26,13 @@ public class ICDeskViewModel: ObservableObject {
     private let inputManager = InputControlManager()
     #endif
     
-    /// PIN aleatorio único por sesión
+    /// ID de soporte persistente generado por hardware
     @Published public var supportPIN: String = ""
     
     /// Inicializa el ViewModel principal de IC Desk.
     public init() {
         self.webSocketClient = ICDeskWebSocketClient()
-        self.supportPIN = String(format: "%06d", Int.random(in: 100000...999999))
+        self.supportPIN = AgentIdentifier.getAgentID()
         setupBindings()
         
         // Iniciar el chequeo silencioso de actualizaciones OTA
