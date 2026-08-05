@@ -34,7 +34,6 @@ public actor ICDeskWebSocketClient {
         let configuration = URLSessionConfiguration.default
         configuration.httpAdditionalHeaders = [
             "x-ic-agent-token": "ICAgentToken2026SecureHashKey",
-            "x-ic-api-key": "ICAgentToken2026SecureHashKey",
             "User-Agent": "ICAgent"
         ]
         self.urlSession = URLSession(configuration: configuration)
@@ -50,7 +49,6 @@ public actor ICDeskWebSocketClient {
         onStateChange?(.connecting)
         var request = URLRequest(url: serverURL)
         request.setValue("ICAgentToken2026SecureHashKey", forHTTPHeaderField: "x-ic-agent-token")
-        request.setValue("ICAgentToken2026SecureHashKey", forHTTPHeaderField: "x-ic-api-key")
         request.setValue("ICAgent", forHTTPHeaderField: "User-Agent")
         
         webSocketTask = urlSession.webSocketTask(with: request)
