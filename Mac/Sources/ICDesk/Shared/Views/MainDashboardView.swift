@@ -20,10 +20,16 @@ public struct MainDashboardView: View {
             VStack(spacing: 24) {
                 // Título con acento y Logo
                 HStack(spacing: 8) {
+                    #if os(macOS)
                     Image("logo", bundle: .module)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(height: 32)
+                    #else
+                    Image(systemName: "desktopcomputer")
+                        .font(.system(size: 32))
+                        .foregroundColor(.white)
+                    #endif
                     Text("IC ")
                         .foregroundColor(.white) +
                     Text("Desk")
