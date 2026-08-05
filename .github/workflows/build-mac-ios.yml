@@ -33,12 +33,10 @@ jobs:
           if [ -f "$CERTIFICATE_PATH" ]; then
             echo "Certificado local encontrado en el repositorio."
             
-            # Crear y desbloquear un keychain temporal predeterminado para el runner
-            KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-            security create-keychain -p "actions" $KEYCHAIN_PATH
-            security default-keychain -s $KEYCHAIN_PATH
-            security unlock-keychain -p "actions" $KEYCHAIN_PATH
+            KEYCHAIN_PATH=$HOME/Library/Keychains/login.keychain-db
             security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+            security unlock-keychain -p "" $KEYCHAIN_PATH || security unlock-keychain -p "runner" $KEYCHAIN_PATH || true
+            security default-keychain -s $KEYCHAIN_PATH
 
             # Descargar certificado intermedio de Apple (WWDR G3) necesario para la cadena de confianza
             curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG3.cer -o AppleWWDRCAG3.cer
@@ -46,12 +44,12 @@ jobs:
 
             # Importar el certificado p12
             security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "actions" $KEYCHAIN_PATH
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" $KEYCHAIN_PATH || security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "runner" $KEYCHAIN_PATH || true
 
             mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
             cp Mac/ICDesk_USB_AdHoc.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
             
-            echo "Certificados listos y validados en el keychain."
+            echo "Certificados listos y validados en el keychain del sistema."
           else
             echo "Aviso: Modo compilación estándar sin firma activa."
           fi
@@ -118,10 +116,6 @@ jobs:
           EOF
 
           # 5. Firma de Código Nactiva (Ad-Hoc o Certificado Apple)
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          security list-keychains -d user -s $KEYCHAIN_PATH login.keychain
-          security unlock-keychain -p "actions" $KEYCHAIN_PATH
-          
           if security find-identity -v -p codesigning | grep -q "Distribution"; then
             codesign --force --deep --options runtime --sign "Apple Distribution" "IC-Desk.app"
             echo "Aplicación IC-Desk.app firmada con certificado de distribución."
@@ -217,10 +211,6 @@ jobs:
           fi
           
           # Firmar la app con los entitlements del perfil de provisión
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          security list-keychains -d user -s $KEYCHAIN_PATH login.keychain
-          security unlock-keychain -p "actions" $KEYCHAIN_PATH
-          
           if security find-identity -v -p codesigning | grep -q "Distribution"; then
             echo "Extrayendo entitlements del perfil de provisión..."
             security cms -D -i ICDesk_USB_AdHoc.mobileprovision > profile.plist
@@ -251,10 +241,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.0.7
-          name: IC Desk Release v4.0.7 (macOS & iOS)
+          tag_name: v4.0.8
+          name: IC Desk Release v4.0.8 (macOS & iOS)
           body: |
-            ## IC Desk v4.0.7 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
+            ## IC Desk v4.0.8 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
             - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
             - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
