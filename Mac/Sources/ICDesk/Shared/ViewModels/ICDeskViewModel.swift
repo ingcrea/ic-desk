@@ -24,6 +24,8 @@ public class ICDeskViewModel: ObservableObject {
     #if os(macOS)
     private let screenManager = ScreenCaptureManager()
     private let inputManager = InputControlManager()
+    #elseif os(iOS)
+    private let screenManager = ReplayKitBroadcastManager()
     #endif
     
     /// ID de soporte persistente generado por hardware
@@ -71,7 +73,7 @@ public class ICDeskViewModel: ObservableObject {
                 }
             }
             
-            #if os(macOS)
+            #if os(macOS) || os(iOS)
             screenManager.onFrameCaptured = { [weak self] frameData in
                 Task {
                     try? await self?.webSocketClient.sendBinary(frameData)
@@ -214,10 +216,28 @@ public class ICDeskViewModel: ObservableObject {
     private func handlePolledCommand(cmdText: String) async -> String {
         if cmdText.hasPrefix("__RELAY_START__") {
             await MainActor.run { self.sessionState = .screenSharing }
+            
+            #if os(macOS) || os(iOS)
+            do {
+                try await screenManager.startCapture()
+            } catch {
+                print("Error iniciando captura de pantalla: \(error)")
+            }
+            #endif
+            
             // El relay WS ya está conectado desde connect(), solo confirmar
             return "RELAY_ACTIVE"
         } else if cmdText.hasPrefix("__RELAY_STOP__") {
             await MainActor.run { self.sessionState = .connected }
+            
+            #if os(macOS) || os(iOS)
+            do {
+                try await screenManager.stopCapture()
+            } catch {
+                print("Error deteniendo captura de pantalla: \(error)")
+            }
+            #endif
+            
             return "RELAY_STOPPED"
         } else if cmdText.hasPrefix("__ELEVATE__") {
             return "ELEVATION_NOT_SUPPORTED_IOS"
@@ -242,7 +262,7 @@ public class ICDeskViewModel: ObservableObject {
             break
         case "start_stream":
             sessionState = .screenSharing
-            #if os(macOS)
+            #if os(macOS) || os(iOS)
             Task {
                 do {
                     try await screenManager.startCapture()
@@ -253,7 +273,7 @@ public class ICDeskViewModel: ObservableObject {
             #endif
         case "stop_stream":
             sessionState = .connected
-            #if os(macOS)
+            #if os(macOS) || os(iOS)
             Task {
                 do {
                     try await screenManager.stopCapture()
