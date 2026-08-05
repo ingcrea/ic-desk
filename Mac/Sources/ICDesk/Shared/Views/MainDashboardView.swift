@@ -107,10 +107,12 @@ public struct MainDashboardView: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    Text("v4.1.12")
+                    Text("v4.1.19")
                         .font(.caption2)
                         .foregroundColor(.white.opacity(0.3))
-                        .padding(8)
+                        .fixedSize()  // Evita que se recorte el texto
+                        .padding(.trailing, 12)
+                        .padding(.bottom, 8)
                 }
             }
         }
