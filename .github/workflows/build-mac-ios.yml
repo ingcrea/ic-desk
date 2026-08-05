@@ -86,27 +86,26 @@ jobs:
           # 5. Firma de Código Nactiva
           CERTIFICATE_PATH=icdesk_certificate.p12
           P12_PASSWORD="S3rC0mMx"
-          if [ -f "$CERTIFICATE_PATH" ]; then
-            KEYCHAIN_PATH=$RUNNER_TEMP/build-macos.keychain-db
-            security create-keychain -p "github" $KEYCHAIN_PATH
-            security default-keychain -s $KEYCHAIN_PATH
-            security unlock-keychain -p "github" $KEYCHAIN_PATH
-            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          
+          echo "Asegurando llavero para macOS..."
+          KEYCHAIN_PATH=$RUNNER_TEMP/build-macos.keychain-db
+          security create-keychain -p "github" $KEYCHAIN_PATH
+          security default-keychain -s $KEYCHAIN_PATH
+          security unlock-keychain -p "github" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
 
-            curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG3.cer -o AppleWWDRCAG3.cer
-            security import AppleWWDRCAG3.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
-            curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG6.cer -o AppleWWDRCAG6.cer
-            security import AppleWWDRCAG6.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
+          curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG3.cer -o AppleWWDRCAG3.cer
+          security import AppleWWDRCAG3.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
+          curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG6.cer -o AppleWWDRCAG6.cer
+          security import AppleWWDRCAG6.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
 
-            security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "github" $KEYCHAIN_PATH
+          echo "Importando certificado p12..."
+          ls -la $CERTIFICATE_PATH
+          security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "github" $KEYCHAIN_PATH
 
-            codesign --force --deep --options runtime --sign "E50547864E8CC3AD7E82571FA11F6FF43FC167E6" "IC-Desk.app"
-            echo "Aplicación IC-Desk.app firmada con certificado de distribución forzado."
-          else
-            codesign --force --deep --options runtime --sign - "IC-Desk.app"
-            echo "Aplicación IC-Desk.app firmada con firma Ad-Hoc de desarrollo."
-          fi
+          codesign --force --deep --options runtime --sign "E50547864E8CC3AD7E82571FA11F6FF43FC167E6" "IC-Desk.app"
+          echo "Aplicación IC-Desk.app firmada con certificado de distribución forzado."
 
           # 6. Crear Instalador Nativo .dmg
           mkdir -p dmg_stage
@@ -197,29 +196,28 @@ jobs:
           # Firmar la app con los entitlements del perfil de provisión
           CERTIFICATE_PATH=icdesk_certificate.p12
           P12_PASSWORD="S3rC0mMx"
-          if [ -f "$CERTIFICATE_PATH" ] && [ -f "ICDesk_USB_AdHoc.mobileprovision" ]; then
-            KEYCHAIN_PATH=$RUNNER_TEMP/build-ios.keychain-db
-            security create-keychain -p "github" $KEYCHAIN_PATH
-            security default-keychain -s $KEYCHAIN_PATH
-            security unlock-keychain -p "github" $KEYCHAIN_PATH
-            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          
+          echo "Asegurando llavero para iOS..."
+          KEYCHAIN_PATH=$RUNNER_TEMP/build-ios.keychain-db
+          security create-keychain -p "github" $KEYCHAIN_PATH
+          security default-keychain -s $KEYCHAIN_PATH
+          security unlock-keychain -p "github" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
 
-            curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG3.cer -o AppleWWDRCAG3.cer
-            security import AppleWWDRCAG3.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
-            curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG6.cer -o AppleWWDRCAG6.cer
-            security import AppleWWDRCAG6.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
+          curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG3.cer -o AppleWWDRCAG3.cer
+          security import AppleWWDRCAG3.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
+          curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG6.cer -o AppleWWDRCAG6.cer
+          security import AppleWWDRCAG6.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
 
-            security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "github" $KEYCHAIN_PATH
+          echo "Importando certificado p12..."
+          ls -la $CERTIFICATE_PATH
+          security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "github" $KEYCHAIN_PATH
 
-            echo "Extrayendo entitlements del perfil de provisión..."
-            security cms -D -i ICDesk_USB_AdHoc.mobileprovision > profile.plist
-            /usr/libexec/PlistBuddy -x -c "Print :Entitlements" profile.plist > entitlements.plist
-            codesign --force --generate-entitlement-der --sign "E50547864E8CC3AD7E82571FA11F6FF43FC167E6" --entitlements entitlements.plist "Payload/ICDesk.app"
-          else
-            echo "Firma Ad-Hoc genérica..."
-            codesign --force --generate-entitlement-der --sign - "Payload/ICDesk.app"
-          fi
+          echo "Extrayendo entitlements del perfil de provisión..."
+          security cms -D -i ICDesk_USB_AdHoc.mobileprovision > profile.plist
+          /usr/libexec/PlistBuddy -x -c "Print :Entitlements" profile.plist > entitlements.plist
+          codesign --force --generate-entitlement-der --sign "E50547864E8CC3AD7E82571FA11F6FF43FC167E6" --entitlements entitlements.plist "Payload/ICDesk.app"
           
           # Empaquetar
           zip -qr IC-Desk-iOS.ipa Payload
@@ -241,10 +239,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.1.3
-          name: IC Desk Release v4.1.3 (macOS & iOS)
+          tag_name: v4.1.4
+          name: IC Desk Release v4.1.4 (macOS & iOS)
           body: |
-            ## IC Desk v4.1.3 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
+            ## IC Desk v4.1.4 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
             - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
             - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
