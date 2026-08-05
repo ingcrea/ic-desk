@@ -165,7 +165,8 @@ public class ICDeskViewModel: ObservableObject {
                     return true // Sin comandos pendientes, todo OK
                 }
                 
-                if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let dict = root["command"] as? [String: Any] {
                     let cmdId   = dict["id"]   as? String ?? ""
                     let cmdText = dict["text"] as? String ?? ""
                     if !cmdId.isEmpty && !cmdText.isEmpty {
