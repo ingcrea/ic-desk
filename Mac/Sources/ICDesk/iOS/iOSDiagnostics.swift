@@ -16,7 +16,7 @@ public class iOSDiagnostics {
     public func fetchMetrics() -> SystemMetrics {
         let (batteryLvl, batteryHealth, isCharging) = getBatteryInfo()
         let disk = getDiskSpace()
-        let chargingNote = isCharging ? " \u26a1Cargando" : ""
+        let chargingNote = isCharging ? " Cargando" : ""
         
         return SystemMetrics(
             batteryLevel: batteryLvl,
@@ -45,7 +45,7 @@ public class iOSDiagnostics {
         case 0.80...: health = "Excelente"
         case 0.50...: health = "Buena"
         case 0.20...: health = "Baja"
-        default:      health = "Cr\u00edtica"
+        default:      health = "Critica"
         }
         return (pct, health, isCharging)
     }

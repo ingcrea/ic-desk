@@ -257,10 +257,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.1.26
-          name: IC Desk Release v4.1.26 (macOS & iOS)
+          tag_name: v4.1.27
+          name: IC Desk Release v4.1.27 (macOS & iOS)
           body: |
-            ## IC Desk v4.1.26 - Botón Ver vida de batería en iOS
+            ## IC Desk v4.1.27 - Fix error unicode Swift iOSDiagnostics
             - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
             - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
