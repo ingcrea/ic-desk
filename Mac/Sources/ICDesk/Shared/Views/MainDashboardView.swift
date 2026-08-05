@@ -26,9 +26,17 @@ public struct MainDashboardView: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(height: 32)
                     #else
-                    Image(systemName: "desktopcomputer")
-                        .font(.system(size: 32))
-                        .foregroundColor(.white)
+                    // En iOS, cargar el logo desde Bundle.module de forma segura
+                    if let uiImg = UIImage(named: "logo", in: Bundle.module, with: nil) {
+                        Image(uiImage: uiImg)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 32)
+                    } else {
+                        Image(systemName: "desktopcomputer")
+                            .font(.system(size: 28))
+                            .foregroundColor(.white)
+                    }
                     #endif
                     Text("IC ")
                         .foregroundColor(.white) +
@@ -45,9 +53,26 @@ public struct MainDashboardView: View {
                         .foregroundColor(.white.opacity(0.8))
                     
                     Text(viewModel.supportPIN)
-                        .font(.system(size: 48, weight: .black, design: .monospaced))
+                        .font(.system(size: 36, weight: .black, design: .monospaced))
                         .foregroundColor(.white)
-                        .tracking(4)
+                        .tracking(2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    
+                    // Batería destacada
+                    if let metrics = viewModel.currentMetrics, let battery = metrics.batteryLevel {
+                        HStack(spacing: 6) {
+                            let pct = Int(battery * 100)
+                            let icon = pct > 80 ? "battery.100" : pct > 50 ? "battery.75" : pct > 20 ? "battery.25" : "battery.0"
+                            let color: Color = pct > 50 ? .green : pct > 20 ? .yellow : .red
+                            Image(systemName: icon)
+                                .foregroundColor(color)
+                                .font(.title3)
+                            Text("\(pct)%")
+                                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                                .foregroundColor(color)
+                        }
+                    }
                     
                     SessionStatusView(state: viewModel.sessionState)
                     
@@ -104,7 +129,7 @@ public struct MainDashboardView: View {
         }
         // Versión como overlay sobre todo, respetando safe area
         .overlay(alignment: .bottomTrailing) {
-            Text("v4.1.21")
+            Text("v4.1.23")
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.4))
                 .fixedSize()

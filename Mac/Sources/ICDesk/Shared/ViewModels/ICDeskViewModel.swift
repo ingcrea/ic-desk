@@ -106,8 +106,8 @@ public class ICDeskViewModel: ObservableObject {
                     // Loop de polling — paridad con Windows IcDesk.cs
                     while isPolling {
                         let ok = await pollCommands()
-                        if !ok { break } // Si falla gravemente, salimos para reconectar
-                        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 segundo
+                        if !ok { break }
+                        try? await Task.sleep(nanoseconds: 500_000_000) // 500ms — responde antes del timeout 504
                     }
                 } else {
                     // Falló registro, esperar 5s y reintentar
