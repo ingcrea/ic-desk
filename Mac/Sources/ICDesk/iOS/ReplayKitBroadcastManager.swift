@@ -12,6 +12,7 @@ public class ReplayKitBroadcastManager {
     
     public init() {}
     
+    @MainActor
     public func startCapture() async throws {
         let recorder = RPScreenRecorder.shared()
         guard recorder.isAvailable else {
@@ -47,6 +48,7 @@ public class ReplayKitBroadcastManager {
         }
     }
     
+    @MainActor
     public func stopCapture() async throws {
         return try await withCheckedThrowingContinuation { continuation in
             RPScreenRecorder.shared().stopCapture { error in

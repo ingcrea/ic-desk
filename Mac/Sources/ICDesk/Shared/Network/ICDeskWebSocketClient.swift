@@ -16,6 +16,9 @@ public actor ICDeskWebSocketClient {
     /// Límite máximo de espera entre intentos de reconexión (30 segundos).
     private let maxReconnectDelay: TimeInterval = 30.0
     
+    /// PIN guardado para la reconexión automática
+    private var currentPIN: String = ""
+    
     /// Closure que notifica cambios de estado de la conexión.
     public var onStateChange: ((SessionState) -> Void)?
     /// Closure que notifica la recepción de un comando remoto.
@@ -42,8 +45,10 @@ public actor ICDeskWebSocketClient {
     /// Conecta el WebSocket al servidor e inicia la escucha de mensajes.
     public func connect(withPIN pin: String) {
         guard webSocketTask == nil else { return }
+        self.currentPIN = pin
         
-        let urlString = "wss://desk.ingcrea.com?type=agent&id=\(pin)"
+        let token = "ICAgentToken2026SecureHashKey"
+        let urlString = "wss://desk.ingcrea.com?type=agent&id=\(pin)&agent_token=\(token)"
         guard let serverURL = URL(string: urlString) else { return }
         
         onStateChange?(.connecting)
@@ -169,8 +174,14 @@ public actor ICDeskWebSocketClient {
         webSocketTask = nil
         onStateChange?(.error)
         
-        // En un entorno real se reinyectaría el PIN desde el ViewModel, pero para este caso base
-        // dependerá de que el usuario pulse reconectar o el ViewModel orqueste el loop de reconexión.
+        let pinToReconnect = currentPIN
+        guard !pinToReconnect.isEmpty else { return }
+        
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(reconnectDelay * 1_000_000_000))
+            reconnectDelay = min(reconnectDelay * 2, maxReconnectDelay)
+            self.connect(withPIN: pinToReconnect)
+        }
     }
     
     /// Envía datos serializables como JSON.
