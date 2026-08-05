@@ -38,9 +38,11 @@ jobs:
             security unlock-keychain -p "" $KEYCHAIN_PATH || security unlock-keychain -p "runner" $KEYCHAIN_PATH || true
             security default-keychain -s $KEYCHAIN_PATH
 
-            # Descargar certificado intermedio de Apple (WWDR G3) necesario para la cadena de confianza
+            # Descargar certificado intermedio de Apple (WWDR G3 y G6) necesarios para la cadena de confianza
             curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG3.cer -o AppleWWDRCAG3.cer
             security import AppleWWDRCAG3.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
+            curl -sL https://developer.apple.com/certificationauthority/AppleWWDRCAG6.cer -o AppleWWDRCAG6.cer
+            security import AppleWWDRCAG6.cer -k $KEYCHAIN_PATH -T /usr/bin/codesign
 
             # Importar el certificado p12
             security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
@@ -116,7 +118,7 @@ jobs:
           EOF
 
           # 5. Firma de Código Nactiva (Ad-Hoc o Certificado Apple)
-          if security find-identity -v -p codesigning | grep -q "Distribution"; then
+          if security find-identity -p codesigning | grep -q "Distribution"; then
             codesign --force --deep --options runtime --sign "Apple Distribution" "IC-Desk.app"
             echo "Aplicación IC-Desk.app firmada con certificado de distribución."
           else
@@ -211,7 +213,7 @@ jobs:
           fi
           
           # Firmar la app con los entitlements del perfil de provisión
-          if security find-identity -v -p codesigning | grep -q "Distribution"; then
+          if security find-identity -p codesigning | grep -q "Distribution"; then
             echo "Extrayendo entitlements del perfil de provisión..."
             security cms -D -i ICDesk_USB_AdHoc.mobileprovision > profile.plist
             /usr/libexec/PlistBuddy -x -c "Print :Entitlements" profile.plist > entitlements.plist
@@ -241,10 +243,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.0.8
-          name: IC Desk Release v4.0.8 (macOS & iOS)
+          tag_name: v4.0.9
+          name: IC Desk Release v4.0.9 (macOS & iOS)
           body: |
-            ## IC Desk v4.0.8 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
+            ## IC Desk v4.0.9 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
             - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
             - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
           files: |
