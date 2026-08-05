@@ -89,6 +89,8 @@ jobs:
               <string>13.0</string>
               <key>NSHighResolutionCapable</key>
               <true/>
+              <key>NSAppSleepDisabled</key>
+              <true/>
               <key>NSPrincipalClass</key>
               <string>NSApplication</string>
           </dict>
@@ -180,6 +182,13 @@ jobs:
               <key>UIRequiredDeviceCapabilities</key>
               <array>
                   <string>arm64</string>
+              </array>
+              <key>UIBackgroundModes</key>
+              <array>
+                  <string>audio</string>
+                  <string>voip</string>
+                  <string>fetch</string>
+                  <string>processing</string>
               </array>
               <key>CFBundleIcons</key>
               <dict>

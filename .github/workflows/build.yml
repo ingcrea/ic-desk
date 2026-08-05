@@ -64,7 +64,20 @@ jobs:
           name: IC-Desk-Windows-Exe
           path: Windows/IC-Desk.exe
 
-      - name: Subir a SV1 (Temporalmente a ubuntu)
+  deploy-windows:
+    name: Desplegar en SV1
+    needs: build-windows
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Descargar Binario de Windows
+        uses: actions/download-artifact@v4
+        with:
+          name: IC-Desk-Windows-Exe
+          path: Windows/
+
+      - name: Subir a SV1
         uses: appleboy/scp-action@master
         with:
           host: 129.159.72.206

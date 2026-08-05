@@ -81,7 +81,13 @@ public actor ICDeskWebSocketClient {
                 try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 segundos
                 guard webSocketTask != nil else { break }
                 let pingMessage = ["type": "heartbeat", "timestamp": "\(Date().timeIntervalSince1970)"]
-                try? await send(data: pingMessage)
+                do {
+                    try await send(data: pingMessage)
+                } catch {
+                    print("Error en heartbeat, forzando reconexión: \(error)")
+                    handleDisconnectAndReconnect()
+                    break
+                }
             }
         }
     }
@@ -190,7 +196,13 @@ public actor ICDeskWebSocketClient {
         let jsonData = try JSONEncoder().encode(data)
         if let jsonString = String(data: jsonData, encoding: .utf8) {
             let message = URLSessionWebSocketTask.Message.string(jsonString)
-            try await webSocketTask.send(message)
+            do {
+                try await webSocketTask.send(message)
+            } catch {
+                print("Error al enviar WebSocket, reconectando: \(error)")
+                handleDisconnectAndReconnect()
+                throw error
+            }
         }
     }
     
