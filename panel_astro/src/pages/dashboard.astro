@@ -573,7 +573,7 @@ import Sidebar from '../components/Sidebar.astro';
             console.error("[WebCodecs] Chunk H.264 inválido:", e);
           }
         } else {
-          // Extraer la porción JPEG legacy (a partir del byte 18)
+          // Extraer la porción JPEG legacy de C# (a partir del byte 18)
           const jpegData = new Uint8Array(buffer, 18);
           const blob = new Blob([jpegData], { type: 'image/jpeg' });
           const url = URL.createObjectURL(blob);
@@ -585,6 +585,21 @@ import Sidebar from '../components/Sidebar.astro';
           };
           img.src = url;
         }
+      } else {
+        // No tiene cabecera "IC" — es una trama RAW completa JPEG desde macOS/iOS
+        const blob = new Blob([buffer], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
+        
+        const img = new Image();
+        img.onload = () => {
+          if (canvas.width !== img.width || canvas.height !== img.height) {
+            canvas.width = img.width;
+            canvas.height = img.height;
+          }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+        };
+        img.src = url;
       }
     };
 
