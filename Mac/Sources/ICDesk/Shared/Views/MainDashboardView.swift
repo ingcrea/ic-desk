@@ -51,34 +51,63 @@ public struct MainDashboardView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                     
-                    // Batería con salud cualitativa
+                    // Batería: macOS muestra telemetría real, iOS muestra enlace a Ajustes
+                    #if os(macOS)
                     if let metrics = viewModel.currentMetrics, let battery = metrics.batteryLevel {
                         let pct = Int(battery * 100)
-                        let health = metrics.batteryHealth ?? "Desconocida"
+                        let health = metrics.batteryHealth ?? "N/D"
                         let isCharging = health.contains("Cargando")
-                        let healthClean = health.replacingOccurrences(of: " \u26a1Cargando", with: "")
                         let icon = isCharging ? "battery.100.bolt" :
                             (pct > 80 ? "battery.100" : pct > 50 ? "battery.75" : pct > 20 ? "battery.25" : "battery.0")
                         let color: Color = pct > 50 ? .green : pct > 20 ? .yellow : .red
-                        
                         VStack(spacing: 2) {
                             HStack(spacing: 6) {
-                                Image(systemName: icon)
-                                    .foregroundColor(color)
-                                    .font(.title3)
+                                Image(systemName: icon).foregroundColor(color).font(.title3)
                                 Text("\(pct)%")
                                     .font(.system(size: 18, weight: .semibold, design: .monospaced))
                                     .foregroundColor(color)
-                                if isCharging {
-                                    Text("\u26a1")
-                                        .foregroundColor(.yellow)
-                                }
                             }
-                            Text(healthClean)
-                                .font(.caption)
-                                .foregroundColor(color.opacity(0.85))
+                            Text(health).font(.caption).foregroundColor(color.opacity(0.85))
                         }
                     }
+                    #else
+                    // iOS: Apple no expone la vida de batería a apps de terceros.
+                    // Ofrecemos un botón que lleva directo a Ajustes → Batería → Estado.
+                    Button(action: {
+                        // App-Prefs abre la sección de batería en Ajustes del sistema
+                        if let url = URL(string: "App-Prefs:root=BATTERY_USAGE&path=BATTERY_HEALTH"),
+                           UIApplication.shared.canOpenURL(url) {
+                            UIApplication.shared.open(url)
+                        } else if let url = URL(string: "App-Prefs:root=BATTERY_USAGE"),
+                                  UIApplication.shared.canOpenURL(url) {
+                            UIApplication.shared.open(url)
+                        } else if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.fill")
+                                .foregroundColor(.green)
+                            Text("Ver vida de batería")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.85))
+                            Image(systemName: "arrow.up.right.square")
+                                .foregroundColor(.white.opacity(0.5))
+                                .font(.caption)
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.white.opacity(0.08))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                )
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    #endif
                     
                     // Error de conexión visible
                     if viewModel.sessionState == .error {
@@ -148,7 +177,7 @@ public struct MainDashboardView: View {
         }
         // Versión como overlay sobre todo, respetando safe area
         .overlay(alignment: .bottomTrailing) {
-            Text("v4.1.25")
+            Text("v4.1.26")
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.4))
                 .fixedSize()
