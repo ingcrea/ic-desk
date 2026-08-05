@@ -51,19 +51,46 @@ public struct MainDashboardView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                     
-                    // Batería destacada
+                    // Batería con salud cualitativa
                     if let metrics = viewModel.currentMetrics, let battery = metrics.batteryLevel {
-                        HStack(spacing: 6) {
-                            let pct = Int(battery * 100)
-                            let icon = pct > 80 ? "battery.100" : pct > 50 ? "battery.75" : pct > 20 ? "battery.25" : "battery.0"
-                            let color: Color = pct > 50 ? .green : pct > 20 ? .yellow : .red
-                            Image(systemName: icon)
-                                .foregroundColor(color)
-                                .font(.title3)
-                            Text("\(pct)%")
-                                .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                                .foregroundColor(color)
+                        let pct = Int(battery * 100)
+                        let health = metrics.batteryHealth ?? "Desconocida"
+                        let isCharging = health.contains("Cargando")
+                        let healthClean = health.replacingOccurrences(of: " \u26a1Cargando", with: "")
+                        let icon = isCharging ? "battery.100.bolt" :
+                            (pct > 80 ? "battery.100" : pct > 50 ? "battery.75" : pct > 20 ? "battery.25" : "battery.0")
+                        let color: Color = pct > 50 ? .green : pct > 20 ? .yellow : .red
+                        
+                        VStack(spacing: 2) {
+                            HStack(spacing: 6) {
+                                Image(systemName: icon)
+                                    .foregroundColor(color)
+                                    .font(.title3)
+                                Text("\(pct)%")
+                                    .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(color)
+                                if isCharging {
+                                    Text("\u26a1")
+                                        .foregroundColor(.yellow)
+                                }
+                            }
+                            Text(healthClean)
+                                .font(.caption)
+                                .foregroundColor(color.opacity(0.85))
                         }
+                    }
+                    
+                    // Error de conexión visible
+                    if viewModel.sessionState == .error {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("Error: no se pudo conectar con desk.ingcrea.com")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.horizontal, 8)
                     }
                     
                     SessionStatusView(state: viewModel.sessionState)
@@ -121,7 +148,7 @@ public struct MainDashboardView: View {
         }
         // Versión como overlay sobre todo, respetando safe area
         .overlay(alignment: .bottomTrailing) {
-            Text("v4.1.23")
+            Text("v4.1.25")
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.4))
                 .fixedSize()

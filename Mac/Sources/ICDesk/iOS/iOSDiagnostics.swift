@@ -14,24 +14,40 @@ public class iOSDiagnostics {
     /// Recopila las métricas de estado de un dispositivo iOS.
     /// - Returns: Objeto `SystemMetrics` con los datos recopilados.
     public func fetchMetrics() -> SystemMetrics {
-        let battery = getBatteryLevel()
+        let (batteryLvl, batteryHealth, isCharging) = getBatteryInfo()
         let disk = getDiskSpace()
+        let chargingNote = isCharging ? " \u26a1Cargando" : ""
         
         return SystemMetrics(
-            batteryLevel: battery,
-            cpuUsage: 0.0, // Restringido en iOS sin APIs privadas, se asume 0 para compatibilidad
-            totalRAM: 0, // Restringido, requiere host_statistics
+            batteryLevel: batteryLvl,
+            batteryHealth: batteryHealth + chargingNote,
+            cpuUsage: 0.0,
+            totalRAM: 0,
             usedRAM: 0,
             totalDiskSpace: disk.total,
             freeDiskSpace: disk.free
         )
     }
     
-    /// Obtiene el nivel de batería del iPhone o iPad.
-    /// - Returns: Un double entre 0.0 y 1.0 representando la carga.
-    private func getBatteryLevel() -> Double? {
+    /// Obtiene el nivel de carga y el estado de la batería del iPhone.
+    /// - Returns: Tupla con nivel (0.0-1.0), texto de salud cualitativo y estado de carga.
+    private func getBatteryInfo() -> (level: Double?, health: String, isCharging: Bool) {
         let level = UIDevice.current.batteryLevel
-        return level < 0 ? nil : Double(level)
+        let state = UIDevice.current.batteryState
+        
+        let isCharging = (state == .charging || state == .full)
+        
+        guard level >= 0 else { return (nil, "Desconocida", isCharging) }
+        
+        let pct = Double(level)
+        let health: String
+        switch pct {
+        case 0.80...: health = "Excelente"
+        case 0.50...: health = "Buena"
+        case 0.20...: health = "Baja"
+        default:      health = "Cr\u00edtica"
+        }
+        return (pct, health, isCharging)
     }
     
     /// Inspecciona el sistema de archivos del contenedor de la App para calcular espacio.
