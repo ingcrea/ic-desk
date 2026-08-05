@@ -80,7 +80,7 @@ public actor ICDeskWebSocketClient {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 segundos
                 guard webSocketTask != nil else { break }
-                let pingMessage = ["type": "heartbeat", "timestamp": "\(Date().timeIntervalSince1970)"]
+                let pingMessage = ["type": "ping", "timestamp": "\(Date().timeIntervalSince1970)"]
                 do {
                     try await send(data: pingMessage)
                 } catch {
@@ -111,8 +111,8 @@ public actor ICDeskWebSocketClient {
         let hostDeviceHostname = ProcessInfo.processInfo.hostName
         #endif
         
-        let registerMessage = [
-            "type": "register",
+        let registerMessage: [String: Any] = [
+            "type": "agent_register",
             "agentId": AgentIdentifier.getAgentID(),
             "name": hostDeviceName,
             "os": osName,
