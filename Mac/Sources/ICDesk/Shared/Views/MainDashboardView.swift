@@ -18,10 +18,13 @@ public struct MainDashboardView: View {
                 .edgesIgnoringSafeArea(.all)
             
             VStack(spacing: 24) {
-                // Título con acento
-                HStack(spacing: 0) {
-                    Text("IC ")
+                // Título con acento y Logo
+                HStack(spacing: 8) {
+                    Image(systemName: "desktopcomputer")
+                        .font(.system(size: 32))
                         .foregroundColor(.white)
+                    Text("IC ")
+                        .foregroundColor(.white) +
                     Text("Desk")
                         .foregroundColor(Color.blue)
                 }
@@ -34,7 +37,7 @@ public struct MainDashboardView: View {
                         .font(.headline)
                         .foregroundColor(.white.opacity(0.8))
                     
-                    Text(generateSupportPIN())
+                    Text(viewModel.supportPIN)
                         .font(.system(size: 48, weight: .black, design: .monospaced))
                         .foregroundColor(.white)
                         .tracking(4)
@@ -77,10 +80,14 @@ public struct MainDashboardView: View {
                         .foregroundColor(.white.opacity(0.7))
                         .padding(.bottom, 4)
                     
-                    DiagnosticFeatureRow(icon: "cpu", text: "Telemetría de CPU y Memoria")
-                    DiagnosticFeatureRow(icon: "battery.100", text: "Salud y Ciclos de Batería")
-                    DiagnosticFeatureRow(icon: "internaldrive", text: "Monitoreo de Discos")
-                    DiagnosticFeatureRow(icon: "network", text: "Conexión Segura (WSS)")
+                    if let metrics = viewModel.currentMetrics {
+                        DiagnosticFeatureRow(icon: "battery.100", text: String(format: "Batería: %.0f%%", (metrics.batteryLevel ?? 0) * 100))
+                        DiagnosticFeatureRow(icon: "internaldrive", text: String(format: "Espacio Libre: %.1f GB", Double(metrics.freeDiskSpace) / 1_000_000_000))
+                        DiagnosticFeatureRow(icon: "network", text: "WSS: " + (viewModel.sessionState == .connected ? "Estable" : "Desconectado"))
+                    } else {
+                        Text("Recopilando telemetría...")
+                            .foregroundColor(.gray)
+                    }
                 }
                 .padding(.horizontal, 30)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -88,16 +95,15 @@ public struct MainDashboardView: View {
                 Spacer()
             }
         }
+        .onAppear {
+            viewModel.connect()
+            #if os(iOS)
+            UIApplication.shared.isIdleTimerDisabled = true
+            #endif
+        }
         #if os(macOS)
         .frame(minWidth: 450, minHeight: 650)
         #endif
-    }
-    
-    /// Genera un PIN aleatorio de 6 dígitos para soporte.
-    private func generateSupportPIN() -> String {
-        // En un caso real esto se obtendría del servidor o se sincronizaría.
-        let randomPIN = String(format: "%06d", Int.random(in: 100000...999999))
-        return randomPIN
     }
 }
 

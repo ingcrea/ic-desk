@@ -26,13 +26,33 @@ public class ICDeskViewModel: ObservableObject {
     private let inputManager = InputControlManager()
     #endif
     
+    /// PIN aleatorio único por sesión
+    @Published public var supportPIN: String = ""
+    
     /// Inicializa el ViewModel principal de IC Desk.
     public init() {
         self.webSocketClient = ICDeskWebSocketClient()
+        self.supportPIN = String(format: "%06d", Int.random(in: 100000...999999))
         setupBindings()
         
         // Iniciar el chequeo silencioso de actualizaciones OTA
         OTAUpdater.shared.start()
+        
+        // Iniciar recolección periódica de métricas
+        startMetricsLoop()
+    }
+    
+    private func startMetricsLoop() {
+        Task {
+            while true {
+                #if os(macOS)
+                self.currentMetrics = SystemDiagnostics.shared.fetchMetrics()
+                #elseif os(iOS)
+                self.currentMetrics = iOSDiagnostics().fetchMetrics()
+                #endif
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // Cada 2 segundos
+            }
+        }
     }
     
     /// Configura los callbacks del cliente WebSocket para reaccionar a cambios
