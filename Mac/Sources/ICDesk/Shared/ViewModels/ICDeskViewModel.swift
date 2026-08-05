@@ -81,10 +81,106 @@ public class ICDeskViewModel: ObservableObject {
         }
     }
     
-    /// Inicia el proceso de conexión al servidor IC Desk.
+    private var isPolling = false
+    
+    /// Inicia el proceso de conexión híbrida (Registro HTTP -> Poll -> WebSocket a demanda).
     public func connect() {
+        guard !isPolling else { return }
+        isPolling = true
+        
         Task {
-            await webSocketClient.connect(withPIN: self.supportPIN)
+            while isPolling {
+                await MainActor.run { self.sessionState = .connecting }
+                
+                let registered = await registerAgent()
+                if registered {
+                    await MainActor.run { self.sessionState = .connected }
+                    
+                    // Loop de polling
+                    while isPolling {
+                        let ok = await pollCommands()
+                        if !ok { break } // Si falla gravemente, salimos para reconectar
+                        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 segundo
+                    }
+                } else {
+                    // Falló registro, esperar y reintentar
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                }
+            }
+        }
+    }
+    
+    private func registerAgent() async -> Bool {
+        let urlString = "https://desk.ingcrea.com/soporte/register"
+        guard let url = URL(string: urlString) else { return false }
+        
+        let hostName = ProcessInfo.processInfo.hostName
+        let payload: [String: Any] = [
+            "id": self.supportPIN,
+            "hostname": hostName,
+            "isAdmin": false,
+            "health": NSNull()
+        ]
+        
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("ICAgentToken2026SecureHashKey", forHTTPHeaderField: "x-ic-agent-token")
+        
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, res) = try await URLSession.shared.data(for: req)
+            if let httpRes = res as? HTTPURLResponse, httpRes.statusCode == 200 {
+                return true
+            }
+        } catch {
+            print("Error registrando agente HTTP: \(error)")
+        }
+        return false
+    }
+    
+    private func pollCommands() async -> Bool {
+        let ts = Int(Date().timeIntervalSince1970 * 1000)
+        let urlString = "https://desk.ingcrea.com/soporte/poll?id=\(self.supportPIN)&_t=\(ts)"
+        guard let url = URL(string: urlString) else { return false }
+        
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.timeoutInterval = 4.0
+        req.setValue("ICAgentToken2026SecureHashKey", forHTTPHeaderField: "x-ic-agent-token")
+        
+        do {
+            let (data, res) = try await URLSession.shared.data(for: req)
+            if let httpRes = res as? HTTPURLResponse, httpRes.statusCode == 200 {
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    if jsonString.contains("\"command\":null") || jsonString.isEmpty {
+                        return true
+                    }
+                    
+                    if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        if let cmdText = dict["text"] as? String {
+                            await handlePolledCommand(cmdText)
+                        }
+                    }
+                }
+                return true
+            }
+        } catch {
+            print("Error en polling: \(error)")
+        }
+        return false
+    }
+    
+    private func handlePolledCommand(_ cmdText: String) async {
+        if cmdText.hasPrefix("__RELAY_START__") {
+            if sessionState != .screenSharing {
+                await MainActor.run { self.sessionState = .screenSharing }
+                // Iniciar WebSocket para streaming
+                await webSocketClient.connect(withPIN: self.supportPIN)
+            }
+        } else if cmdText.hasPrefix("__RELAY_STOP__") {
+            await MainActor.run { self.sessionState = .connected }
+            await webSocketClient.disconnect()
         }
     }
     
