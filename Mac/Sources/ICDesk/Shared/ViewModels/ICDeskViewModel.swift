@@ -126,6 +126,8 @@ public class ICDeskViewModel: ObservableObject {
             }
             #endif
             break
+        default:
+            print("Comando desconocido o no soportado: \(command.type)")
         }
     }
 }

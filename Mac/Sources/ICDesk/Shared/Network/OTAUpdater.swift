@@ -105,7 +105,7 @@ public class OTAUpdater {
     /// Monta el DMG, copia el archivo .app a la ruta actual y reinicia la aplicación.
     private func installFromDMG(dmgPath: String) {
         let appBundlePath = Bundle.main.bundlePath
-        let appName = URL(fileURLWithPath: appBundlePath).lastPathComponent
+        let _ = URL(fileURLWithPath: appBundlePath).lastPathComponent
         let mountPoint = "/Volumes/ICDeskUpdate"
         
         let script = """
