@@ -101,20 +101,14 @@ public struct MainDashboardView: View {
                 
                 Spacer()
             }
-            
-            // Etiqueta de versión en la esquina inferior derecha
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Text("v4.1.19")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.3))
-                        .fixedSize()  // Evita que se recorte el texto
-                        .padding(.trailing, 12)
-                        .padding(.bottom, 8)
-                }
-            }
+        }
+        // Versión como overlay sobre todo, respetando safe area
+        .overlay(alignment: .bottomTrailing) {
+            Text("v4.1.20")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.4))
+                .padding(.trailing, 16)
+                .padding(.bottom, 16)
         }
         .onAppear {
             viewModel.connect()
