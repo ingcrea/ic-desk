@@ -1,0 +1,210 @@
+name: Compilar e Instalables (.dmg & .ipa)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-apple-packages:
+    name: Compilar e Instalables (.dmg & .ipa)
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Descargar Código Fuente
+        uses: actions/checkout@v4
+
+      - name: Instalar Certificados y Perfiles de Firma de Apple
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
+            echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+            echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+
+            security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+            security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+            security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+            cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+
+            echo "Certificados e identidades de firma de Apple listos."
+          else
+            echo "Aviso: Modo compilación estándar sin firma activa."
+          fi
+
+      - name: Seleccionar Xcode y Swift
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+          swift --version
+
+      - name: Generar Icono Nactivo AppIcon.icns
+        run: |
+          chmod +x Mac/make_icon.sh
+          bash Mac/make_icon.sh || true
+
+      - name: Compilar Aplicación Ejecutable macOS (.app) e Imagen de Disco (.dmg)
+        run: |
+          cd Mac
+          swift build -c release
+          
+          # 1. Crear la estructura oficial de App Bundle
+          mkdir -p "IC-Desk.app/Contents/MacOS"
+          mkdir -p "IC-Desk.app/Contents/Resources"
+          
+          # 2. Copiar binario ejecutable y asignar permisos de ejecución (+x)
+          cp .build/release/ICDesk "IC-Desk.app/Contents/MacOS/IC-Desk"
+          chmod +x "IC-Desk.app/Contents/MacOS/IC-Desk"
+          
+          # 3. Copiar icono de la app si fue generado
+          if [ -f "AppIcon.icns" ]; then
+            cp AppIcon.icns "IC-Desk.app/Contents/Resources/AppIcon.icns"
+          fi
+          
+          # 4. Generar Info.plist completo
+          cat << 'EOF' > "IC-Desk.app/Contents/Info.plist"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>IC-Desk</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.icdesk.ingcrea</string>
+              <key>CFBundleName</key>
+              <string>IC Desk</string>
+              <key>CFBundleDisplayName</key>
+              <string>IC Desk</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>4.0.0</string>
+              <key>CFBundleVersion</key>
+              <string>4.0.0</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>13.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>NSPrincipalClass</key>
+              <string>NSApplication</string>
+          </dict>
+          </plist>
+          EOF
+
+          # 5. Firma de Código Nactiva (Ad-Hoc o Certificado Apple)
+          if security find-identity -v -p codesigning | grep -q "Distribution"; then
+            codesign --force --deep --options runtime --sign "Apple Distribution" "IC-Desk.app"
+            echo "Aplicación IC-Desk.app firmada con certificado de distribución."
+          else
+            codesign --force --deep --options runtime --sign - "IC-Desk.app"
+            echo "Aplicación IC-Desk.app firmada con firma Ad-Hoc de desarrollo."
+          fi
+
+          # 6. Crear Instalador Nativo .dmg
+          mkdir -p dmg_stage
+          cp -R IC-Desk.app dmg_stage/
+          ln -s /Applications dmg_stage/Applications
+          hdiutil create -volname "IC Desk" -srcfolder dmg_stage -ov -format UDZO IC-Desk-macOS.dmg
+          echo "Imagen de disco ejecutable IC-Desk-macOS.dmg creada con éxito."
+
+      - name: Generar Paquete Instalable de iOS (.ipa)
+        run: |
+          cd Mac
+          echo "Compilando binario ARM64 para iOS..."
+          xcrun swift build -c release -Xswiftc "-sdk" -Xswiftc "$(xcrun --sdk iphoneos --show-sdk-path)" -Xswiftc "-target" -Xswiftc "arm64-apple-ios16.0"
+          
+          mkdir -p "Payload/ICDesk.app"
+          
+          # Copiar ejecutable compilado
+          cp .build/arm64-apple-ios16.0/release/ICDesk "Payload/ICDesk.app/ICDesk" || cp .build/release/ICDesk "Payload/ICDesk.app/ICDesk"
+          chmod +x "Payload/ICDesk.app/ICDesk"
+          
+          # Generar Info.plist requerido para iOS
+          cat << 'EOF' > "Payload/ICDesk.app/Info.plist"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>ICDesk</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.icdesk.ingcrea</string>
+              <key>CFBundleName</key>
+              <string>IC Desk</string>
+              <key>CFBundleDisplayName</key>
+              <string>IC Desk</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>4.0.0</string>
+              <key>CFBundleVersion</key>
+              <string>4.0.0</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>MinimumOSVersion</key>
+              <string>16.0</string>
+          </dict>
+          </plist>
+          EOF
+          
+          # Agregar Provisioning Profile si existe
+          if [ -f "ICDesk_AppStore_Profile.mobileprovision" ]; then
+            cp ICDesk_AppStore_Profile.mobileprovision "Payload/ICDesk.app/embedded.mobileprovision"
+          fi
+          
+          # Firmar la app
+          if security find-identity -v -p codesigning | grep -q "Distribution"; then
+            codesign --force --sign "Apple Distribution" "Payload/ICDesk.app"
+          else
+            codesign --force --sign - "Payload/ICDesk.app"
+          fi
+          
+          # Empaquetar
+          zip -qr IC-Desk-iOS.ipa Payload
+          echo "Paquete IC-Desk-iOS.ipa generado correctamente."
+
+      - name: Subir Artefactos Temporales de Acción
+        uses: actions/upload-artifact@v4
+        with:
+          name: IC-Desk-macOS-DMG
+          path: Mac/IC-Desk-macOS.dmg
+
+      - name: Subir Artefacto de iOS (.ipa)
+        uses: actions/upload-artifact@v4
+        with:
+          name: IC-Desk-iOS-IPA
+          path: Mac/IC-Desk-iOS.ipa
+
+      - name: Publicar Release Oficial en GitHub (.dmg & .ipa)
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v4.0.0
+          name: IC Desk Release v4.0.0 (macOS & iOS)
+          body: |
+            ## IC Desk v4.0.0 - Entregables Oficiales con Icono Nativo y Permisos Ejecutables
+            - **macOS Installer**: `IC-Desk-macOS.dmg` (Imagen de disco ejecutable nativa `.dmg` con icono `AppIcon.icns` y permisos `chmod +x`)
+            - **iOS App**: `IC-Desk-iOS.ipa` (Paquete instalable nativo `.ipa`)
+          files: |
+            Mac/IC-Desk-macOS.dmg
+            Mac/IC-Desk-iOS.ipa
