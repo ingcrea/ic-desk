@@ -46,7 +46,8 @@ object ICDeskApiClient {
             val url = URL("$BASE_URL/poll?id=$agentId&_t=$ts")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.readTimeout = 4000
+            connection.readTimeout = 35000
+            connection.connectTimeout = 10000
             connection.setRequestProperty("x-ic-agent-token", SECURE_HASH_KEY)
 
             if (connection.responseCode == 200) {

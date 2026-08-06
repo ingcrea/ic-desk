@@ -30,9 +30,15 @@ class ICDeskViewModel : ViewModel() {
         viewModelScope.launch {
             _sessionState.value = SessionState.DISCONNECTED
             
-            // Generar Agent ID nativo de Android
-            val agentId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-            _supportPIN.value = agentId
+            // Generar o recuperar PIN de 10 dígitos nativo
+            val prefs = context.getSharedPreferences("ICDeskPrefs", Context.MODE_PRIVATE)
+            var agentId = prefs.getString("agent_id", null)
+            if (agentId == null) {
+                agentId = (1..10).map { (0..9).random() }.joinToString("")
+                prefs.edit().putString("agent_id", agentId).apply()
+            }
+            val finalAgentId = agentId!!
+            _supportPIN.value = finalAgentId
 
             val model = Build.MODEL
             val osVersion = "Android ${Build.VERSION.RELEASE}"
@@ -42,7 +48,7 @@ class ICDeskViewModel : ViewModel() {
             // Loop de Conexión
             while (isPolling) {
                 val registered = ICDeskApiClient.registerAgent(
-                    agentId = agentId,
+                    agentId = finalAgentId,
                     hostname = model,
                     os = osVersion
                 )
@@ -51,18 +57,18 @@ class ICDeskViewModel : ViewModel() {
                     _sessionState.value = SessionState.CONNECTED
                     
                     // Conectar WebSocket paralelo para streaming binario y comandos de alta velocidad
-                    com.sercommx.icdesk.network.ICDeskWebSocketClient.connect(agentId, model)
+                    com.sercommx.icdesk.network.ICDeskWebSocketClient.connect(finalAgentId, model)
                     
                     // Iniciar Long Polling
                     while (isPolling) {
-                        val cmd = ICDeskApiClient.pollCommands(agentId)
+                        val cmd = ICDeskApiClient.pollCommands(finalAgentId)
                         if (cmd != null) {
                             val cmdId = cmd.optString("id")
                             val cmdText = cmd.optString("text")
                             
                             if (cmdId.isNotEmpty() && cmdText.isNotEmpty()) {
                                 val output = handlePolledCommand(cmdText)
-                                ICDeskApiClient.sendResponse(agentId, cmdId, output)
+                                ICDeskApiClient.sendResponse(finalAgentId, cmdId, output)
                             }
                         } else {
                             // Si falló por timeout normal (sin comandos), intentará de nuevo rápido,
