@@ -27,9 +27,16 @@ import Sidebar from '../components/Sidebar.astro';
 <!-- LIVE SESSION VIEW -->
 <div id="session-view">
   <div id="session-sidebar">
-    <div id="session-info-header">
-      <h2 id="session-title">Consola de Control</h2>
-      <span class="agent-status" style="background: rgba(16, 185, 129, 0.15); color: var(--success); font-size: 11px; padding: 3px 8px; border-radius: 99px;">Transmisión Cifrada</span>
+    <div id="session-info-header" style="position: relative; display: flex; flex-direction: column; gap: 4px;">
+      <button onclick="toggleSidebar()" style="position: absolute; right: 0; top: 0; background: transparent; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; opacity: 0.7; hover: opacity: 1;">✕</button>
+      <h2 id="session-title" style="margin: 0; padding-right: 24px; font-size: 1.1rem; color: #f8fafc; font-weight: 700; display: flex; flex-direction: column; gap: 2px;">
+        <span id="session-alias" style="color: white; font-size: 1.2rem;">Consola</span>
+        <span id="session-id-subtitle" style="color: #64748b; font-size: 0.8rem; font-weight: normal; font-family: monospace;"></span>
+      </h2>
+      <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+        <span class="agent-status" style="background: rgba(16, 185, 129, 0.15); color: var(--success); font-size: 11px; padding: 3px 8px; border-radius: 99px;">Transmisión Cifrada</span>
+        <span id="session-device-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; font-size: 11px; padding: 3px 8px; border-radius: 99px;">Cargando...</span>
+      </div>
     </div>
 
     <!-- ACCIONES RÁPIDAS SIEMPRE VISIBLES -->
@@ -243,9 +250,6 @@ import Sidebar from '../components/Sidebar.astro';
 
   <div class="live-stream-area" id="live-stream-area">
     <div style="position: absolute; top: 10px; left: 10px; z-index: 50; display: flex; gap: 10px;">
-      <button id="toggle-sidebar-btn" class="btn-action" style="background: rgba(17,24,39,0.7); backdrop-filter: blur(5px); font-size: 11px; padding: 6px 12px;" onclick="toggleSidebar()">
-        <span id="sidebar-icon">◀ Ocultar Panel</span>
-      </button>
     </div>
     <div style="position: absolute; top: 10px; right: 10px; z-index: 50;">
       <button id="fullscreen-btn" class="btn-action" style="background: rgba(17,24,39,0.7); backdrop-filter: blur(5px); font-size: 11px; padding: 6px 12px;" onclick="toggleFullScreen()">⛶ Pantalla Completa</button>
@@ -253,6 +257,11 @@ import Sidebar from '../components/Sidebar.astro';
 
     <!-- Flecha flotante (Pantalla Completa) -->
     <div id="fullscreen-floating-arrow" onclick="slideInSidebarFullscreen()" style="display: none; position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 1000; background: rgba(0, 102, 204, 0.8); color: white; padding: 20px 10px; border-radius: 0 10px 10px 0; cursor: pointer; font-size: 24px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); transition: left 0.3s ease;">
+      ▶
+    </div>
+
+    <!-- Flecha flotante (Panel Oculto Normal) -->
+    <div id="session-uncollapse-arrow" onclick="toggleSidebar()" style="display: none; position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 400; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255,255,255,0.1); border-left: none; color: #94a3b8; padding: 24px 8px; border-radius: 0 12px 12px 0; cursor: pointer; font-size: 16px; box-shadow: 5px 0 15px rgba(0,0,0,0.5); transition: all 0.2s ease; hover: color: white; hover: background: rgba(51, 65, 85, 0.9);">
       ▶
     </div>
 
@@ -463,6 +472,7 @@ import Sidebar from '../components/Sidebar.astro';
   }
 
   function renderGrid(agents) {
+    window.currentAgentsData = agents;
     const grid = document.getElementById('agents-grid');
     if (Object.keys(agents).length === 0) {
       grid.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Buscando agentes activos en la red de soporte...</div>';
@@ -659,7 +669,48 @@ import Sidebar from '../components/Sidebar.astro';
 
   function takeControl(id) {
     currentAgentId = id;
-    document.getElementById('session-title').textContent = `Consola: ${id}`;
+    
+    // Obtener datos del agente para mostrar en el header
+    const ag = window.currentAgentsData && window.currentAgentsData[id] ? window.currentAgentsData[id] : null;
+    const alias = localStorage.getItem('alias_' + id) || id;
+    let deviceText = "Dispositivo Desconocido";
+    let deviceColor = "rgba(100,116,139,0.2)";
+    let deviceTextColor = "#94a3b8";
+
+    if (ag) {
+      let os = ag.os ? ag.os.toLowerCase() : "";
+      let model = ag.health && ag.health.model ? ag.health.model : "";
+      
+      if (os.includes('mac') || os.includes('darwin')) {
+        deviceText = model ? ` ${model}` : " Mac";
+        deviceColor = "rgba(168,85,247,0.15)";
+        deviceTextColor = "#c084fc"; // purple
+      } else if (os.includes('ios')) {
+        deviceText = model ? `📱 ${model}` : "📱 iOS Device";
+        deviceColor = "rgba(168,85,247,0.15)";
+        deviceTextColor = "#c084fc";
+      } else {
+        // Windows
+        let isLaptop = (ag.health && ag.health.charger !== undefined);
+        let baseType = isLaptop ? "Laptop" : "PC";
+        deviceText = model ? `🪟 ${baseType} - ${model}` : `🪟 ${baseType} Windows`;
+        deviceColor = "rgba(59,130,246,0.15)";
+        deviceTextColor = "#60a5fa"; // blue
+      }
+    }
+
+    const aliasEl = document.getElementById('session-alias');
+    const subtitleEl = document.getElementById('session-id-subtitle');
+    const badgeEl = document.getElementById('session-device-badge');
+    
+    if(aliasEl) aliasEl.textContent = alias;
+    if(subtitleEl) subtitleEl.textContent = "ID: " + id;
+    if(badgeEl) {
+      badgeEl.textContent = deviceText;
+      badgeEl.style.background = deviceColor;
+      badgeEl.style.color = deviceTextColor;
+    }
+
     document.getElementById('session-view').classList.add('active');
     
     // Guardar el agente actual en el hash de la URL para sobrevivir refresco
@@ -1273,13 +1324,17 @@ Revisa la consola debajo para ver los resultados.<br><br>
   // --- INICIO NUEVAS FUNCIONES UI ---
   function toggleSidebar() {
     const sidebar = document.getElementById('session-sidebar');
-    const icon = document.getElementById('sidebar-icon');
+    const arrow = document.getElementById('session-uncollapse-arrow');
     if (!sidebar) return;
+    
     sidebar.classList.toggle('collapsed');
-    if (sidebar.classList.contains('collapsed')) {
-      if(icon) icon.textContent = '▶ Mostrar Panel';
-    } else {
-      if(icon) icon.textContent = '◀ Ocultar Panel';
+    
+    if (arrow) {
+      if (sidebar.classList.contains('collapsed')) {
+        arrow.style.display = 'block';
+      } else {
+        arrow.style.display = 'none';
+      }
     }
   }
 
