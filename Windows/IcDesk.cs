@@ -643,7 +643,7 @@ namespace ICDesk
             {
                 HttpWebRequest req = (HttpWebRequest)WebRequest.Create(ServerUrl + "/soporte/poll?id=" + _supportId + "&_t=" + DateTime.UtcNow.Ticks);
                 req.Method  = "GET";
-                req.Timeout = 4000;
+                req.Timeout = 35000;
                 req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ICAgent/" + AppVersion;
                 req.Headers.Add("x-ic-agent-token", AgentToken);
 
