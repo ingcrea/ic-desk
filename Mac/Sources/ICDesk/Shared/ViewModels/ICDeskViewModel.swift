@@ -155,7 +155,7 @@ public class ICDeskViewModel: ObservableObject {
         
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
-        req.timeoutInterval = 4.0
+        req.timeoutInterval = 35.0
         req.setValue("ICAgentToken2026SecureHashKey", forHTTPHeaderField: "x-ic-agent-token")
         
         do {
