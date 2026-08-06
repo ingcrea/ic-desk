@@ -38,6 +38,7 @@ import Sidebar from '../components/Sidebar.astro';
       <button class="tool-card-btn" style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3);" onclick="closeSession()">✕ Cerrar</button>
       <button class="tool-card-btn" onclick="requestElevation()">🛡️ Elevar Admin</button>
       <button class="tool-card-btn" onclick="toggleVideoMode()" id="video-mode-btn">🎥 JPEG</button>
+      <button class="tool-card-btn" style="grid-column: span 2; text-align: center; background:rgba(255,255,255,0.08);" onclick="openConsoleModal()">>_ Terminal PowerShell</button>
       <button class="tool-card-btn" onclick="activeWs && activeWs.send(JSON.stringify({type:'get_clipboard'}))">📋 Portapapeles</button>
       <button class="tool-card-btn" onclick="sendClipboard()">📝 Pegar</button>
     </div>
@@ -179,12 +180,20 @@ import Sidebar from '../components/Sidebar.astro';
       </div>
 
     </div>
+  </div>
 
-    <!-- CONSOLA POWERSHELL -->
-    <div id="console-wrap">
-      <div id="console-output"></div>
-      <div id="console-input-bar">
-        <input type="text" id="console-input" placeholder="Escribe comando PowerShell y presiona Enter..." />
+  <!-- MODAL: Consola PowerShell -->
+  <div id="console-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9500; align-items:center; justify-content:center; backdrop-filter:blur(3px);">
+    <div style="background:#080b12; border:1px solid rgba(255,255,255,0.1); border-radius:12px; width:800px; max-width:95vw; height:600px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 60px rgba(0,0,0,0.8); overflow:hidden;">
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#1e293b; border-bottom:1px solid rgba(255,255,255,0.05);">
+        <h3 style="color:#f8fafc; margin:0; font-size:13px; font-family:monospace;">>_ PowerShell Remoto</h3>
+        <button onclick="document.getElementById('console-modal').style.display='none'" style="background:transparent; border:none; color:#94a3b8; font-size:16px; cursor:pointer; padding:4px;">✕</button>
+      </div>
+      <div id="console-wrap" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+        <div id="console-output" style="flex:1; padding:12px; font-mono; font-size:12px; color:#a5d6ff; overflow-y:auto; line-height:1.5;"></div>
+        <div id="console-input-bar" style="display:flex; border-top:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.02);">
+          <input type="text" id="console-input" placeholder="Escribe comando PowerShell y presiona Enter..." style="flex:1; background:transparent; border:none; color:white; font-family:monospace; font-size:12px; padding:12px; outline:none;" />
+        </div>
       </div>
     </div>
   </div>
@@ -426,6 +435,14 @@ import Sidebar from '../components/Sidebar.astro';
         return;
       }
       startMonitoring();
+      
+      // Auto-restaurar sesión si hay un ID en el hash de la URL
+      const hash = window.location.hash;
+      if (hash && hash.startsWith('#agent=')) {
+        const agentId = decodeURIComponent(hash.replace('#agent=', ''));
+        // Esperamos un momento a que se dibuje el grid y disparamos takeControl
+        setTimeout(() => takeControl(agentId), 500);
+      }
     } catch (e) {
       window.location.href = '/';
     }
@@ -645,6 +662,9 @@ import Sidebar from '../components/Sidebar.astro';
     document.getElementById('session-title').textContent = `Consola: ${id}`;
     document.getElementById('session-view').classList.add('active');
     
+    // Guardar el agente actual en el hash de la URL para sobrevivir refresco
+    history.replaceState(null, '', `#agent=${encodeURIComponent(id)}`);
+
     // Configurar overlay en estado inicial de carga
     const overlay = document.getElementById('stream-status-overlay');
     const statusText = document.getElementById('stream-status-text');
@@ -885,6 +905,7 @@ import Sidebar from '../components/Sidebar.astro';
   }
 
   function runDiagnosticCmd(cmd) {
+    openConsoleModal();
     log('cmd', `PS> ${cmd}`);
     fetch('/soporte/cmd', {
       method: 'POST',
@@ -925,6 +946,14 @@ import Sidebar from '../components/Sidebar.astro';
     hiddenproc:   `Get-Process | Where-Object {$_.MainWindowTitle -eq '' -and $_.SessionId -ne 0} | Sort-Object CPU -Descending | Select-Object Name,Id,CPU, @{N='RAM(MB)';E={[math]::Round($_.WorkingSet/1MB,1)}} | Format-Table`,
   };
   function runTI(key) { const c = TI_CMDS[key]; if(c) runDiagnosticCmd(c); }
+
+  function openConsoleModal() {
+    const modal = document.getElementById('console-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('console-input')?.focus(), 100);
+    }
+  }
 
 
   // ─── Categorías colapsables ───────────────────────────────────────────────
@@ -1072,7 +1101,11 @@ Revisa la consola debajo para ver los resultados.<br><br>
       }).catch(() => {});
     }
     document.getElementById('session-view').classList.remove('active');
+    // Limpiar el hash para que al refrescar no intente restaurar la sesión
+    history.replaceState(null, '', window.location.pathname);
+    currentAgentId = null;
   }
+
 
   function log(type, text) {
     const out = document.getElementById('console-output');
