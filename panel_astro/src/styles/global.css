@@ -197,11 +197,113 @@ body {
 .spinner { @apply w-12 h-12 border-4 border-white/10 border-l-[var(--accent)] rounded-full animate-spin; }
 #stream-status-text { @apply text-[14px] text-[var(--text-muted)] text-center max-w-[280px] leading-relaxed; }
 
+
 /* Toolbox & Console */
 .toolbox-section { @apply py-5 px-6 border-b border-[var(--border)]; }
 .toolbox-section h3 { @apply text-[11px] font-extrabold text-[var(--text-muted)] uppercase tracking-wide mb-4; }
 .grid-tools { @apply grid grid-cols-2 gap-2.5; }
 .tool-card-btn { @apply bg-white/5 border border-[var(--border)] p-2.5 rounded-lg text-[var(--text)] font-sans text-[12px] font-semibold cursor-pointer text-left transition-all duration-200 hover:bg-blue-600/15 hover:border-[var(--accent)]; }
+
+/* TI Toolbox Categories */
+#ti-toolbox { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
+#ti-toolbox::-webkit-scrollbar { width: 4px; }
+#ti-toolbox::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+.ti-category { margin-bottom: 4px; }
+
+.ti-cat-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-left: 3px solid var(--cat-color, #60a5fa);
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+.ti-cat-header:hover { background: rgba(255,255,255,0.06); }
+.ti-cat-header.is-open { background: rgba(255,255,255,0.05); border-radius: 8px 8px 0 0; }
+
+.ti-arrow { font-size: 9px; opacity: 0.5; transition: transform 0.2s; }
+.ti-cat-header.is-open .ti-arrow { transform: rotate(180deg); }
+
+.ti-cat-body {
+  display: none;
+  padding: 8px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  margin-bottom: 4px;
+}
+.ti-cat-body.is-open { display: block; }
+
+.ti-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+
+.ti-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 7px;
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 7px 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ti-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+  color: #f1f5f9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.ti-btn:active { transform: translateY(0); }
+
+/* DNS modal tooltip */
+.dns-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.dns-option:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+.dns-option:hover .dns-tooltip { opacity: 1; pointer-events: auto; }
+.dns-tooltip {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #94a3b8;
+  width: 200px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 100;
+  line-height: 1.5;
+}
+
 
 #console-wrap { @apply flex-1 flex flex-col bg-[#080b12] overflow-hidden; }
 #console-output { @apply flex-1 p-5 font-mono text-[12px] text-[#a5d6ff] overflow-y-auto leading-relaxed; }

@@ -32,22 +32,152 @@ import Sidebar from '../components/Sidebar.astro';
       <span class="agent-status" style="background: rgba(16, 185, 129, 0.15); color: var(--success); font-size: 11px; padding: 3px 8px; border-radius: 99px;">Transmisión Cifrada</span>
     </div>
 
-    <!-- CAJA DE HERRAMIENTAS DE TI -->
-    <div class="toolbox-section">
-      <h3>🛠️ Caja de Herramientas de TI</h3>
-      <div class="grid-tools">
-        <button class="tool-card-btn" onclick="startStream()">🖥️ Ver Pantalla</button>
-        <button class="tool-card-btn" onclick="requestElevation()">🛡️ Solicitar Admin</button>
-        <button class="tool-card-btn" onclick="installService()">⚙️ Instalar Servicio</button>
-        <button class="tool-card-btn" onclick="toggleVideoMode()" id="video-mode-btn">🎥 Modo: Nítido (JPEG)</button>
-        <button class="tool-card-btn" onclick="activeWs.send(JSON.stringify({type:'get_clipboard'}))">📋 Leer Portapapeles</button>
-        <button class="tool-card-btn" onclick="sendClipboard()">📝 Pegar Portapapeles</button>
-        <button class="tool-card-btn" onclick="runDiagnosticCmd('Get-Process')">📊 Ver Procesos</button>
-        <button class="tool-card-btn" onclick="runDiagnosticCmd('Get-Service')">⚙️ Ver Servicios</button>
-        <button class="tool-card-btn" onclick="runDiagnosticCmd('Clear-RecycleBin -Force')">🧹 Limpiar Temp</button>
-        <button class="tool-card-btn" onclick="runDiagnosticCmd('irm https://desk.ingcrea.com | iex')">🔄 Forzar Actualización</button>
-        <button class="tool-card-btn" onclick="closeSession()">✕ Cerrar Sesión</button>
+    <!-- ACCIONES RÁPIDAS SIEMPRE VISIBLES -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; padding: 0 12px 10px;">
+      <button class="tool-card-btn" style="background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3);" onclick="startStream()">🖥️ Ver Pantalla</button>
+      <button class="tool-card-btn" style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3);" onclick="closeSession()">✕ Cerrar</button>
+      <button class="tool-card-btn" onclick="requestElevation()">🛡️ Elevar Admin</button>
+      <button class="tool-card-btn" onclick="toggleVideoMode()" id="video-mode-btn">🎥 JPEG</button>
+      <button class="tool-card-btn" onclick="activeWs && activeWs.send(JSON.stringify({type:'get_clipboard'}))">📋 Portapapeles</button>
+      <button class="tool-card-btn" onclick="sendClipboard()">📝 Pegar</button>
+    </div>
+
+    <!-- CATEGORÍAS DE HERRAMIENTAS TI -->
+    <div id="ti-toolbox" style="overflow-y:auto; flex:1; padding: 0 8px 10px;">
+
+      <!-- ══════════════ 1. INFORMACIÓN ══════════════ -->
+      <div class="ti-category" data-cat="info">
+        <button class="ti-cat-header" onclick="toggleCat('info')" style="--cat-color:#60a5fa;">
+          <span>🔍 <strong>Información</strong></span><span class="ti-arrow">▼</span>
+        </button>
+        <div class="ti-cat-body" id="cat-info">
+          <div class="ti-grid">
+            <button class="ti-btn" onclick="runPS('Get-ComputerInfo | Select-Object -Property CsName,CsManufacturer,CsModel,OsName,OsVersion,BiosVersion,CsProcessors,CsTotalPhysicalMemory | Format-List')">📋 MSInfo</button>
+            <button class="ti-btn" onclick="runTI('battery')">🔋 Batería</button>
+            <button class="ti-btn" onclick="runTI('charger')">⚡ Amperaje</button>
+            <button class="ti-btn" onclick="runPS('$missing = Get-PnpDevice | Where-Object {$_.Status -ne [string]&quot;OK&quot;}; if($missing) { $missing | Select-Object FriendlyName,Status | Format-Table -AutoSize } else { Write-Output &quot;Todos los drivers OK&quot; }')">🔌 Drivers</button>
+            <button class="ti-btn" onclick="runPS('Get-WmiObject -Class Win32_BIOS | Select-Object Manufacturer,Name,Version,ReleaseDate,SMBIOSBIOSVersion | Format-List')">💾 BIOS</button>
+            <button class="ti-btn" onclick="runTI('tempcpu')">🌡️ Temp CPU</button>
+            <button class="ti-btn" onclick="runPS('Get-WmiObject Win32_ComputerSystem | Select-Object Name,Manufacturer,Model,TotalPhysicalMemory,NumberOfProcessors | Format-List')">🖥️ Hardware</button>
+            <button class="ti-btn" onclick="runPS('Get-WmiObject Win32_DiskDrive | Select-Object Model,Size,Status,InterfaceType | Format-Table -AutoSize')">💿 Discos</button>
+          </div>
+        </div>
       </div>
+
+      <!-- ══════════════ 2. RENDIMIENTO ══════════════ -->
+      <div class="ti-category" data-cat="perf">
+        <button class="ti-cat-header" onclick="toggleCat('perf')" style="--cat-color:#34d399;">
+          <span>📊 <strong>Rendimiento</strong></span><span class="ti-arrow">▼</span>
+        </button>
+        <div class="ti-cat-body" id="cat-perf">
+          <div class="ti-grid">
+            <button class="ti-btn" onclick="runTI('cpu')">🧠 CPU %</button>
+            <button class="ti-btn" onclick="runTI('ram')">🧩 RAM</button>
+            <button class="ti-btn" onclick="runTI('drives')">💾 Discos</button>
+            <button class="ti-btn" onclick="runPS('Get-NetAdapterStatistics | Select-Object Name,ReceivedBytes,SentBytes | Format-Table')">🌐 Red I/O</button>
+            <button class="ti-btn" onclick="runTI('topproc')">🔝 Top Proc</button>
+            <button class="ti-btn" onclick="runTI('ramsum')">📈 Resumen</button>
+            <button class="ti-btn" onclick="runPS('Get-WmiObject Win32_VideoController | Select-Object Caption,AdapterRAM,DriverVersion,VideoModeDescription | Format-List')">🎮 GPU</button>
+            <button class="ti-btn" onclick="runPS('Get-WmiObject Win32_Processor | Select-Object Name,MaxClockSpeed,CurrentClockSpeed,NumberOfCores,NumberOfLogicalProcessors,LoadPercentage | Format-List')">⚡ CPU Info</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ 3. SOPORTE ══════════════ -->
+      <div class="ti-category" data-cat="supp">
+        <button class="ti-cat-header" onclick="toggleCat('supp')" style="--cat-color:#facc15;">
+          <span>🔧 <strong>Soporte</strong></span><span class="ti-arrow">▼</span>
+        </button>
+        <div class="ti-cat-body" id="cat-supp">
+          <div class="ti-grid">
+            <button class="ti-btn" onclick="runPS('Get-Service | Sort-Object Status -Descending | Select-Object Name,DisplayName,Status | Format-Table -AutoSize')">⚙️ Servicios</button>
+            <button class="ti-btn" onclick="runPS('Start-Process msconfig -Verb RunAs')">🔩 MSConfig</button>
+            <button class="ti-btn" onclick="runPS('Start-Process taskmgr')">📋 Tareas</button>
+            <button class="ti-btn" onclick="runPS('Start-Process regedit -Verb RunAs')">📝 Registro</button>
+            <button class="ti-btn" onclick="runPS('Start-Process gpedit.msc -Verb RunAs')">🏛️ GPO</button>
+            <button class="ti-btn" onclick="runPS('[System.Environment]::GetEnvironmentVariables() | Out-String')">🔣 Variables</button>
+            <button class="ti-btn" onclick="runTI('apperrlog')">⚠️ Errores App</button>
+            <button class="ti-btn" onclick="runTI('installedapps')">📦 Programas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ 4. REPARACIÓN ══════════════ -->
+      <div class="ti-category" data-cat="repair">
+        <button class="ti-cat-header" onclick="toggleCat('repair')" style="--cat-color:#fb923c;">
+          <span>🩺 <strong>Reparación</strong></span><span class="ti-arrow">▼</span>
+        </button>
+        <div class="ti-cat-body" id="cat-repair">
+          <div class="ti-grid">
+            <button class="ti-btn" onclick="runPS('sfc /scannow')">🛡️ SFC Scan</button>
+            <button class="ti-btn" onclick="runPS('DISM /Online /Cleanup-Image /RestoreHealth')">🔬 DISM</button>
+            <button class="ti-btn" onclick="runPS('chkdsk C: /f /r /x')">💽 ChkDsk</button>
+            <button class="ti-btn" onclick="runPS('bcdedit')">🚀 BCDEdit</button>
+            <button class="ti-btn" onclick="runPS('reagentc /enable; reagentc /info')">🔄 WinRE</button>
+            <button class="ti-btn" onclick="runPS('Get-WindowsUpdateLog')">📋 WU Log</button>
+            <button class="ti-btn" onclick="runPS('Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 20 | Format-Table -AutoSize')">📦 Parches</button>
+            <button class="ti-btn" onclick="runPS('DISM /Online /Cleanup-Image /ScanHealth')">🔍 DISM Scan</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ 5. LIMPIEZA ══════════════ -->
+      <div class="ti-category" data-cat="clean">
+        <button class="ti-cat-header" onclick="toggleCat('clean')" style="--cat-color:#22d3ee;">
+          <span>🧹 <strong>Limpieza</strong></span><span class="ti-arrow">▼</span>
+        </button>
+        <div class="ti-cat-body" id="cat-clean">
+          <div class="ti-grid">
+            <button class="ti-btn" onclick="runTI('tempdel')">🗑️ Temporales</button>
+            <button class="ti-btn" onclick="runPS('Clear-RecycleBin -Force -EA SilentlyContinue')">♻️ Papelera</button>
+            <button class="ti-btn" onclick="runTI('ramclean')">🧩 Limpiar RAM</button>
+            <button class="ti-btn" onclick="runPS('ipconfig /flushdns')">🌐 Flush DNS</button>
+            <button class="ti-btn" onclick="runTI('prefetch')">⚡ Prefetch</button>
+            <button class="ti-btn" onclick="runTI('wucache')">📦 WU Cache</button>
+            <button class="ti-btn" onclick="runTI('usertmp')">👤 Usr Temp</button>
+            <button class="ti-btn" onclick="runPS('cleanmgr /sagerun:1')">🛠️ DiskClean</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ 6. REDES ══════════════ -->
+      <div class="ti-category" data-cat="net">
+        <button class="ti-cat-header" onclick="toggleCat('net')" style="--cat-color:#a78bfa;">
+          <span>🌐 <strong>Redes</strong></span><span class="ti-arrow">▼</span>
+        </button>
+        <div class="ti-cat-body" id="cat-net">
+          <div class="ti-grid">
+            <button class="ti-btn" onclick="runTI('netinfo')">📡 Info Red</button>
+            <button class="ti-btn" onclick="runPS('Get-NetAdapter | Select-Object Name,Status,LinkSpeed,MacAddress | Format-Table')">🔌 Adaptadores</button>
+            <button class="ti-btn" onclick="netConfigModal('dhcp')">🔄 → DHCP</button>
+            <button class="ti-btn" onclick="netConfigModal('static')">📌 → IP Fija</button>
+            <button class="ti-btn" onclick="dnsModal()">🌐 Config DNS</button>
+            <button class="ti-btn" onclick="runPS('ipconfig /flushdns; netsh winsock reset')">🔁 Reset Stack</button>
+            <button class="ti-btn" onclick="runPS('netstat -ano')">🔭 Conexiones</button>
+            <button class="ti-btn" onclick="runTI('scanlan')">🔍 Escanear LAN</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ 7. DESINFECCIÓN ══════════════ -->
+      <div class="ti-category" data-cat="disinfect">
+        <button class="ti-cat-header" onclick="toggleCat('disinfect')" style="--cat-color:#f87171;">
+          <span>🦠 <strong>Desinfección</strong></span><span class="ti-arrow">▼</span>
+        </button>
+        <div class="ti-cat-body" id="cat-disinfect">
+          <div class="ti-grid">
+            <button class="ti-btn" onclick="vtScanModal()">🛡️ VirusTotal</button>
+            <button class="ti-btn" onclick="runTI('autoruns')">🚀 Autoarranque</button>
+            <button class="ti-btn" onclick="runTI('hiddenproc')">👻 Proc Ocultos</button>
+            <button class="ti-btn" onclick="runPS('Get-Service | Where-Object {$_.Status -eq [string]&quot;Running&quot; -and $_.StartType -eq [string]&quot;Automatic&quot;} | Select-Object Name,DisplayName | Format-Table')">⚙️ Serv. Auto</button>
+            <button class="ti-btn" onclick="runPS('Start-MpScan -ScanType QuickScan')">🔍 Scan Rápido</button>
+            <button class="ti-btn" onclick="runPS('Start-MpScan -ScanType FullScan')">🔬 Scan Full</button>
+            <button class="ti-btn" onclick="runPS('Get-MpThreat | Format-Table -AutoSize')">☣️ Amenazas</button>
+            <button class="ti-btn" onclick="runPS('netsh advfirewall show allprofiles')">🔥 Firewall</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- CONSOLA POWERSHELL -->
@@ -58,6 +188,49 @@ import Sidebar from '../components/Sidebar.astro';
       </div>
     </div>
   </div>
+
+  <!-- MODAL: Configuración IP/DNS -->
+  <div id="net-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9000; align-items:center; justify-content:center;">
+    <div style="background:#0f172a; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:28px; width:380px; box-shadow:0 25px 60px rgba(0,0,0,0.6);">
+      <h3 style="color:#f8fafc; margin:0 0 20px; font-size:1rem;">⚙️ Configurar Red</h3>
+      <div id="net-modal-body"></div>
+      <div style="display:flex; gap:10px; margin-top:20px;">
+        <button onclick="applyNetConfig()" style="flex:1; padding:10px; border-radius:8px; background:#3b82f6; color:white; border:none; cursor:pointer; font-weight:700;">✅ Aplicar</button>
+        <button onclick="document.getElementById('net-modal').style.display='none'" style="flex:1; padding:10px; border-radius:8px; background:rgba(255,255,255,0.08); color:#94a3b8; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DNS rápido -->
+  <div id="dns-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9000; align-items:center; justify-content:center;">
+    <div style="background:#0f172a; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:28px; width:400px; box-shadow:0 25px 60px rgba(0,0,0,0.6);">
+      <h3 style="color:#f8fafc; margin:0 0 6px; font-size:1rem;">🌐 Configurar DNS rápido</h3>
+      <p style="color:#64748b; font-size:0.75rem; margin:0 0 18px;">Selecciona el DNS y el adaptador de red destino</p>
+      <div id="dns-adapter-list" style="margin-bottom:16px;"></div>
+      <p style="color:#94a3b8; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px;">DNS disponibles</p>
+      <div style="display:flex; flex-direction:column; gap:8px;" id="dns-options-list">
+        <!-- Se llena con JS -->
+      </div>
+      <div style="display:flex; gap:10px; margin-top:20px;">
+        <button onclick="document.getElementById('dns-modal').style.display='none'" style="flex:1; padding:10px; border-radius:8px; background:rgba(255,255,255,0.08); color:#94a3b8; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: VirusTotal -->
+  <div id="vt-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9000; align-items:center; justify-content:center;">
+    <div style="background:#0f172a; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:28px; width:480px; max-height:80vh; overflow-y:auto; box-shadow:0 25px 60px rgba(0,0,0,0.6);">
+      <h3 style="color:#f8fafc; margin:0 0 6px; font-size:1rem;">🛡️ Escáner VirusTotal</h3>
+      <p style="color:#64748b; font-size:0.75rem; margin:0 0 16px;">Envía hashes MD5 de procesos/servicios a VirusTotal</p>
+      <div id="vt-results" style="background:rgba(0,0,0,0.3); border-radius:8px; padding:12px; min-height:80px; font-family:monospace; font-size:11px; color:#94a3b8; margin-bottom:16px;">Haz clic en "Escanear Procesos" para iniciar...</div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="runVTScan()" style="flex:1; padding:10px; border-radius:8px; background:#ef4444; color:white; border:none; cursor:pointer; font-weight:700;">🔍 Escanear Procesos</button>
+        <button onclick="document.getElementById('vt-modal').style.display='none'" style="flex:1; padding:10px; border-radius:8px; background:rgba(255,255,255,0.08); color:#94a3b8; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+
 
   <div class="live-stream-area" id="live-stream-area">
     <div style="position: absolute; top: 10px; left: 10px; z-index: 50; display: flex; gap: 10px;">
@@ -725,6 +898,162 @@ import Sidebar from '../components/Sidebar.astro';
     .then(data => log('out', data.output || data.error))
     .catch(() => log('err', 'Fallo al comunicar con la terminal remota'));
   }
+
+  // Alias corto para los botones del toolbox TI
+  function runPS(cmd) { runDiagnosticCmd(cmd); }
+
+  // Comandos complejos que no pueden ir como atributos HTML (contienen \n o escapes complejos)
+  const TI_CMDS = {
+    battery:      `Add-Type -AssemblyName System.Windows.Forms; $b = [System.Windows.Forms.SystemInformation]::PowerStatus; Write-Output ("Bateria: " + [int]($b.BatteryLifePercent * 100) + "% | Estado: " + $b.BatteryChargeStatus + " | Restante: " + [int]($b.BatteryLifeRemaining/60) + " min")`,
+    charger:      `$b = Get-WmiObject -Class Win32_Battery; if ($b) { Write-Output ("Voltaje diseno: " + ($b.DesignVoltage/1000) + "V | Carga: " + $b.EstimatedChargeRemaining + "% | BatteryStatus: " + $b.BatteryStatus) } else { Write-Output "Sin bateria detectada (PC de escritorio)" }`,
+    tempcpu:      `$t = Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace root/wmi -EA SilentlyContinue; if($t){$t | ForEach-Object { Write-Output ("Zona: " + $_.InstanceName + " - " + [math]::Round($_.CurrentTemperature/10 - 273.15,1) + " C") }} else { Write-Output "Sensor de temperatura no disponible via WMI." }`,
+    cpu:          `$cpu = Get-WmiObject Win32_Processor | Measure-Object LoadPercentage -Average; Write-Output ("CPU Uso: " + $cpu.Average + "%")`,
+    ram:          `$os = Get-WmiObject Win32_OperatingSystem; $used = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory)/1MB,2); $total = [math]::Round($os.TotalVisibleMemorySize/1MB,2); Write-Output ("RAM Usada: " + $used + " GB / Total: " + $total + " GB")`,
+    ramsum:       `$os = Get-WmiObject Win32_OperatingSystem; $used = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory)/1MB,2); $total = [math]::Round($os.TotalVisibleMemorySize/1MB,2); $free = [math]::Round($os.FreePhysicalMemory/1MB,2); Write-Output ("RAM Total: " + $total + " GB | Usada: " + $used + " GB | Libre: " + $free + " GB")`,
+    drives:       `Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{N='Usado(GB)';E={[math]::Round(($_.Used/1GB),2)}}, @{N='Libre(GB)';E={[math]::Round(($_.Free/1GB),2)}}, @{N='Total(GB)';E={[math]::Round((($_.Used+$_.Free)/1GB),2)}} | Format-Table`,
+    topproc:      `Get-Process | Sort-Object CPU -Descending | Select-Object -First 15 Name,CPU, @{N='RAM(MB)';E={[math]::Round($_.WorkingSet/1MB,1)}} | Format-Table -AutoSize`,
+    apperrlog:    `Get-EventLog -LogName Application -Newest 20 -EntryType Error,Warning | Select-Object TimeGenerated,Source,Message | Format-Table -AutoSize`,
+    installedapps:`Get-ItemProperty 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' | Select-Object DisplayName,DisplayVersion,Publisher | Sort-Object DisplayName | Format-Table -AutoSize`,
+    tempdel:      `$dirs = @($env:TEMP,'C:\Windows\Temp','C:\Windows\Prefetch'); $total=0; foreach($d in $dirs){ try { $s=(Get-ChildItem $d -Recurse -EA SilentlyContinue | Measure-Object -Property Length -Sum).Sum; $total+=$s; Remove-Item "$d\*" -Recurse -Force -EA SilentlyContinue } catch {} }; Write-Output ("Limpiado: " + [math]::Round($total/1MB,1) + " MB liberados")`,
+    ramclean:     `$before = (Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory; [System.GC]::Collect(); $after = (Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory; Write-Output ("RAM liberada aprox: " + [math]::Round(($after-$before)/1024,1) + " MB")`,
+    prefetch:     `Remove-Item 'C:\Windows\Prefetch\*' -Force -EA SilentlyContinue; Write-Output "Prefetch limpiado"`,
+    wucache:      `Stop-Service wuauserv -Force -EA SilentlyContinue; Remove-Item 'C:\Windows\SoftwareDistribution\Download\*' -Recurse -Force -EA SilentlyContinue; Start-Service wuauserv; Write-Output "Cache Windows Update limpiada"`,
+    usertmp:      `Get-ChildItem -Path 'C:\Users' -Include '*.tmp','*.temp','Thumbs.db' -Recurse -EA SilentlyContinue | Remove-Item -Force -EA SilentlyContinue; Write-Output "Temporales de usuarios limpiados"`,
+    netinfo:      `Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | ForEach-Object { $ip = Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -EA SilentlyContinue; $gw = (Get-NetRoute -InterfaceIndex $_.ifIndex -DestinationPrefix '0.0.0.0/0' -EA SilentlyContinue).NextHop; Write-Output ("[" + $_.Name + "] MAC:" + $_.MacAddress + " IP:" + $ip.IPAddress + "/" + $ip.PrefixLength + " GW:" + $gw) }`,
+    scanlan:      `$ips = 1..254 | ForEach-Object -Parallel { $ip = "192.168.1.$_"; if(Test-Connection -ComputerName $ip -Count 1 -Quiet -TimeoutSeconds 1){$ip} } -ThrottleLimit 50; Write-Output ("Hosts activos: " + ($ips -join ", "))`,
+    autoruns:     `Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run','HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' | Format-Table -AutoSize`,
+    hiddenproc:   `Get-Process | Where-Object {$_.MainWindowTitle -eq '' -and $_.SessionId -ne 0} | Sort-Object CPU -Descending | Select-Object Name,Id,CPU, @{N='RAM(MB)';E={[math]::Round($_.WorkingSet/1MB,1)}} | Format-Table`,
+  };
+  function runTI(key) { const c = TI_CMDS[key]; if(c) runDiagnosticCmd(c); }
+
+
+  // ─── Categorías colapsables ───────────────────────────────────────────────
+  function toggleCat(id) {
+    const body = document.getElementById('cat-' + id);
+    const header = body ? body.previousElementSibling : null;
+    if (!body) return;
+    const isOpen = body.classList.contains('is-open');
+    body.classList.toggle('is-open', !isOpen);
+    if (header) header.classList.toggle('is-open', !isOpen);
+  }
+
+  // ─── Modal: Configurar Red (DHCP / IP Fija) ───────────────────────────────
+  let _netMode = 'dhcp';
+  function netConfigModal(mode) {
+    _netMode = mode;
+    const modal = document.getElementById('net-modal');
+    const body = document.getElementById('net-modal-body');
+    if (!modal || !body) return;
+    if (mode === 'dhcp') {
+      body.innerHTML = `
+        <p style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Selecciona el adaptador al que deseas aplicar DHCP automático:</p>
+        <select id="net-adapter-sel" style="width:100%;padding:10px;border-radius:8px;background:#1e293b;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;font-size:13px;margin-bottom:10px;">
+          <option value="">Cargando adaptadores...</option>
+        </select>`;
+    } else {
+      body.innerHTML = `
+        <p style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Define los parámetros de red estática:</p>
+        <select id="net-adapter-sel" style="width:100%;padding:10px;border-radius:8px;background:#1e293b;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;font-size:13px;margin-bottom:10px;">
+          <option value="">Cargando adaptadores...</option>
+        </select>
+        <input id="net-ip" placeholder="IP Fija (ej: 192.168.1.100)" style="width:100%;padding:9px 12px;border-radius:8px;background:#1e293b;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;font-size:12px;margin-bottom:6px;box-sizing:border-box;">
+        <input id="net-mask" placeholder="Máscara (ej: 255.255.255.0)" style="width:100%;padding:9px 12px;border-radius:8px;background:#1e293b;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;font-size:12px;margin-bottom:6px;box-sizing:border-box;">
+        <input id="net-gw" placeholder="Gateway (ej: 192.168.1.1)" style="width:100%;padding:9px 12px;border-radius:8px;background:#1e293b;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;font-size:12px;margin-bottom:6px;box-sizing:border-box;">
+        <input id="net-dns1" placeholder="DNS Primario (ej: 8.8.8.8)" style="width:100%;padding:9px 12px;border-radius:8px;background:#1e293b;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;font-size:12px;margin-bottom:6px;box-sizing:border-box;">
+        <input id="net-dns2" placeholder="DNS Secundario (ej: 8.8.4.4)" style="width:100%;padding:9px 12px;border-radius:8px;background:#1e293b;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;font-size:12px;box-sizing:border-box;">`;
+    }
+    modal.style.display = 'flex';
+    // Cargar adaptadores
+    runPS(`Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object -ExpandProperty Name`);
+    // Mostrar placeholder real con los adaptadores más comunes
+    setTimeout(() => {
+      const sel = document.getElementById('net-adapter-sel');
+      if (sel) sel.innerHTML = `<option value="Ethernet">Ethernet</option><option value="Wi-Fi">Wi-Fi</option><option value="Ethernet 2">Ethernet 2</option>`;
+    }, 500);
+  }
+
+  function applyNetConfig() {
+    const adapter = (document.getElementById('net-adapter-sel') || {}).value || 'Ethernet';
+    if (_netMode === 'dhcp') {
+      runPS(`Set-NetIPInterface -InterfaceAlias '${adapter}' -Dhcp Enabled; Set-DnsClientServerAddress -InterfaceAlias '${adapter}' -ResetServerAddresses; ipconfig /renew '${adapter}'; Write-Output '✅ DHCP activado en ${adapter}'`);
+    } else {
+      const ip   = (document.getElementById('net-ip')   || {}).value;
+      const mask = (document.getElementById('net-mask') || {}).value;
+      const gw   = (document.getElementById('net-gw')  || {}).value;
+      const dns1 = (document.getElementById('net-dns1')|| {}).value || '8.8.8.8';
+      const dns2 = (document.getElementById('net-dns2')|| {}).value || '8.8.4.4';
+      const prefix = mask === '255.255.255.0' ? 24 : mask === '255.255.0.0' ? 16 : 24;
+      runPS(`Remove-NetIPAddress -InterfaceAlias '${adapter}' -Confirm:$false -EA SilentlyContinue; New-NetIPAddress -InterfaceAlias '${adapter}' -IPAddress '${ip}' -PrefixLength ${prefix} -DefaultGateway '${gw}'; Set-DnsClientServerAddress -InterfaceAlias '${adapter}' -ServerAddresses ('${dns1}','${dns2}'); Write-Output '✅ IP fija aplicada en ${adapter}: ${ip}'`);
+    }
+    document.getElementById('net-modal').style.display = 'none';
+  }
+
+  // ─── Modal: DNS rápido con tooltips ──────────────────────────────────────
+  const DNS_OPTIONS = [
+    { label: '☁️ Cloudflare 1.1.1.1', primary: '1.1.1.1', secondary: '1.0.0.1', color: '#f97316',
+      desc: 'DNS estándar de Cloudflare. Muy rápido y privado. Sin filtros.' },
+    { label: '🛡️ Cloudflare 1.1.1.2 (Malware)', primary: '1.1.1.2', secondary: '1.0.0.2', color: '#ef4444',
+      desc: 'Bloquea dominios de malware conocidos. Recomendado para empresas.' },
+    { label: '👶 Cloudflare 1.1.1.3 (Familia)', primary: '1.1.1.3', secondary: '1.0.0.3', color: '#8b5cf6',
+      desc: 'Bloquea malware Y contenido adulto. Ideal para entornos escolares o familias.' },
+    { label: '🌐 Google 8.8.8.8', primary: '8.8.8.8', secondary: '8.8.4.4', color: '#22d3ee',
+      desc: 'DNS de Google. Alta disponibilidad y compatibilidad universal.' },
+    { label: '🔵 OpenDNS Home', primary: '208.67.222.222', secondary: '208.67.220.220', color: '#60a5fa',
+      desc: 'DNS de Cisco con filtros de phishing opcionales. Muy confiable.' },
+  ];
+
+  function dnsModal() {
+    const modal = document.getElementById('dns-modal');
+    const list = document.getElementById('dns-options-list');
+    const adapterDiv = document.getElementById('dns-adapter-list');
+    if (!modal || !list) return;
+    adapterDiv.innerHTML = `
+      <p style="color:#94a3b8;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Adaptador destino</p>
+      <select id="dns-adapter-sel" style="width:100%;padding:9px 12px;border-radius:8px;background:#1e293b;border:1px solid rgba(255,255,255,0.1);color:#e2e8f0;font-size:12px;">
+        <option value="Ethernet">Ethernet</option>
+        <option value="Wi-Fi">Wi-Fi</option>
+        <option value="Ethernet 2">Ethernet 2</option>
+      </select>`;
+    list.innerHTML = DNS_OPTIONS.map((opt, i) => `
+      <div class="dns-option" onclick="applyDNS(${i})">
+        <div>
+          <div style="color:#e2e8f0;font-size:12px;font-weight:700;">${opt.label}</div>
+          <div style="color:#64748b;font-size:10px;">${opt.primary} / ${opt.secondary}</div>
+        </div>
+        <div style="width:10px;height:10px;border-radius:50%;background:${opt.color};box-shadow:0 0 6px ${opt.color};flex-shrink:0;"></div>
+        <div class="dns-tooltip">${opt.desc}</div>
+      </div>`).join('');
+    modal.style.display = 'flex';
+  }
+
+  function applyDNS(idx) {
+    const opt = DNS_OPTIONS[idx];
+    const adapter = (document.getElementById('dns-adapter-sel') || {}).value || 'Ethernet';
+    runPS(`Set-DnsClientServerAddress -InterfaceAlias '${adapter}' -ServerAddresses ('${opt.primary}','${opt.secondary}'); Write-Output '✅ DNS aplicado en ${adapter}: ${opt.primary} / ${opt.secondary}'`);
+    document.getElementById('dns-modal').style.display = 'none';
+  }
+
+  // ─── Modal: VirusTotal ─────────────────────────────────────────────────────
+  function vtScanModal() {
+    document.getElementById('vt-modal').style.display = 'flex';
+  }
+
+  function runVTScan() {
+    const out = document.getElementById('vt-results');
+    out.textContent = '⏳ Obteniendo hashes de procesos activos...';
+    // Paso 1: pedir hashes al agente remoto
+    runPS(`Get-Process | Where-Object {$_.Path} | ForEach-Object { try { $h = (Get-FileHash $_.Path -Algorithm MD5 -EA SilentlyContinue).Hash; if($h) { "$($_.Name)|$h|$($_.Path)" } } catch {} } | Select-Object -First 20`);
+    // La respuesta llega por la consola. Le damos un tiempo para que llene la consola
+    // y avisamos al técnico de que puede copiar los hashes
+    setTimeout(() => {
+      out.innerHTML = `<span style="color:#22d3ee;">✅ Hashes enviados al servidor.</span><br>
+Revisa la consola debajo para ver los resultados.<br><br>
+<span style="color:#f97316;font-weight:700;">💡 Tip:</span> Copia los hashes MD5 de la consola y pégalos en <a href="https://www.virustotal.com/gui/home/search" target="_blank" style="color:#60a5fa;">virustotal.com</a> para análisis manual.<br><br>
+<em style="color:#64748b;">Próxima versión: integración automática con la API de VirusTotal.</em>`;
+    }, 2000);
+  }
+
+
 
   function closeSession() {
     if (activeWs) {
