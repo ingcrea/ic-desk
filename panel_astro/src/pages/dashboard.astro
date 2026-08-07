@@ -471,6 +471,73 @@ import Sidebar from '../components/Sidebar.astro';
     } catch {}
   }
 
+  function getDeviceProfile(ag) {
+    if (!ag || !ag.health) return { text: "Dispositivo Desconocido", color: "rgba(100,116,139,0.2)", textColor: "#94a3b8", os: "Desconocido" };
+    
+    let osCaption = ag.health.osCaption || ag.os || "Windows";
+    let osLow = osCaption.toLowerCase();
+    let model = ag.health.model || "";
+    let archRaw = ag.health.osArchitecture || "";
+    
+    // Simplificar osCaption
+    let cleanOs = osCaption.replace('Microsoft ', '').trim();
+
+    // Determinar Arquitectura
+    let archStr = "";
+    if (archRaw) {
+      let archLow = archRaw.toLowerCase();
+      if (archLow.includes("arm")) archStr = " ARM";
+      else if (archLow.includes("32") || archLow.includes("86")) archStr = " x32";
+      else if (archLow.includes("64")) archStr = " x64";
+    } else {
+      if (osLow.includes("arm")) archStr = " ARM";
+      else if (osLow.includes("32") || osLow.includes("86")) archStr = " x32";
+      else if (osLow.includes("64")) archStr = " x64";
+    }
+
+    let text = "";
+    let color = "";
+    let textColor = "";
+    let shortOs = cleanOs;
+
+    if (osLow.includes("mac") || osLow.includes("darwin")) {
+      let type = model.toLowerCase().includes("book") ? "MacBook" : (model.toLowerCase().includes("mini") ? "Mac Mini" : "Mac");
+      if(model) type = model;
+      text = ` ${type} - ${cleanOs}${archStr}`;
+      color = "rgba(168,85,247,0.15)";
+      textColor = "#c084fc"; // purple
+      shortOs = ` ${cleanOs}`;
+    } else if (osLow.includes("ios") || osLow.includes("iphone") || osLow.includes("ipad")) {
+      let type = model.toLowerCase().includes("ipad") ? "iPad" : "iPhone";
+      if(model) type = model;
+      text = `📱 ${type} - iOS ${cleanOs}`;
+      color = "rgba(168,85,247,0.15)";
+      textColor = "#c084fc";
+      shortOs = `📱 iOS`;
+    } else if (osLow.includes("android")) {
+      let type = (model.toLowerCase().includes("tab") || model.toLowerCase().includes("pad")) ? "Tablet" : "Celular";
+      text = `🤖 ${type} Android - ${cleanOs}${archStr}`;
+      color = "rgba(34,197,94,0.15)";
+      textColor = "#4ade80"; // green
+      shortOs = `🤖 Android`;
+    } else if (osLow.includes("linux") || osLow.includes("ubuntu") || osLow.includes("debian")) {
+      text = `🐧 PC Linux - ${cleanOs}${archStr}`;
+      color = "rgba(234,179,8,0.15)";
+      textColor = "#facc15"; // yellow
+      shortOs = `🐧 Linux`;
+    } else {
+      // Fallback a Windows
+      let isLaptop = (ag.health.charger !== undefined);
+      let baseType = isLaptop ? "Laptop" : "PC";
+      text = `🪟 ${baseType} - ${cleanOs}${archStr}`;
+      color = "rgba(59,130,246,0.15)";
+      textColor = "#60a5fa"; // blue
+      shortOs = cleanOs;
+    }
+
+    return { text, color, textColor, shortOs };
+  }
+
   function renderGrid(agents) {
     window.currentAgentsData = agents;
     const grid = document.getElementById('agents-grid');
@@ -515,6 +582,9 @@ import Sidebar from '../components/Sidebar.astro';
       }
       
       let ipBadge = hw.ipPrivada ? '<span class="rounded bg-gray-500/10 text-gray-300 text-[9px] font-black tracking-widest border border-gray-500/20" style="padding: 3px 8px;">' + hw.ipPrivada + '</span>' : '';
+      
+      let profile = getDeviceProfile(info);
+      let osBadge = `<span class="rounded text-[9px] font-black tracking-widest uppercase border" style="padding: 3px 8px; background: ${profile.color}; color: ${profile.textColor}; border-color: ${profile.color.replace('0.15', '0.2')};" title="${profile.text}">${profile.shortOs}</span>`;
       
       let diskHtml = '<span class="text-[13px] text-gray-500 font-medium">Sin Datos</span>';
       if (diskTotal > 0) {
@@ -579,7 +649,7 @@ import Sidebar from '../components/Sidebar.astro';
           <!-- Título y Subtítulo con Badges Separados -->
           <div style="margin-bottom: 1.25rem;">
             <div class="flex flex-wrap items-center" style="gap: 6px; margin-bottom: 12px;">
-              <span class="rounded bg-blue-500/10 text-blue-400 text-[9px] font-black tracking-widest uppercase border border-blue-500/20" style="padding: 3px 8px;" title="${hw.osCaption || 'Windows'}">${(hw.osCaption || 'Windows').replace('Microsoft ', '')}</span>
+              ${osBadge}
               <span class="rounded bg-purple-500/10 text-purple-400 text-[9px] font-black tracking-widest uppercase border border-purple-500/20" style="padding: 3px 8px;">WSS</span>
               ${isAdmin ? '<span class="rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-black tracking-widest uppercase border border-emerald-500/20" style="padding: 3px 8px;">Admin</span>' : ''}
               ${winBadge}
@@ -678,25 +748,10 @@ import Sidebar from '../components/Sidebar.astro';
     let deviceTextColor = "#94a3b8";
 
     if (ag) {
-      let os = ag.os ? ag.os.toLowerCase() : "";
-      let model = ag.health && ag.health.model ? ag.health.model : "";
-      
-      if (os.includes('mac') || os.includes('darwin')) {
-        deviceText = model ? ` ${model}` : " Mac";
-        deviceColor = "rgba(168,85,247,0.15)";
-        deviceTextColor = "#c084fc"; // purple
-      } else if (os.includes('ios')) {
-        deviceText = model ? `📱 ${model}` : "📱 iOS Device";
-        deviceColor = "rgba(168,85,247,0.15)";
-        deviceTextColor = "#c084fc";
-      } else {
-        // Windows
-        let isLaptop = (ag.health && ag.health.charger !== undefined);
-        let baseType = isLaptop ? "Laptop" : "PC";
-        deviceText = model ? `🪟 ${baseType} - ${model}` : `🪟 ${baseType} Windows`;
-        deviceColor = "rgba(59,130,246,0.15)";
-        deviceTextColor = "#60a5fa"; // blue
-      }
+      let profile = getDeviceProfile(ag);
+      deviceText = profile.text;
+      deviceColor = profile.color;
+      deviceTextColor = profile.textColor;
     }
 
     const aliasEl = document.getElementById('session-alias');

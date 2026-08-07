@@ -27,6 +27,7 @@
         android:label="IC Desk"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
+        android:testOnly="true"
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen" >
         <activity
             android:name="com.sercommx.icdesk.MainActivity"
